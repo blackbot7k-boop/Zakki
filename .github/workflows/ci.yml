@@ -1,0 +1,40 @@
+# Tot MD CI。
+# 全量测试为准，不做测试排除。
+# runner 用 macos-latest：MyGo 是原生 UI 工具链，README 的开发命令都按 macOS 写。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go mod verify
+        run: go mod verify
+
+      - name: go build（快速编译检查，不打包 .app）
+        run: go build ./...
+
+      - name: make fmt-check
+        run: make fmt-check
+
+      - name: make vet
+        run: make vet
+
+      - name: make test
+        run: make test
+
+      - name: make race
+        run: make race
+
+      - name: make arch-check
+        run: make arch-check
