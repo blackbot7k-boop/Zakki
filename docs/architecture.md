@@ -152,7 +152,7 @@
 - **时钟注入**：`app.now func() time.Time`，生产 `time.Now`，测试给假时钟。
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），
-  **绝不写真实用户目录**；`persistence_test.go` 全部经它跑持久化回归。
+  **绝不写真实用户目录**。保存、备份与写保护在 `internal/notes`；`persistence_test.go` 覆盖载入映射与清空标签。
 - **`ui.NewTester(a.view, w, h)`**：无窗口跑视图（构建/断言文本、模拟按键），
   `main_test.go`/`tab_style_test.go`/`live_boundary_test.go`/`live_focus_test.go` 用它。
 - **偏好测试**：根目录 `prefs_test.go` 覆盖迁移优先级（TOML/JSON/笔记旧设置）、
