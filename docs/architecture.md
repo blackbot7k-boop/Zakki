@@ -157,8 +157,8 @@
   `main_test.go`/`dotstyle_test.go`/`liveboundary_test.go`/`livefocus_test.go` 用它。
 - **偏好测试**：`prefs_test.go` 覆盖迁移优先级（TOML/JSON/笔记旧设置）、显式 false/空绑定、
   损坏与超前版本恢复、写失败报告、修订号防回写；`config_test.go` 锁定旧配置解码器语义；
-  `commands_test.go` / `formats_test.go` / `themes_test.go` 分别覆盖加速器与冲突校验、
-  纯格式变换（含 CJK/emoji/光标映射）与全主题对比度；`config_menu_test.go` 验证新菜单结构、
-  设置窗口五页（`ui.NewTester`）与改键流程。
+  `menu_commands_test.go` / `internal/markdown` 的格式与行内边界测试 / `view_theme_test.go`
+  分别覆盖加速器与冲突校验、纯格式变换（含 CJK/emoji/光标映射）与全主题对比度；
+  `menu_contract_test.go` 验证新菜单结构、设置窗口五页（`ui.NewTester`）与改键流程。
 - 测试命令见 `Makefile`：`make test`（`CGO_ENABLED=0 go test ./... -count=1`）、
   `make race`、`make vet`（含 `go tool mygo vet .` 的 UI 生命周期检查）。
