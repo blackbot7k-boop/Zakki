@@ -437,3 +437,68 @@ func contrastRatio(a, b ui.Color) float64 {
 	}
 	return (la + 0.05) / (lb + 0.05)
 }
+
+// dotTheme 是从本机安装的 Tot 2.1.1 应用包提取的每点主题
+// （/Applications/Tot.app/Contents/Resources/theme.json，成品工件证据）。
+type dotTheme struct {
+	dot  string // 点本身的颜色
+	accL string // 浅色模式 accent（高亮/链接）
+	accD string // 深色模式 accent
+	bgL  string // 浅色模式内容区背景
+	bgD  string // 深色模式内容区背景
+	stL  string // 浅色模式顶栏/底栏背景（status_background）
+	stD  string // 深色模式顶栏/底栏背景
+}
+
+var dotThemes = [DotCount]dotTheme{
+	{"#d4253a", "#883341", "#ffbdc0", "#feeeef", "#211414", "#f5d5d5", "#3d282b"}, // 1 红
+	{"#f67500", "#7e3f13", "#fac198", "#fff2e9", "#241c12", "#f2dac9", "#453222"}, // 2 橙
+	{"#ffd01c", "#776200", "#f4dea3", "#fff9ea", "#211f0b", "#f4e9ce", "#3e3c1f"}, // 3 黄
+	{"#65c802", "#58752e", "#d3efac", "#f9fff0", "#1b2015", "#dee8cb", "#313724"}, // 4 绿
+	{"#0f75e9", "#3857a2", "#94bfff", "#e7eeff", "#191d26", "#cdd8f8", "#2c354e"}, // 5 蓝
+	{"#a40bd8", "#754993", "#dfb5fc", "#f8effe", "#1e1723", "#e3d3f1", "#372943"}, // 6 紫
+	{"#98989d", "#3a3a3c", "#d1d1d6", "#ffffff", "#0a0a0c", "#f2f2f4", "#0e0e10"}, // 7 灰（Tot 的 default 单色主题）
+}
+
+// dotColor 返回第 i 个点的颜色。
+func dotColor(i int) ui.Color { return ui.Hex(dotThemes[i].dot) }
+
+// dotAccent 返回第 i 个点的 accent 色（随深浅色模式）。
+func dotAccent(i int, dark bool) ui.Color {
+	if dark {
+		return ui.Hex(dotThemes[i].accD)
+	}
+	return ui.Hex(dotThemes[i].accL)
+}
+
+// dotBackground 返回第 i 个点的内容区背景色（随深浅色模式）。
+func dotBackground(i int, dark bool) ui.Color {
+	if dark {
+		return ui.Hex(dotThemes[i].bgD)
+	}
+	return ui.Hex(dotThemes[i].bgL)
+}
+
+// dotStatusBackground 返回第 i 个点的底栏背景色（Tot 的 status_background，
+// 与 theme.json 逐字节核对过：teal 点 #D1E9EF 完全一致）。
+func dotStatusBackground(i int, dark bool) ui.Color {
+	if dark {
+		return ui.Hex(dotThemes[i].stD)
+	}
+	return ui.Hex(dotThemes[i].stL)
+}
+
+// headerBackground 顶栏固定色：Tot 的顶栏不随点变，浅色 #F2F2F2（采样自真机截图）。
+func headerBackground(dark bool) ui.Color {
+	if dark {
+		return ui.Hex("#2a2a2c")
+	}
+	return ui.Hex("#f2f2f2")
+}
+
+// themeIsDark 用背景亮度判断当前是否深色主题。
+func themeIsDark(t *ui.Theme) bool {
+	c := t.Background
+	lum := (0.299*float64(c.R) + 0.587*float64(c.G) + 0.114*float64(c.B)) / 255
+	return lum < 0.5
+}
