@@ -1,6 +1,6 @@
 package main
 
-// 实时预览：文档按行切块（liveBlock）及编辑状态机、输入管线。
+// 实时预览：文档按行切成 liveBlock。编辑状态机在 live_edit.go。
 
 import (
 	"fmt"

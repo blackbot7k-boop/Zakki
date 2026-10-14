@@ -57,7 +57,7 @@ Tot 的其他细节也一并移植了精神：单实例运行、关窗驻留托�
   Yuyz0112/typora-web（ProseMirror 复刻，文档明言「textblock 保留源码分隔符、
   可见性是按选区派生的 decoration」）。
 
-本项目在原生 Go UI（无 DOM/CSS）下的等价实现（`liveedit.go`）：
+本项目在原生 Go UI（无 DOM/CSS）下的等价实现（`live_blocks.go` / `live_edit.go`）：
 
 - 文档仍是单个 markdown 字符串（无损往返）；`liveBlocks` 按行切块。
 - 焦点块编辑的是**可见文字投影**：标题、段落、列表、待办、引用和行内格式保持排版；Markdown 标记只留在内部源文本。表格焦点时仍显示网格，只在活动单元格内输入，竖线自动转义。

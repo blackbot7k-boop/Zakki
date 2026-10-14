@@ -339,7 +339,7 @@ func TestLiveBlocks(t *testing.T) {
 	}
 }
 
-// TestLiveEditing 覆盖提交草稿、分段、列表续行与跨块（liveedit.go 逻辑层）。
+// TestLiveEditing 覆盖提交草稿、分段、列表续行与跨块（live_edit.go 逻辑层）。
 func TestLiveEditing(t *testing.T) {
 	a := newTestApp(t)
 

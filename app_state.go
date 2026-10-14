@@ -17,7 +17,7 @@ type tabsState struct {
 	nextTabID uint64
 }
 
-// tabStripState 标签栏液态动画与重命名（主线程；详见 tabstrip.go/view.go）。
+// tabStripState 标签栏液态动画与重命名（主线程；详见 tab_strip.go/view.go）。
 type tabStripState struct {
 	morph            tabMorphState
 	lastSlots        []tabSlotGeom
@@ -76,7 +76,7 @@ type liveEditorState struct {
 	lowerCache         string
 }
 
-// formatState 格式命令意图与链接浮层（formatcmd.go）。
+// formatState 格式命令意图与链接浮层（live_format.go）。
 type formatState struct {
 	mdPending        map[spanKind]bool
 	lastPendingCaret int

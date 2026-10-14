@@ -1,6 +1,6 @@
 package main
 
-// 格式命令执行：菜单、Keymap 与编辑器共用命令注册表（commands.go），
+// 格式命令执行：菜单、Keymap 与编辑器共用命令注册表（menu_commands.go），
 // 这里负责在当前文档上下文中执行 Markdown 命令。
 //
 //   - 命令作用于当前主文档编辑选区或光标所在块；源码与实时预览都支持。

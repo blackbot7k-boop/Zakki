@@ -1,6 +1,6 @@
 package main
 
-// markdown.go 纯函数的边界测试（表驱动）。
+// live_syntax.go 纯函数的边界测试（表驱动）。
 // 只测纯函数，不碰持久化与真实用户目录。
 // 语义一律以现实现为准锁定；发现的偏差在注释里注明归属文件。
 
@@ -337,7 +337,7 @@ func TestParseBlocksListMarkers(t *testing.T) {
 		{"嵌套缩进拍平", "  - 深层", bkList, 0, 0, false, "深层"},
 		{"标题一级", "# 标题", bkHeading, 1, 0, false, "标题"},
 		// 标题级别只区分 1-4，5 个以上 # 压到 4；且现实现先压级再截文本，
-		// 多余的 '#' 会残留在 text 里（liveedit.go 的 parseLines 现状，锁定）。
+		// 多余的 '#' 会残留在 text 里（live_blocks.go 的 parseLines 现状，锁定）。
 		{"标题级别压到 4", "##### x", bkHeading, 4, 0, false, "# x"},
 		{"6 个 # 残留两个 #", "###### x", bkHeading, 4, 0, false, "## x"},
 		{"待办未勾", "- [ ] 买牛奶", bkTask, 0, 0, false, "买牛奶"},
@@ -371,7 +371,7 @@ func TestParseBlocksCodeFences(t *testing.T) {
 	}{
 		{
 			// 未闭合围栏到文档尾（raw 保留全部行）；但现实现把区域末行当
-			// 潜在闭栏行，lines 少收最后一行——属于 liveedit.go 的 parseLines，
+			// 潜在闭栏行，lines 少收最后一行——属于 live_blocks.go 的 parseLines，
 			// 不在本次可改范围，此处按现状锁定。
 			name: "未闭合围栏", src: "```\nx\ny",
 			wantK: []blockKind{bkCode}, wantL: [][]string{{"x"}}, wantT: []string{""},

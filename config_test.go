@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// 旧配置解码器仅供一次性迁移（prefs.go）；这些测试锁定其严格语义，
+// 旧配置解码器仅供一次性迁移（prefs_runtime.go）；这些测试锁定其严格语义，
 // 保证迁移不静默丢弃或曲解旧文件中的显式值。
 
 func TestConfigDefaultsAndPartialOverrides(t *testing.T) {

@@ -346,7 +346,7 @@ func (a *app) handleRenameInput(ev ui.InputEvent) bool {
 
 // switchTab 切换当前标签（原 switchDot 的动态版）：关查找条、
 // 重置实时预览焦点、表格工具与格式意图，走自动保存。
-// 液态动画在下一帧构建时从缓存的旧几何接管（见 tabstrip.go）。
+// 液态动画在下一帧构建时从缓存的旧几何接管（见 tab_strip.go）。
 func (a *app) switchTab(i int) {
 	if i == a.active || i < 0 || i >= len(a.tabs) {
 		return

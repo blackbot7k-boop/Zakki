@@ -350,7 +350,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 // ---- 实时预览（Typora 式） ----
 
 // livePane 把文档按块渲染：焦点块保留排版结构并只编辑可见文字，其余块即时排版；
-// 点击渲染块切换焦点块（liveedit.go 负责状态与光标映射）。
+// 点击渲染块切换焦点块（live_edit.go 负责状态与光标映射）。
 func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	a.ensureDraftSynced()
 	doc := a.activeTab().Text

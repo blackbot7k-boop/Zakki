@@ -22,7 +22,7 @@
 ## 表格编辑（Typora 既有行为的移植）
 
 以此前 Typora 取证结论为准：其块树文档模型 + Enter=insertParagraph。
-本项目在原生 UI 下的等价实现（新增 `table.go`，接入 `liveedit.go` 输入管线）：
+本项目在原生 UI 下的等价实现（`table_edit.go`，接入 `live_edit.go` 输入管线）：
 
 | 行为 | 触发 | 说明 |
 |---|---|---|
