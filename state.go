@@ -6,21 +6,19 @@ package main
 // 整体存成一个 JSON 文件；备份是文件的滚动副本。
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
-
-// DotCount 是 Tot 风格便签的分区数量：7 个彩色“点”。
-const DotCount = 7
 
 // appName 决定数据目录名（~/Library/Application Support/<appName>）。
 const appName = "Tot MD"
@@ -90,58 +88,64 @@ func themeIsDark(t *ui.Theme) bool {
 	return lum < 0.5
 }
 
-// dotLabel 返回点的展示名，如“点 3”。
-func dotLabel(i int) string { return fmt.Sprintf("点 %d", i+1) }
-
-type settings struct {
-	ThemeSource  string `json:"themeSource"` // system | light | dark
-	AlwaysOnTop  bool   `json:"alwaysOnTop"`
-	HideOnEscape bool   `json:"hideOnEscape"`
-	Preview      bool   `json:"preview"`
+// snapshotFile 在主线程把当前状态拍成磁盘格式（后台只写该快照）。
+func (a *app) snapshotFile() savedFile {
+	tabs := make([]savedTab, len(a.tabs))
+	for i, tb := range a.tabs {
+		tabs[i] = savedTab{ID: tb.ID, Name: tb.Name, Text: tb.Text, Color: tb.Color}
+	}
+	return savedFile{
+		Version: currentDataVersion,
+		Active:  a.active,
+		Tabs:    tabs,
+		Settings: settings{
+			ThemeSource:   a.cfg.ThemeSource,
+			MarkdownTheme: a.cfg.MarkdownTheme,
+			BodyFont:      a.cfg.BodyFont,
+			MonoFont:      a.cfg.MonoFont,
+			BodySize:      a.cfg.BodySize,
+			LineHeight:    a.cfg.LineHeight,
+			AlwaysOnTop:   a.cfg.AlwaysOnTop,
+			HideOnEscape:  a.cfg.HideOnEscape,
+			Source:        a.cfg.Source,
+			TabTitleWidth: a.cfg.TabTitleWidth,
+			TabAnimSpeed:  a.cfg.TabAnimSpeed,
+			MonoDots:      a.cfg.MonoDots,
+			GlassStrength: a.cfg.GlassStrength,
+		},
+	}
 }
 
-type savedFile struct {
-	Version  int      `json:"version"`
-	Active   int      `json:"active"`
-	Dots     []string `json:"dots"`
-	Settings settings `json:"settings"`
-}
-
-// app 是窗口展示的全部状态。它只能在主线程被改动；
-// 其他 goroutine 通过 Window.Update 回到主线程。
-type app struct {
-	dots   [DotCount]string
-	active int
-	cfg    settings
-
-	// 界面状态
-	findOpen     bool
-	query        string
-	matchIdx     int
-	jumpPending  bool
-	insertBullet bool
-
-	// 窗口与后台
-	win     *mygo.Window
-	winOpen bool
-	hidden  bool
-
-	// 菜单引用（同步勾选状态用）
-	menu      *mygo.Menu
-	miPreview *mygo.MenuItem
-	miFind    *mygo.MenuItem
-	miTop     *mygo.MenuItem
-	miEsc     *mygo.MenuItem
-
-	saveTimer  *time.Timer
-	lastBackup time.Time
-}
-
-// persistOff 由测试置位，避免测试写真实数据目录。
-var persistOff bool
-
+// newApp 建立空状态：先给 7 个默认标签（无数据文件/测试环境都有
+// 可用的标签列表），load 时被磁盘数据覆盖。
 func newApp() *app {
-	return &app{cfg: settings{ThemeSource: "system", HideOnEscape: true}}
+	s := settings{ThemeSource: "system", HideOnEscape: true}
+	now := time.Now
+	dir := dataDir()
+	a := &app{
+		cfg:      s,
+		prefs:    defaultPreferences(),
+		tabs:     defaultTabs(),
+		mdActive: -1, // 启动即全预览态：光标不会让任何一行变成源码
+		now:      now,
+		notes: newNotesStore(
+			filepath.Join(dir, "tot-md.json"),
+			filepath.Join(dir, "backups"),
+			now,
+		),
+		prefsStore: newPrefsStore(filepath.Join(dir, "preferences.json")),
+	}
+	a.syncNextTabID()
+	a.resetSelectionSync()
+	return a
+}
+
+// resetSelectionSync 把选区同步哨兵复位为「不强制」。
+// selSyncStart 等哨兵用 -1 表示不强制；零值 0 会误触强制选区，
+// 因此 newApp 显式初始化。
+func (a *app) resetSelectionSync() {
+	a.selSyncStart, a.selSyncEnd = -1, -1
+	a.srcSelSyncStart, a.srcSelSyncEnd = -1, -1
 }
 
 // ---- 数据目录与文件 ----
@@ -155,144 +159,215 @@ func dataDir() string {
 	return filepath.Join(base, appName)
 }
 
-func dataFile() string    { return filepath.Join(dataDir(), "tot-md.json") }
-func backupDir() string   { return filepath.Join(dataDir(), "backups") }
+// pendingPath 写保护期间新改动的暂存文件，绝不碰原路径。
+func (a *app) pendingPath() string { return a.notes.PendingPath() }
+
+// currentDataPath 当前生效的数据文件：写保护期间是暂存文件。
+func (a *app) currentDataPath() string { return a.notes.CurrentDataPath() }
 
 // ---- 载入与保存 ----
 
-// load 从磁盘读入数据；文件不存在或损坏时用默认值。
-func (a *app) load() {
-	raw, err := os.ReadFile(dataFile())
+// load 从磁盘读入数据。文件不存在用默认值（首次运行）；文件损坏或版本
+// 不支持时隔离原件、尽量从备份恢复，绝不覆盖用户数据。返回非 nil 表示
+// 数据文件有问题（即使已从备份恢复，也如实上报）。
+func (a *app) load() error {
+	raw, err := os.ReadFile(a.notes.DataFile)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		a.initDefaults()
+		return nil
+	case err != nil:
+		return a.recoverFromBrokenFile(fmt.Errorf("读取数据文件失败: %w", err))
+	}
+	f, hadTabs, err := a.notes.ParseRaw(raw)
 	if err != nil {
-		a.initDefaults()
-		return
+		if _, ok := err.(*versionError); ok {
+			return a.recoverFromBrokenFile(err)
+		}
+		return a.recoverFromBrokenFile(fmt.Errorf("解析数据文件失败: %w", err))
 	}
-	var f savedFile
-	if err := json.Unmarshal(raw, &f); err != nil {
-		a.initDefaults()
-		return
+	a.applySavedFile(f)
+	if !hadTabs {
+		a.initDefaults() // 空文件：首次运行的欢迎文本
 	}
-	for i := 0; i < DotCount && i < len(f.Dots); i++ {
-		a.dots[i] = f.Dots[i]
-	}
-	if a.dots[0] == "" && len(f.Dots) == 0 {
-		a.initDefaults()
-	}
-	a.active = clamp(f.Active, 0, DotCount-1)
-	a.cfg.ThemeSource = orDefault(f.Settings.ThemeSource, "system")
-	a.cfg.AlwaysOnTop = f.Settings.AlwaysOnTop
-	a.cfg.HideOnEscape = f.Settings.HideOnEscape
+	a.resyncLive(0)
+	return nil
 }
 
-// initDefaults 在首次运行时给点 1 一段欢迎文本。
-func (a *app) initDefaults() {
-	a.dots[0] = `# Tot MD
+// applySavedFile 把迁移后的磁盘数据放进内存状态（主线程）。
+func (a *app) applySavedFile(f savedFile) {
+	a.tabs = a.tabs[:0]
+	for _, st := range f.Tabs {
+		a.tabs = append(a.tabs, tab{ID: st.ID, Name: st.Name, Text: st.Text, Color: st.Color})
+	}
+	a.active = f.Active
+	a.clampActive()
+	a.syncNextTabID()
+	a.cfg.ThemeSource = orDefault(f.Settings.ThemeSource, "system")
+	a.cfg.MarkdownTheme = f.Settings.MarkdownTheme
+	a.cfg.BodyFont, a.cfg.MonoFont = f.Settings.BodyFont, f.Settings.MonoFont
+	a.cfg.BodySize, a.cfg.LineHeight = f.Settings.BodySize, f.Settings.LineHeight
+	a.cfg.AlwaysOnTop = f.Settings.AlwaysOnTop
+	a.cfg.HideOnEscape = f.Settings.HideOnEscape
+	a.cfg.Source = f.Settings.Source
+	a.cfg.TabTitleWidth, a.cfg.TabAnimSpeed = f.Settings.TabTitleWidth, f.Settings.TabAnimSpeed
+	a.cfg.MonoDots, a.cfg.GlassStrength = f.Settings.MonoDots, f.Settings.GlassStrength
+}
 
-7 个彩色点，随手记。这里是 **点 1**。
+// recoverFromBrokenFile 数据文件不可用时的兜底：复制隔离原件（绝不删除或
+// 覆盖原件），尝试从最近备份恢复；都失败则用默认值并冻结对原路径的写入
+// （新改动暂存 .pending），等用户确认后再写回。返回 cause 供调用方上报。
+func (a *app) recoverFromBrokenFile(cause error) error {
+	a.notes.QuarantineCorruptFile()
+	if f, name, ok := a.notes.LoadNewestBackup(); ok {
+		a.applySavedFile(f)
+		a.resyncLive(0)
+		a.notice = "数据文件损坏，已从备份 " + name + " 恢复（原件已隔离）"
+		slog.Warn("数据文件损坏，已从备份恢复", "backup", name, "error", cause)
+		return cause
+	}
+	a.initDefaults()
+	a.resyncLive(0)
+	a.notes.SetSaveBlocked(true)
+	a.notice = "数据文件损坏且无可用备份，新改动暂存 .pending；请用菜单“写回数据文件”确认覆盖"
+	slog.Error("数据文件损坏且备份不可用，默认内容不写回原路径", "error", cause)
+	return cause
+}
 
-- [ ] 试试点前面的方框，勾选待办
-- [ ] 按 ⌘⇧B 在当前行插入/取消圆点
-- ⌘1 到 ⌘7 切换点
-- ⌘F 搜索本点内容，⌘⇧P 切换 Markdown 预览
-- ⌘⇧空格 全局呼出/隐藏窗口（后台也有效）
+// welcomeText 首次运行时给标签 1 的欢迎文本。
+const welcomeText = `# Tot MD
+
+7 个彩色标签，随手记。这里是 **标签 1**。
+
+- [ ] 试试勾选我：其他块即时排版，点一下就能编辑
+- ⌘1 到 ⌘9 切换标签；⌘T 新建；Enter 分块，↑↓←→ 跨块
+- ⌘F 搜索本标签内容，⌘⇧P 切换源码模式
+- ⌘B / ⌘I / ⌘K 直接加粗、斜体、插链接；⌘⌥1–6 改标题
+- 默认 ⌘⇧空格 全局呼出/隐藏窗口（在「设置 → 快捷键」里改）
+- 颜色与排版主题、备份策略都在「设置…」⌘, 里，即时生效
+- 标签命名、排序与颜色在「设置 → 标签与外观」里，双击胶囊也可重命名
 - ⌥⌘T 窗口置顶，Esc 隐藏窗口
 
 支持 **粗体**、*斜体*、` + "`代码`" + `、[链接](https://tot.rocks)、引用和代码块。
 
 > 灵感来自 [Tot](https://tot.rocks)，用 [MyGo](https://github.com/egoist/mygo) 构建。`
+
+// initDefaults 首次运行/空文件：保证 7 个默认标签存在，标签 1 是
+// 欢迎文本。不改 active（空文件里 active 跟随磁盘数据）。
+func (a *app) initDefaults() {
+	if len(a.tabs) == 0 {
+		a.tabs = defaultTabs()
+		a.syncNextTabID()
+	}
+	if len(a.tabs) > 0 {
+		a.tabs[0].Text = welcomeText
+	}
+	a.clampActive()
+	a.resyncLive(utf8.RuneCountInString(welcomeText))
 }
 
-// saveNow 立即把状态写入磁盘（原子替换），必要时顺带做一次备份。
-func (a *app) saveNow() {
-	if persistOff {
-		return
-	}
-	f := savedFile{
-		Version: 1,
-		Active:  a.active,
-		Dots:    a.dots[:],
-		Settings: settings{
-			ThemeSource:  a.cfg.ThemeSource,
-			AlwaysOnTop:  a.cfg.AlwaysOnTop,
-			HideOnEscape: a.cfg.HideOnEscape,
-		},
-	}
-	raw, err := json.MarshalIndent(f, "", "  ")
-	if err != nil {
-		return
-	}
-	dir := dataDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return
-	}
-	tmp := dataFile() + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
-		return
-	}
-	_ = os.Rename(tmp, dataFile())
-
-	// 每 5 分钟至多一次滚动备份；距上次备份足够久才做。
-	if a.lastBackup.IsZero() || time.Since(a.lastBackup) > 5*time.Minute {
-		a.writeBackup()
-	}
+// saveNow 把当前状态快照同步写入磁盘（原子替换）。只保存数据，不做备份。
+func (a *app) saveNow() error {
+	return a.notes.SaveNow(a.snapshotFile())
 }
 
-// scheduleSave 防抖保存：800ms 内没有新的改动才落盘。
+// scheduleSave 防抖保存：配置延迟（默认 800ms）内没有新的改动才落盘。快照在主线程生成，
+// 后台定时器只把快照写盘，绝不读写 app 状态（MyGo：UI 状态只在主线程改）。
 func (a *app) scheduleSave() {
-	if persistOff {
-		return
-	}
-	if a.saveTimer != nil {
-		a.saveTimer.Stop()
-	}
-	a.saveTimer = time.AfterFunc(800*time.Millisecond, func() {
-		if a.winOpen && a.win != nil {
-			a.win.Update(func() { a.saveNow() })
-		} else {
-			a.saveNow()
-		}
-	})
-}
-
-// writeBackup 把当前数据文件复制到备份目录，只保留最新 20 份。
-func (a *app) writeBackup() {
-	raw, err := os.ReadFile(dataFile())
-	if err != nil {
-		return
-	}
-	if err := os.MkdirAll(backupDir(), 0o755); err != nil {
-		return
-	}
-	name := "tot-md-" + time.Now().Format("20060102-150405") + ".json"
-	if err := os.WriteFile(filepath.Join(backupDir(), name), raw, 0o644); err != nil {
-		return
-	}
-	a.lastBackup = time.Now()
-	a.pruneBackups(20)
-}
-
-// backupOnLaunch 每次启动时做一份备份（数据文件存在时）。
-func (a *app) backupOnLaunch() {
-	if _, err := os.Stat(dataFile()); err == nil {
-		a.writeBackup()
-	}
-}
-
-func (a *app) pruneBackups(keep int) {
-	entries, err := os.ReadDir(backupDir())
-	if err != nil {
-		return
-	}
-	var files []os.DirEntry
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
-			files = append(files, e)
+	win := a.win
+	after := func() {
+		if win != nil {
+			win.Update(func() {}) // 回主线程刷新状态栏（备份时间/错误提示）
 		}
 	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Name() > files[j].Name() })
-	for i := keep; i < len(files); i++ {
-		_ = os.Remove(filepath.Join(backupDir(), files[i].Name()))
+	a.notes.ScheduleDebounced(
+		a.snapshotFile(),
+		a.autosaveDelay(),
+		a.backupIntervalDuration(),
+		a.prefs.Backup.Keep,
+		after,
+	)
+}
+
+// shutdown 退出流程（OnWillQuit，主线程）：取消防抖定时器，做一次最终快照
+// 保存并等它完成；此后不再接受任何保存请求，也不会与定时保存并发写两份。
+func (a *app) shutdown() {
+	if err := a.notes.Shutdown(a.snapshotFile()); err != nil {
+		return
 	}
+	a.shutdownPreferences()
+	slog.Info("退出前已最终保存")
+}
+
+// backupNow 保存当前数据并无条件写一份备份（手动备份入口，绕过周期节流）。
+func (a *app) backupNow() error {
+	if err := a.saveNow(); err != nil {
+		return err
+	}
+	return a.notes.BackupNow(a.prefs.Backup.Keep)
+}
+
+// backupInterval 自动滚动备份的默认最小间隔。
+const backupInterval = 5 * time.Minute
+
+// maybeWritePeriodicBackup 自动备份：距上次备份超过配置间隔才写一份。
+func (a *app) maybeWritePeriodicBackup() error {
+	return a.notes.MaybeWritePeriodicBackup(a.backupIntervalDuration(), a.prefs.Backup.Keep)
+}
+
+// backupOnLaunch 启用启动备份时做一份备份（当前数据文件存在时）。
+func (a *app) backupOnLaunch() error {
+	return a.notes.BackupOnLaunch(a.prefs.Backup.OnLaunch, a.prefs.Backup.Keep)
+}
+
+// confirmWriteBack 用户确认后解除写保护，把当前状态写回数据文件
+// （不可用的原件此前已隔离为 .corrupt-<时间戳>，不会丢）。
+func (a *app) confirmWriteBack() error {
+	blocked := a.notes.SaveBlocked()
+	a.notes.SetSaveBlocked(false)
+	if err := a.saveNow(); err != nil {
+		a.notes.SetSaveBlocked(blocked) // 写回失败维持写保护
+		return err
+	}
+	if blocked {
+		if err := a.notes.RemovePending(); err != nil && !errors.Is(err, os.ErrNotExist) {
+			slog.Warn("清理暂存文件失败", "error", err)
+		}
+		a.notice = ""
+		slog.Info("已按用户确认把数据写回原路径")
+	}
+	return nil
+}
+
+// clearActiveTab 清空当前标签内容。危险操作：先无条件备份，备份失败则
+// 取消清空。不设键盘快捷键，仅顶栏按钮触发。
+func (a *app) clearActiveTab() {
+	if err := a.backupNow(); err != nil {
+		slog.Error("清空当前标签前备份失败，已取消清空", "error", err)
+		return
+	}
+	a.activeTab().Text = ""
+	a.resyncLive(0)
+	a.liveFocus = 1 // 焦点回到编辑器（点击按钮会把焦点带走）
+	a.onEdited()
+}
+
+// reportPersist 上报持久化结果：失败记 ERROR 日志并让状态栏显示，成功清错误。
+func (a *app) reportPersist(op string, err error) { a.notes.ReportPersist(op, err) }
+
+// saveError 最近一次持久化错误（空串表示没有）。
+func (a *app) saveError() string { return a.notes.LastSaveError() }
+
+// statusWarn 状态栏警示文案：持久化错误优先，其次载入提示。
+func (a *app) statusWarn() string {
+	msg := a.saveError()
+	if msg == "" {
+		msg = a.notice
+	}
+	if r := []rune(msg); len(r) > 40 {
+		msg = string(r[:40]) + "…"
+	}
+	return msg
 }
 
 // ---- 桌面集成 ----
@@ -344,7 +419,21 @@ func orDefault(s, def string) string {
 }
 
 // countWords 统计词数（以空白分隔；中文连续文本按 1 词计）。
-func countWords(s string) int { return len(strings.Fields(s)) }
+// 零分配：状态栏每帧都调，不用 strings.Fields（会拷出全部词）。
+func countWords(s string) int {
+	n, inWord := 0, false
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			inWord = false
+			continue
+		}
+		if !inWord {
+			n++
+			inWord = true
+		}
+	}
+	return n
+}
 
 // countChars 统计字符数（按 rune）。
 func countChars(s string) int { return utf8.RuneCountInString(s) }
@@ -359,10 +448,11 @@ func countLines(s string) int {
 
 // backupLabel 把最近备份时间转成人性化短句（Tot 底栏的 "Just now"）。
 func (a *app) backupLabel() string {
-	if a.lastBackup.IsZero() {
+	last := a.lastBackupTime()
+	if last.IsZero() {
 		return "尚未备份"
 	}
-	d := time.Since(a.lastBackup)
+	d := a.now().Sub(last)
 	switch {
 	case d < time.Minute:
 		return "刚刚备份"
@@ -371,24 +461,15 @@ func (a *app) backupLabel() string {
 	case d < 24*time.Hour:
 		return fmt.Sprintf("%d 小时前备份", int(d.Hours()))
 	default:
-		return a.lastBackup.Format("01-02 15:04 备份")
+		return last.Format("01-02 15:04 备份")
 	}
 }
 
+// lastBackupTime 最近备份时间（后台备份也会更新 Store）。
+func (a *app) lastBackupTime() time.Time { return a.notes.LastBackupTime() }
+
 // loadLastBackupTime 启动时从备份目录恢复最近备份时间。
-func (a *app) loadLastBackupTime() {
-	entries, err := os.ReadDir(backupDir())
-	if err != nil {
-		return
-	}
-	var newest time.Time
-	for _, e := range entries {
-		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
-			newest = info.ModTime()
-		}
-	}
-	a.lastBackup = newest
-}
+func (a *app) loadLastBackupTime() error { return a.notes.LoadLastBackupTime() }
 
 // findMatches 找出 query 在 text 中的全部出现位置（大小写不敏感），
 // 返回按 rune 计的区间。
@@ -396,17 +477,44 @@ func findMatches(text, query string) []ui.TextRange {
 	if query == "" {
 		return nil
 	}
-	lt, lq := strings.ToLower(text), strings.ToLower(query)
+	return matchLower(strings.ToLower(text), strings.ToLower(query))
+}
+
+// matchLower 在已小写的文本里找全部出现位置，O(n)：
+// rune 偏移随扫描递增，不对每个命中重扫前缀。
+func matchLower(lt, lq string) []ui.TextRange {
+	if lq == "" || len(lq) > len(lt) {
+		return nil
+	}
 	var out []ui.TextRange
-	for off := 0; off <= len(lt)-len(lq); {
+	runes, off := 0, 0
+	for {
 		idx := strings.Index(lt[off:], lq)
 		if idx < 0 {
 			break
 		}
 		b := off + idx
-		start := utf8.RuneCountInString(lt[:b])
-		out = append(out, ui.TextRange{Start: start, End: start + utf8.RuneCountInString(lq)})
+		runes += utf8.RuneCountInString(lt[off:b])
+		out = append(out, ui.TextRange{Start: runes, End: runes + utf8.RuneCountInString(lq)})
+		runes += utf8.RuneCountInString(lq)
 		off = b + len(lq)
 	}
 	return out
+}
+
+// loweredDoc 返回 doc 的小写副本（缓存；全文 ToLower 每帧做太浪费）。
+func (a *app) loweredDoc(doc string) string {
+	if doc != a.lowerDoc {
+		a.lowerDoc, a.lowerCache = doc, strings.ToLower(doc)
+	}
+	return a.lowerCache
+}
+
+// docMatches 与 findMatches 相同，但复用当前点文本的小写缓存
+// （查找条打开时每帧都会调用）。
+func (a *app) docMatches(doc, query string) []ui.TextRange {
+	if query == "" {
+		return nil
+	}
+	return matchLower(a.loweredDoc(doc), strings.ToLower(query))
 }

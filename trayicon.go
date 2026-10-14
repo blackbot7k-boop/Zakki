@@ -1,47 +1,38 @@
 package main
 
-// 托盘图标：程序化生成一张 32×32 的 PNG，7 个彩色圆点排成蜂窝，
-// 与应用里的七个点呼应。不引入任何图像资源文件。
+// 菜单栏图标：透明底白色单圆环。
+// 36px 画布由 macOS 缩到 18pt，留 1pt 透明边距；超采样避免圆边锯齿。
 
 import (
 	"bytes"
 	"image"
 	"image/color"
 	"image/png"
-	"math"
 )
 
 func trayPNG() []byte {
-	const size = 32
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-
-	// 蜂窝排布：上 2、中 3、下 2。
-	type dot struct{ x, y float64 }
-	positions := []dot{
-		{10, 8}, {22, 8},
-		{6, 16}, {16, 16}, {26, 16},
-		{10, 24}, {22, 24},
-	}
-	const radius = 4.6
-
-	fill := func(x, y int, c color.RGBA) {
-		i := img.PixOffset(x, y)
-		img.Pix[i] = c.R
-		img.Pix[i+1] = c.G
-		img.Pix[i+2] = c.B
-		img.Pix[i+3] = c.A
-	}
+	const size = 36
+	const samples = 4
+	const outer = float64(size)/2 - 2
+	const inner = outer * (1 - 2*2.5/18)
+	img := image.NewNRGBA(image.Rect(0, 0, size, size))
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			for i, p := range positions {
-				dx, dy := float64(x)-p.x, float64(y)-p.y
-				d := math.Sqrt(dx*dx + dy*dy)
-				if d <= radius {
-					uc := dotColor(i)
-					fill(x, y, color.RGBA{R: uc.R, G: uc.G, B: uc.B, A: uc.A})
-					break
+			covered := 0
+			for sy := 0; sy < samples; sy++ {
+				for sx := 0; sx < samples; sx++ {
+					dx := float64(x) + (float64(sx)+0.5)/samples - float64(size)/2
+					dy := float64(y) + (float64(sy)+0.5)/samples - float64(size)/2
+					d2 := dx*dx + dy*dy
+					if d2 >= inner*inner && d2 <= outer*outer {
+						covered++
+					}
 				}
+			}
+			if covered > 0 {
+				alpha := uint8((covered*255 + samples*samples/2) / (samples * samples))
+				img.SetNRGBA(x, y, color.NRGBA{R: 255, G: 255, B: 255, A: alpha})
 			}
 		}
 	}

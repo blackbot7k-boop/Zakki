@@ -1,0 +1,393 @@
+package main
+
+// 标签：从固定 7 个圆点升级为可管理的动态标签栏。
+//
+//   - tab 是一条标签记录：稳定 ID、可选名称、Markdown 文本、颜色。
+//   - 默认 7 个标签，最多 MaxTabCount 个；至少保留 1 个。
+//   - 访问与显示集中在 app 方法上（activeTab/tabTitle/tabColor…），
+//     编辑器、状态栏和顶栏不各自解释标签。
+
+import (
+	"fmt"
+	"log/slog"
+	"slices"
+	"strings"
+
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
+)
+
+const (
+	// DefaultTabCount 是新建数据时的标签数量（Tot 的 7 个点）。
+	DefaultTabCount = 7
+	// MaxTabCount 是标签数量上限。
+	MaxTabCount = 12
+	// DotCount 是固定 7 点时代的兼容别名（迁移与旧测试用）。
+	DotCount = DefaultTabCount
+)
+
+// tabPaletteColors 是内置调色板：前 7 色沿用 Tot 的点颜色，
+// 后 5 色供用户新增标签时选用。颜色是数据（存在 tab.Color），
+// 无效或缺失时按槽位回退到调色板。
+var tabPaletteColors = [12]string{
+	"#d4253a", // 1 红（Tot）
+	"#f67500", // 2 橙（Tot）
+	"#ffd01c", // 3 黄（Tot）
+	"#65c802", // 4 绿（Tot）
+	"#0f75e9", // 5 蓝（Tot）
+	"#a40bd8", // 6 紫（Tot）
+	"#98989d", // 7 灰（Tot default）
+	"#00a3b4", // 8 青
+	"#f7429c", // 9 粉
+	"#a2845e", // 10 棕
+	"#5856d6", // 11 靛
+	"#32ade6", // 12 天蓝
+}
+
+// tab 是一条标签记录。ID 稳定标识（新增/删除/排序后不变），
+// UI key 与动画目标都用 ID 而非数组下标。
+type tab struct {
+	ID    uint64
+	Name  string
+	Text  string
+	Color string
+}
+
+// ---- 标签访问（主线程） ----
+
+// activeTab 当前标签；调用方保证 len(a.tabs) > 0（迁移与操作都维持）。
+func (a *app) activeTab() *tab { return &a.tabs[a.active] }
+
+// tabTitle 第 i 个标签的名称原文；未命名为空串。
+func (a *app) tabTitle(i int) string { return a.tabs[i].Name }
+
+// displayTitle 第 i 个标签的展示标题：仅命名标签返回名称（去首尾空白），
+// 未命名返回空串（顶栏只显示圆点）。
+func (a *app) displayTitle(i int) string { return strings.TrimSpace(a.tabs[i].Name) }
+
+// menuTitle 菜单里的标签名：命名用标题，未命名用「标签 N」。
+func (a *app) menuTitle(i int) string {
+	if name := a.displayTitle(i); name != "" {
+		return name
+	}
+	return fmt.Sprintf("标签 %d", i+1)
+}
+
+// validTabColor 校验标签颜色：#rgb/#rrggbb 形式（ui.Hex 只接受这些
+// 且非法会 panic，所以存盘前必须先校验）。
+func validTabColor(s string) bool {
+	h := strings.TrimPrefix(strings.TrimSpace(s), "#")
+	if len(h) != 3 && len(h) != 6 {
+		return false
+	}
+	for i := 0; i < len(h); i++ {
+		c := h[i]
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
+}
+
+// tabColor 第 i 个标签的颜色：记录颜色优先，无效/缺失回退内置调色板。
+func (a *app) tabColor(i int) ui.Color {
+	if validTabColor(a.tabs[i].Color) {
+		return ui.Hex(a.tabs[i].Color)
+	}
+	return ui.Hex(tabPaletteColors[i%len(tabPaletteColors)])
+}
+
+// tabAccent 标签的强调色（焦点边框、勾选框、链接）：槽位在前 7 且用的
+// 是 Tot 默认色时沿用 Tot 的明暗 accent；自定义色向黑白收敛保证可读。
+func (a *app) tabAccent(i int, dark bool) ui.Color {
+	if i < len(dotThemes) && (!validTabColor(a.tabs[i].Color) || strings.EqualFold(a.tabs[i].Color, tabPaletteColors[i])) {
+		return dotAccent(i, dark)
+	}
+	c := a.tabColor(i)
+	if dark {
+		return c.Mix(ui.RGB(255, 255, 255), 0.35)
+	}
+	return c.Mix(ui.RGB(0, 0, 0), 0.30)
+}
+
+// unusedTabColor 未被现有标签占用的第一个调色板色（新增标签用）。
+func (a *app) unusedTabColor() string {
+	for _, cand := range tabPaletteColors {
+		used := false
+		for i := range a.tabs {
+			if strings.EqualFold(a.tabs[i].Color, cand) {
+				used = true
+				break
+			}
+		}
+		if !used {
+			return cand
+		}
+	}
+	return tabPaletteColors[len(a.tabs)%len(tabPaletteColors)]
+}
+
+// clampActive 把 active 收敛到有效范围（删除/迁移后调用）。
+// 调用方保证 len(a.tabs) > 0。
+func (a *app) clampActive() {
+	a.active = clamp(a.active, 0, len(a.tabs)-1)
+}
+
+// ---- 标签操作（主线程，操作后统一走 afterTabsChanged） ----
+
+// defaultTabs 7 个默认标签（空文本、原 7 色、ID 1..7）。
+// 首次运行的欢迎文本由 initDefaults 单独填进标签 1。
+func defaultTabs() []tab {
+	tabs := make([]tab, DefaultTabCount)
+	for i := range tabs {
+		tabs[i] = tab{ID: uint64(i + 1), Color: tabPaletteColors[i]}
+	}
+	return tabs
+}
+
+// nextID 分配下一个标签 ID。
+func (a *app) nextID() uint64 {
+	id := a.nextTabID
+	a.nextTabID++
+	return id
+}
+
+// syncNextTabID 让 ID 计数器越过现有最大 ID（载入/迁移后调用）。
+func (a *app) syncNextTabID() {
+	var maxID uint64
+	for i := range a.tabs {
+		if a.tabs[i].ID > maxID {
+			maxID = a.tabs[i].ID
+		}
+	}
+	if a.nextTabID <= maxID {
+		a.nextTabID = maxID + 1
+	}
+}
+
+// addTab 新增一个空标签并切换过去；达到上限返回 false。
+// 自动分配未使用的调色板颜色与新 ID，随后聚焦内容编辑。
+func (a *app) addTab() bool {
+	if len(a.tabs) >= MaxTabCount {
+		a.notice = fmt.Sprintf("最多 %d 个标签，无法新增", MaxTabCount)
+		return false
+	}
+	a.tabs = append(a.tabs, tab{ID: a.nextID(), Color: a.unusedTabColor()})
+	a.active = len(a.tabs) - 1
+	a.afterTabsChanged()
+	a.liveFocus = 1 // 切到新标签后聚焦内容编辑
+	return true
+}
+
+// deleteTabNow 删除第 i 个标签。有内容的标签先走现有安全备份，
+// 备份失败取消删除；至少保留一个标签。
+func (a *app) deleteTabNow(i int) bool {
+	if len(a.tabs) <= 1 {
+		a.notice = "至少保留一个标签"
+		return false
+	}
+	if i < 0 || i >= len(a.tabs) {
+		return false
+	}
+	if strings.TrimSpace(a.tabs[i].Text) != "" {
+		if err := a.backupNow(); err != nil {
+			slog.Error("删除标签前备份失败，已取消删除", "error", err)
+			a.notice = "备份失败，已取消删除"
+			return false
+		}
+	}
+	removed := a.tabs[i].ID
+	activeID := a.tabs[a.active].ID
+	a.tabs = slices.Delete(a.tabs, i, i+1)
+	if removed == activeID {
+		a.active = min(i, len(a.tabs)-1)
+	} else {
+		for k := range a.tabs {
+			if a.tabs[k].ID == activeID {
+				a.active = k
+				break
+			}
+		}
+	}
+	a.clampActive()
+	a.cancelMorphFor(removed)
+	a.afterTabsChanged()
+	return true
+}
+
+// confirmDeleteTab UI 入口：有内容的标签先弹原生确认，确认后走
+// deleteTabNow（其中再执行备份）。测试直接调 deleteTabNow。
+func (a *app) confirmDeleteTab(i int) {
+	if i < 0 || i >= len(a.tabs) || len(a.tabs) <= 1 {
+		return
+	}
+	if strings.TrimSpace(a.tabs[i].Text) == "" {
+		a.deleteTabNow(i)
+		return
+	}
+	title := a.menuTitle(i)
+	go func() {
+		res, err := mygo.Dialog.Message(mygo.MessageOptions{
+			Type:    mygo.MessageQuestion,
+			Title:   "删除标签",
+			Message: fmt.Sprintf("确定删除「%s」吗？", title),
+			Detail:  "删除前会先做一份安全备份；备份失败会自动取消删除。",
+			Buttons: []string{"删除标签", "取消"},
+		})
+		if err != nil || res.Button != 0 {
+			return
+		}
+		a.withWindow(func() { a.deleteTabNow(i) })
+	}()
+}
+
+// renameTab 命名第 i 个标签（去首尾空白；空串=未命名只显示圆点）。
+func (a *app) renameTab(i int, name string) {
+	if i < 0 || i >= len(a.tabs) {
+		return
+	}
+	a.tabs[i].Name = strings.TrimSpace(name)
+	a.scheduleSave()
+	a.rebuildTabMenus()
+}
+
+// moveTab 上/下移动第 i 个标签（dir=-1 上移，+1 下移）；
+// active 跟随它原来指向的那个标签（按 ID）。
+func (a *app) moveTab(i, dir int) bool {
+	j := i + dir
+	if i < 0 || i >= len(a.tabs) || j < 0 || j >= len(a.tabs) {
+		return false
+	}
+	activeID := a.tabs[a.active].ID
+	a.tabs[i], a.tabs[j] = a.tabs[j], a.tabs[i]
+	for k := range a.tabs {
+		if a.tabs[k].ID == activeID {
+			a.active = k
+			break
+		}
+	}
+	a.afterTabsChanged()
+	return true
+}
+
+// setTabColor 设置第 i 个标签颜色（校验失败忽略）。
+func (a *app) setTabColor(i int, color string) {
+	if i < 0 || i >= len(a.tabs) || !validTabColor(color) {
+		return
+	}
+	a.tabs[i].Color = strings.ToLower(color)
+	a.scheduleSave()
+	a.refreshSettingsWindow()
+	a.withWindow(func() {})
+}
+
+// beginRename 进入当前标签的重命名（双击胶囊或 ⌘R）：胶囊内嵌输入框，
+// Enter 提交，Escape 取消。
+func (a *app) beginRename(i int) {
+	if i < 0 || i >= len(a.tabs) {
+		return
+	}
+	a.renaming = a.tabs[i].ID
+	a.renameDraft = a.tabs[i].Name
+	a.renameFocus = 1
+}
+
+// commitRename 提交重命名（名称去首尾空白；空串 = 未命名只显示圆点）。
+func (a *app) commitRename() {
+	if a.renaming == 0 {
+		return
+	}
+	id, draft := a.renaming, a.renameDraft
+	a.endRename()
+	for i := range a.tabs {
+		if a.tabs[i].ID == id {
+			if a.tabs[i].Name != strings.TrimSpace(draft) {
+				a.renameTab(i, draft)
+			}
+			break
+		}
+	}
+	a.liveFocus = 1 // 焦点回到内容编辑
+}
+
+// cancelRename 取消重命名，不落盘。
+func (a *app) cancelRename() {
+	a.endRename()
+	a.liveFocus = 1
+}
+
+// endRename 清除重命名会话状态。
+func (a *app) endRename() {
+	a.renaming, a.renameDraft, a.renameFocus = 0, "", 0
+}
+
+// handleRenameInput 重命名输入框按键：Enter/Tab 提交，Escape 取消；
+// 其余事件（含输入法组合）交还原生输入框，不抢占中文输入。
+func (a *app) handleRenameInput(ev ui.InputEvent) bool {
+	if ev.Kind != ui.InputKeyDown {
+		return false
+	}
+	switch ev.Key {
+	case ui.KeyEnter:
+		if a.renameComposing {
+			return false // 组合中的 Enter 归输入法
+		}
+		a.commitRename()
+		return true
+	case ui.KeyTab:
+		a.commitRename()
+		return true
+	case ui.KeyEscape:
+		a.cancelRename()
+		return true
+	}
+	return false
+}
+
+// switchTab 切换当前标签（原 switchDot 的动态版）：关查找条、
+// 重置实时预览焦点、表格工具与格式意图，走自动保存。
+// 液态动画在下一帧构建时从缓存的旧几何接管（见 tabstrip.go）。
+func (a *app) switchTab(i int) {
+	if i == a.active || i < 0 || i >= len(a.tabs) {
+		return
+	}
+	a.endRename()
+	a.active = i
+	a.findOpen, a.query, a.matchIdx = false, "", 0
+	// 切标签回到预览态：不能默认把首行变成源码。
+	a.resyncLive(0)
+	a.mdActive, a.mdDraft, a.keyHint = -1, "", 0
+	a.mdVisible, a.mdProjection = "", liveProjection{}
+	a.liveUndo, a.liveRedo, a.liveUndoPending = nil, nil, 0
+	a.tableTools = tableTools{}
+	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
+	a.closeLinkTool()
+	a.syncMenus()
+	a.scheduleSave()
+}
+
+// cycleTab 上/下一个标签并循环（⌘⌥←/→）。
+func (a *app) cycleTab(dir int) {
+	if len(a.tabs) == 0 {
+		return
+	}
+	a.switchTab((a.active + dir + len(a.tabs)) % len(a.tabs))
+}
+
+// afterTabsChanged 标签增删/排序后的统一收尾：重置编辑会话、
+// 重建菜单、防抖保存、刷新设置窗口与主窗口。
+func (a *app) afterTabsChanged() {
+	a.endRename()
+	a.findOpen, a.query, a.matchIdx = false, "", 0
+	a.resyncLive(0)
+	a.mdActive, a.mdDraft, a.keyHint = -1, "", 0
+	a.mdVisible, a.mdProjection = "", liveProjection{}
+	a.liveUndo, a.liveRedo, a.liveUndoPending = nil, nil, 0
+	a.tableTools = tableTools{}
+	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
+	a.closeLinkTool()
+	a.rebuildTabMenus()
+	a.scheduleSave()
+	a.refreshSettingsWindow()
+	a.withWindow(func() {})
+}
