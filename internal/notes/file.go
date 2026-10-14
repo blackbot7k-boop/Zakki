@@ -1,0 +1,157 @@
+package notes
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// CurrentDataVersion 是当前程序读写的数据版本。
+const CurrentDataVersion = 2
+
+// Settings 是数据文件中的 settings 节。
+type Settings struct {
+	ThemeSource   string  `json:"themeSource"`
+	MarkdownTheme string  `json:"markdownTheme,omitempty"`
+	BodyFont      string  `json:"bodyFont,omitempty"`
+	MonoFont      string  `json:"monoFont,omitempty"`
+	BodySize      float32 `json:"bodySize,omitempty"`
+	LineHeight    float32 `json:"lineHeight,omitempty"`
+	AlwaysOnTop   bool    `json:"alwaysOnTop"`
+	HideOnEscape  bool    `json:"hideOnEscape"`
+	Source        bool    `json:"source"`
+	Preview       bool    `json:"preview"`
+	TabTitleWidth float32 `json:"tabTitleWidth,omitempty"`
+	TabAnimSpeed  float32 `json:"tabAnimSpeed,omitempty"`
+	MonoDots      bool    `json:"monoDots"`
+	GlassStrength float32 `json:"glassStrength,omitempty"`
+}
+
+// Tab 是磁盘上的一条标签。
+type Tab struct {
+	ID    uint64 `json:"id"`
+	Name  string `json:"name,omitempty"`
+	Text  string `json:"text"`
+	Color string `json:"color,omitempty"`
+}
+
+// File 是 tot-md.json 的磁盘格式。
+type File struct {
+	Version  int      `json:"version"`
+	Active   int      `json:"active"`
+	Tabs     []Tab    `json:"tabs,omitempty"`
+	Dots     []string `json:"dots,omitempty"`
+	Settings Settings `json:"settings"`
+}
+
+// MigrateOptions 控制版本迁移（标签调色板与校验由 UI 层注入）。
+type MigrateOptions struct {
+	DefaultTabCount int
+	MaxTabCount     int
+	PaletteColors   []string
+	ValidTabColor   func(string) bool
+}
+
+// VersionError 表示数据版本高于当前支持。
+type VersionError struct{ Version int }
+
+func (e *VersionError) Error() string {
+	return fmt.Sprintf("数据版本 %d 高于当前支持的 %d，当前版本无法读取", e.Version, CurrentDataVersion)
+}
+
+// HasHideOnEscapeKey 探测 settings.hideOnEscape 键是否存在。
+func HasHideOnEscapeKey(raw []byte) bool {
+	var probe struct {
+		Settings map[string]json.RawMessage `json:"settings"`
+	}
+	if json.Unmarshal(raw, &probe) != nil {
+		return true
+	}
+	_, ok := probe.Settings["hideOnEscape"]
+	return ok
+}
+
+// Migrate 把磁盘数据迁到当前版本。
+func Migrate(f File, opt MigrateOptions) (File, error) {
+	if f.Version > CurrentDataVersion {
+		return File{}, &VersionError{Version: f.Version}
+	}
+	if f.Version < 2 && len(f.Tabs) == 0 {
+		dots := f.Dots
+		if len(dots) < opt.DefaultTabCount {
+			padded := make([]string, opt.DefaultTabCount)
+			copy(padded, dots)
+			dots = padded
+		}
+		f.Tabs = tabsFromDots(dots, opt.PaletteColors, opt.DefaultTabCount)
+	}
+	f.Dots = nil
+	f.Tabs = normalizeTabs(f.Tabs, opt)
+	f.Active = clamp(f.Active, 0, len(f.Tabs)-1)
+	if f.Settings.ThemeSource == "" {
+		f.Settings.ThemeSource = "system"
+	}
+	f.Settings.Source = f.Settings.Source || f.Settings.Preview
+	f.Version = CurrentDataVersion
+	return f, nil
+}
+
+func tabsFromDots(dots []string, palette []string, n int) []Tab {
+	tabs := make([]Tab, n)
+	for i := range tabs {
+		text := ""
+		if i < len(dots) {
+			text = dots[i]
+		}
+		color := ""
+		if i < len(palette) {
+			color = palette[i]
+		}
+		tabs[i] = Tab{ID: uint64(i + 1), Text: text, Color: color}
+	}
+	return tabs
+}
+
+func normalizeTabs(tabs []Tab, opt MigrateOptions) []Tab {
+	if len(tabs) > opt.MaxTabCount {
+		tabs = tabs[:opt.MaxTabCount]
+	}
+	if len(tabs) == 0 {
+		tabs = tabsFromDots(nil, opt.PaletteColors, opt.DefaultTabCount)
+	}
+	seen := map[uint64]bool{}
+	nextID := uint64(1)
+	alloc := func() uint64 {
+		for seen[nextID] {
+			nextID++
+		}
+		seen[nextID] = true
+		id := nextID
+		nextID++
+		return id
+	}
+	valid := opt.ValidTabColor
+	if valid == nil {
+		valid = func(string) bool { return false }
+	}
+	for i := range tabs {
+		if tabs[i].ID == 0 || seen[tabs[i].ID] {
+			tabs[i].ID = alloc()
+		} else {
+			seen[tabs[i].ID] = true
+		}
+		if !valid(tabs[i].Color) {
+			tabs[i].Color = ""
+		}
+	}
+	return tabs
+}
+
+func clamp(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
