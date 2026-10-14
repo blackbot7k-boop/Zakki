@@ -22,7 +22,7 @@
 | `live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；链接文本/地址浮层（`linkTool`）；命令以独立撤销事务执行（`editCommand`）。 |
 | `settings_window.go` / `settings_ui.go` / `settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注册新键成功后再注销旧键）。 |
 | `view_theme.go` | 双层主题：`colorThemes`（Tot/纸白/暖砂/雾青/石墨 × 明暗 + Tot 逐点调色板 `dotPalette` + 中性灰变体 `totNeutralPalette`）与 `markdownLayouts`（Sonnet/Tot/清晰/书页/紧凑：字体栈/基准字号/行高/块间距/标题比例/结构尺寸）；`resolveStyle` 合并颜色 + 排版 + 用户覆盖；WCAG 对比度辅助（`contrastRatio`，测试用）。 |
-| `app_state.go` | `app` 领域子结构体（`tabsState`、`liveEditorState` 等匿名嵌入）与 Store 字段装配。 |
+| `app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `state.go` | 应用内存状态与笔记载入编排；笔记写盘委托 `notes.Store`；每点主题色（`dotThemes`）、状态栏统计与搜索匹配。 |
 | `tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
 | `tab_strip.go` | 标签栏液态动画与重命名几何。 |

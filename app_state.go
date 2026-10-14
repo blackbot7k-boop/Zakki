@@ -95,7 +95,7 @@ type sourceEditorState struct {
 	srcPrev         liveSnapshot
 }
 
-// desktopRefs 窗口、菜单与全局热键句柄。
+// desktopRefs 窗口、菜单、全局热键与状态栏提示。
 type desktopRefs struct {
 	win          *mygo.Window
 	winOpen      bool
@@ -106,6 +106,13 @@ type desktopRefs struct {
 	miTop        *mygo.MenuItem
 	hotkeyAcc    string
 	noticeHotkey string
+	notice       string
+}
+
+// prefsRuntimeState 内存中的偏好及其一次性迁移结果。
+type prefsRuntimeState struct {
+	prefs          preferences
+	prefsMigration migrationResult
 }
 
 // settingsWindowState 设置窗口与草稿 UI。
@@ -127,15 +134,12 @@ type app struct {
 	sourceEditorState
 	desktopRefs
 	settingsWindowState
+	prefsRuntimeState
 
 	cfg   settings
-	prefs preferences
 	ready bool
 
 	notes      *notes.Store
 	now        func() time.Time
 	prefsStore *iprefs.Store
-
-	prefsMigration migrationResult
-	notice         string
 }
