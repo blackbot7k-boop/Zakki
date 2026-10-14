@@ -78,13 +78,6 @@ func persistBackupNames(t *testing.T, dir string) []string {
 	return names
 }
 
-// persistDots 构造定长 7 的点内容（不足补空串），用于拼 v1 原始 JSON。
-func persistDots(items ...string) []string {
-	d := make([]string, DotCount)
-	copy(d, items)
-	return d
-}
-
 // persistTabs 构造与 defaultTabs 的 ID/颜色一致的标签列表（文本可变），
 // 用于和落盘结果做 DeepEqual。
 func persistTabs(texts ...string) []savedTab {
@@ -311,120 +304,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 // ---- 3. v1 → v2 迁移与 v2 修复 ----
 
 func TestPersistenceMigrateSavedFile(t *testing.T) {
-	cases := []struct {
-		name    string
-		in      savedFile
-		want    func(f savedFile) bool // 断言迁移结果
-		wantErr string                 // 非空：期望错误消息含此子串
-	}{
-		{
-			name: "全缺字段补齐 7 个默认标签",
-			in:   savedFile{},
-			want: func(f savedFile) bool {
-				return f.Version == currentDataVersion &&
-					reflect.DeepEqual(f.Tabs, persistTabs()) &&
-					f.Dots == nil &&
-					f.Settings == settings{ThemeSource: "system"}
-			},
-		},
-		{
-			name: "v1 dots 按原顺序生成 7 个标签",
-			in:   savedFile{Active: 6, Dots: persistDots("x")},
-			want: func(f savedFile) bool {
-				return f.Version == currentDataVersion && f.Active == 6 &&
-					reflect.DeepEqual(f.Tabs, persistTabs("x")) &&
-					f.Settings == settings{ThemeSource: "system"}
-			},
-		},
-		{
-			name: "v1 半缺 dots 补空",
-			in:   savedFile{Active: 2, Dots: []string{"a", "b"}},
-			want: func(f savedFile) bool {
-				return reflect.DeepEqual(f.Tabs, persistTabs("a", "b"))
-			},
-		},
-		{
-			name: "v1 多余 dots 截断到 7",
-			in:   savedFile{Dots: []string{"0", "1", "2", "3", "4", "5", "6", "7"}},
-			want: func(f savedFile) bool {
-				return reflect.DeepEqual(f.Tabs, persistTabs("0", "1", "2", "3", "4", "5", "6"))
-			},
-		},
-		{
-			name: "v1 旧版 preview 并入 source",
-			in:   savedFile{Settings: settings{Preview: true}},
-			want: func(f savedFile) bool {
-				return f.Settings == (settings{ThemeSource: "system", Source: true, Preview: true})
-			},
-		},
-		{
-			name: "v2 补缺失 ID 与无效颜色",
-			in: savedFile{Version: 2, Active: 1, Tabs: []savedTab{
-				{Text: "甲", Name: "工作"},
-				{ID: 5, Text: "乙", Color: "red!"},
-			}},
-			want: func(f savedFile) bool {
-				return f.Version == currentDataVersion && len(f.Tabs) == 2 &&
-					f.Tabs[0].ID > 0 && f.Tabs[0].Name == "工作" &&
-					f.Tabs[1].ID > 0 && f.Tabs[0].ID != f.Tabs[1].ID &&
-					f.Tabs[1].Color == "" && // 无效颜色清空，渲染回退调色板
-					f.Active == 1
-			},
-		},
-		{
-			name: "v2 重复 ID 重新分配",
-			in: savedFile{Version: 2, Tabs: []savedTab{
-				{ID: 3, Text: "a"}, {ID: 3, Text: "b"},
-			}},
-			want: func(f savedFile) bool {
-				return f.Tabs[0].ID != f.Tabs[1].ID && f.Tabs[0].Text == "a" && f.Tabs[1].Text == "b"
-			},
-		},
-		{
-			name: "v2 空标签列表补 7 个默认",
-			in:   savedFile{Version: 2},
-			want: func(f savedFile) bool {
-				return reflect.DeepEqual(f.Tabs, persistTabs())
-			},
-		},
-		{
-			name: "v2 超过 12 个截断",
-			in: savedFile{Version: 2, Tabs: func() []savedTab {
-				tabs := make([]savedTab, 15)
-				for i := range tabs {
-					tabs[i] = savedTab{ID: uint64(i + 1), Text: fmt.Sprintf("t%d", i)}
-				}
-				return tabs
-			}(), Active: 14},
-			want: func(f savedFile) bool {
-				return len(f.Tabs) == MaxTabCount && f.Active == MaxTabCount-1 &&
-					f.Tabs[0].Text == "t0" && f.Tabs[11].Text == "t11"
-			},
-		},
-		{
-			name:    "version 高于当前被拒绝",
-			in:      savedFile{Version: currentDataVersion + 1},
-			wantErr: "当前版本无法读取",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := migrateSavedFile(tc.in)
-			if tc.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
-					t.Fatalf("错误 = %v, want 含 %q", err, tc.wantErr)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("migrateSavedFile 报错: %v", err)
-			}
-			if !tc.want(got) {
-				t.Fatalf("迁移结果 = %+v", got)
-			}
-		})
-	}
-
+	// 纯迁移表在 internal/notes. 这里只保留经 load/save 落到 app 的路径。
 	t.Run("load 旧文件后保存升到 version 2 且只写 tabs", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)

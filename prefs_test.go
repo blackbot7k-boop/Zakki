@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // preferences.json 是用户偏好的唯一来源；迁移一次性完成，旧文件原样保留。
@@ -26,80 +25,6 @@ func persistWriteRaw(t *testing.T, path string, raw string) {
 	}
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestPreferencesDefaultsAndValidation(t *testing.T) {
-	p := defaultPreferences()
-	if err := validatePrefs(p); err != nil {
-		t.Fatalf("默认偏好必须合法: %v", err)
-	}
-	if p.Appearance.ColorTheme != "tot" || p.Appearance.MarkdownTheme != "sonnet" || p.Appearance.AppearanceMode != "system" {
-		t.Fatalf("全新安装默认：Tot 颜色 + Sonnet 排版 + 跟随系统: %+v", p.Appearance)
-	}
-	if !p.Window.HideOnEscape || !p.Window.RememberBounds {
-		t.Fatalf("窗口默认值错误: %+v", p.Window)
-	}
-	if p.Backup.IntervalMinutes != int(backupInterval/time.Minute) || p.Backup.Keep != 20 || !p.Backup.OnLaunch {
-		t.Fatalf("备份默认值错误: %+v", p.Backup)
-	}
-	if p.Advanced.AutosaveDelayMS != 800 || p.Advanced.WindowWidth != 400 || p.Advanced.WindowHeight != 540 {
-		t.Fatalf("兼容参数默认值错误: %+v", p.Advanced)
-	}
-	for _, mutate := range []func(*preferences){
-		func(p *preferences) { p.Appearance.AppearanceMode = "blue" },
-		func(p *preferences) { p.Appearance.ColorTheme = "neon" },
-		func(p *preferences) { p.Appearance.MarkdownTheme = "github" },
-		func(p *preferences) { p.Appearance.BodyFont = "comic" },
-		func(p *preferences) { p.Appearance.BodySize = 9 },
-		func(p *preferences) { p.Appearance.BodySize = 41 },
-		func(p *preferences) { p.Appearance.LineHeight = 0.5 },
-		func(p *preferences) { p.Appearance.LineHeight = 3.1 },
-		func(p *preferences) { p.Backup.IntervalMinutes = 0 },
-		func(p *preferences) { p.Backup.IntervalMinutes = 1441 },
-		func(p *preferences) { p.Backup.Keep = 1001 },
-		func(p *preferences) { p.Advanced.AutosaveDelayMS = 99 },
-		func(p *preferences) { p.Advanced.WindowWidth = 299 },
-		func(p *preferences) { p.Advanced.WindowHeight = 339 },
-		func(p *preferences) { p.Keymap.Overrides["format.bold"] = "not a key+" },
-	} {
-		bad := defaultPreferences()
-		mutate(&bad)
-		if err := validatePrefs(bad); err == nil {
-			t.Fatalf("非法偏好应被拒绝: %+v", bad)
-		}
-	}
-	// 0 = 跟随主题；显式空串 = 解除绑定。
-	ok := defaultPreferences()
-	ok.Appearance.BodySize, ok.Appearance.LineHeight = 0, 0
-	ok.Keymap.Overrides[cmdBold] = ""
-	if err := validatePrefs(ok); err != nil {
-		t.Fatalf("跟随主题值与显式空绑定必须合法: %v", err)
-	}
-}
-
-func TestPreferencesDecodeStrict(t *testing.T) {
-	for _, raw := range []string{
-		`{`, `null`, `[]`, `{"version":1,}`,
-		`{"unknown":1}`, `{"appearance":{"bodySize":99}}`,
-		`{"appearance":null}`, `{"keymap":{"overrides":null}}`,
-		`{"version":99}`,
-	} {
-		t.Run(raw, func(t *testing.T) {
-			if _, err := decodePreferences([]byte(raw)); err == nil {
-				t.Fatalf("不应接受 %s", raw)
-			}
-		})
-	}
-	got, err := decodePreferences([]byte(`{"version":1,"appearance":{"colorTheme":"graphite"}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Appearance.ColorTheme != "graphite" || got.Appearance.MarkdownTheme != "sonnet" {
-		t.Fatalf("缺项应用默认值: %+v", got)
-	}
-	if got.Keymap.Overrides == nil {
-		t.Fatal("缺 keymap 节应补空 map")
 	}
 }
 

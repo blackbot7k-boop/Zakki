@@ -154,9 +154,10 @@
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），
   **绝不写真实用户目录**；`persistence_test.go` 全部经它跑持久化回归。
 - **`ui.NewTester(a.view, w, h)`**：无窗口跑视图（构建/断言文本、模拟按键），
-  `main_test.go`/`dotstyle_test.go`/`liveboundary_test.go`/`livefocus_test.go` 用它。
-- **偏好测试**：`prefs_test.go` 覆盖迁移优先级（TOML/JSON/笔记旧设置）、显式 false/空绑定、
-  损坏与超前版本恢复、写失败报告、修订号防回写；`config_test.go` 锁定旧配置解码器语义；
+  `main_test.go`/`tab_style_test.go`/`live_boundary_test.go`/`live_focus_test.go` 用它。
+- **偏好测试**：根目录 `prefs_test.go` 覆盖迁移优先级（TOML/JSON/笔记旧设置）、
+  损坏与超前版本恢复、写失败报告、修订号防回写；默认值与严格解码在 `internal/prefs`；
+  旧配置解码在 `internal/legacyconfig`；笔记版本迁移表在 `internal/notes`；
   `menu_commands_test.go` / `internal/markdown` 的格式与行内边界测试 / `view_theme_test.go`
   分别覆盖加速器与冲突校验、纯格式变换（含 CJK/emoji/光标映射）与全主题对比度；
   `menu_contract_test.go` 验证新菜单结构、设置窗口五页（`ui.NewTester`）与改键流程。
