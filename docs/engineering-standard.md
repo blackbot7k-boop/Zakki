@@ -67,9 +67,9 @@ tot-md-mygo/
 | `table.go` | 纯函数 → `internal/markdown`；`(a *app)` 方法 → 根目录 `table_edit.go` | 纯函数：`pipeCells`、`tableStart`、`emptyTableRow`、`tableCellPositions` 及 `tableCell`/`markdownTable` 类型。 |
 | `tableactions.go` | 纯函数 → `internal/markdown`；`(a *app)` 方法 → 根目录 `table_actions.go` | 纯函数：`tableCellIndex`、`tableDivider`、`tableAllAligned`、`tableResizeDropsContent`、`resizedTable`。`tableTools` 是 UI 状态，留根目录。 |
 | `config.go` | `internal/legacyconfig` | 整体迁入。 |
-| `prefs.go` | 模型/校验/解码/迁移/写盘 → `internal/prefs`；`(a *app)` 运行时应用 → 根目录 `prefs_runtime.go` | 迁入：`preferences` 及子结构、`defaultPreferences`、`validate`、`decodePreferences`、`rejectJSONNull`、`migrationResult`、`migrateLegacyConfig`、`preferencesFromNotes`、`preferencesFromFileConfig`、`prefsIssue*`、快照与修订号逻辑。留根目录：`updatePreferences`、`applyPreferencesToRuntime` 等触达窗口/菜单/热键的方法。 |
-| `prefs.go` 的 `atomicWriteJSON`、`state.go` 的 `writeSnapshotLocked` 中的 tmp+rename | `internal/atomicfile` | 两处重复实现合并为一个，`notes` 与 `prefs` 共用。 |
-| `state.go` 持久化部分 | `internal/notes` | `savedFile`/`savedTab`/`settings` 磁盘模型、`migrateSavedFile`、`normalizeSavedTabs`、`tabsFromDots`、`versionError`、`hasHideOnEscapeKey`、`load`/保存/防抖/备份/修剪/隔离/写回，以及 `persistMu` 和它保护的字段，以 `notes.Store` 暴露。 |
+| `prefs.go` | 模型/校验/解码/迁移/写盘 → `internal/prefs`；`(a *app)` 运行时应用 → 根目录 `prefs_runtime.go` | 迁入：`preferences` 及子结构、`defaultPreferences`、`validate`、`decodePreferences`、`rejectJSONNull`、`migrationResult`、`migrateLegacyConfig`、`preferencesFromNotes`、`preferencesFromFileConfig`、`prefsIssue*`、快照与修订号逻辑；迁移后导出名为 `MigrationResult`、`MigrateLegacy`、`FromNotes`、`MergeFileConfig`（根目录 `prefs_bridge.go` 留类型别名）。留根目录：`updatePreferences`、`applyPreferencesToRuntime` 等触达窗口/菜单/热键的方法。 |
+| `prefs.go` 的 `atomicWriteJSON`、`state.go` 的 `writeSnapshotLocked` 中的 tmp+rename | `internal/atomicfile` | 两处重复实现合并为一个（`atomicfile.WriteJSON`/`WriteBytes`），`notes` 与 `prefs` 共用。 |
+| `state.go` 持久化部分 | `internal/notes` | `savedFile`/`savedTab`/`settings` 磁盘模型、`migrateSavedFile`、`normalizeSavedTabs`（迁后名 `normalizeTabs`）、`tabsFromDots`、`versionError`、`hasHideOnEscapeKey`、`load`/保存/防抖/备份/修剪/隔离/写回，以及 `persistMu` 和它保护的字段，以 `notes.Store` 暴露（锁并入 Store 内部 `mu`）。 |
 | `state.go` 其余部分 | 根目录 | `dotTheme`/`dotColor` 等主题色 → `themes*.go`；`showWindow`/`toggleWindow`/`applyAlwaysOnTop` → `window.go`；字数统计 → `status*.go` 或 `internal/markdown`（纯函数）。 |
 | `main.go`、`commands.go`、`keymap.go`、`formatcmd.go`、`liveedit.go`、`liveprojection.go`、`livewidgets.go`、`tabs.go`、`tabstrip.go`、`tabletoolbar.go`、`settings*.go`、`themes.go`、`icons.go`、`trayicon.go`、`view.go` | 根目录 | 只在第 7 节阶段 5 按命名规范重命名/拆分。 |
 
