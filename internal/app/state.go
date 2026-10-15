@@ -170,12 +170,8 @@ func (a *app) recoverFromBrokenFile(cause error) error {
 	return cause
 }
 
-// welcomeText 首次运行时给标签 1 的欢迎文本。
-const welcomeText = `# Zakki
-
-7 个彩色标签，随手记。这里是 **标签 1**。
-
-- [ ] 试试勾选我：其他块即时排版，点一下就能编辑
+// welcomeTextBody 欢迎文案中与标签数量无关的段落。
+const welcomeTextBody = `- [ ] 试试勾选我：其他块即时排版，点一下就能编辑
 - ⌘1 到 ⌘9 切换标签；⌘T 新建；Enter 分块，↑↓←→ 跨块
 - ⌘F 搜索本标签内容，⌘⇧P 切换源码模式
 - ⌘B / ⌘I / ⌘K 直接加粗、斜体、插链接；⌘⌥1–6 改标题
@@ -188,6 +184,48 @@ const welcomeText = `# Zakki
 
 > 灵感来自 [Tot](https://tot.rocks)，用 [MyGo](https://github.com/egoist/mygo) 构建。`
 
+// welcomeTextFor 按初始标签数生成标签 1 的欢迎文本。
+func welcomeTextFor(tabCount int) string {
+	if tabCount < 1 {
+		tabCount = 1
+	}
+	return fmt.Sprintf("# Zakki\n\n%d 个彩色标签，随手记。这里是 **标签 1**。\n\n", tabCount) + welcomeTextBody
+}
+
+// welcomeText 默认标签数下的欢迎文案（测试与固定引用）。
+var welcomeText = welcomeTextFor(DefaultTabCount)
+
+// commitFirstRunData 写入首启数据快照。tabCount>0 时按数量重建标签；为 0 时
+// 保留当前标签数并刷新欢迎文案。非首启时静默成功。
+func (a *app) commitFirstRunData(tabCount int) error {
+	if !a.firstRun() {
+		return nil
+	}
+	if tabCount > 0 {
+		if tabCount < 1 {
+			tabCount = 1
+		}
+		if tabCount > MaxTabCount {
+			tabCount = MaxTabCount
+		}
+		a.rebuildInitialTabs(tabCount)
+	} else if len(a.tabs) > 0 {
+		text := welcomeTextFor(len(a.tabs))
+		a.tabs[0].Text = text
+		a.resyncLive(utf8.RuneCountInString(text))
+	}
+	err := a.notes.SaveNow(a.snapshotFile())
+	if err != nil {
+		slog.Warn("首启数据写入失败", "error", err)
+	}
+	return err
+}
+
+// persistFirstRunSnapshot 跳过/关窗路径落盘（保持当前默认标签数）。
+func (a *app) persistFirstRunSnapshot() error {
+	return a.commitFirstRunData(0)
+}
+
 // initDefaults 首次运行/空文件：保证 7 个默认标签存在，标签 1 是
 // 欢迎文本。不改 active（空文件里 active 跟随磁盘数据）。
 func (a *app) initDefaults() {
@@ -196,10 +234,10 @@ func (a *app) initDefaults() {
 		a.syncNextTabID()
 	}
 	if len(a.tabs) > 0 {
-		a.tabs[0].Text = welcomeText
+		a.tabs[0].Text = welcomeTextFor(len(a.tabs))
 	}
 	a.clampActive()
-	a.resyncLive(utf8.RuneCountInString(welcomeText))
+	a.resyncLive(utf8.RuneCountInString(a.tabs[0].Text))
 }
 
 // saveNow 把当前状态快照同步写入磁盘（原子替换）。只保存数据，不做备份。
@@ -287,7 +325,7 @@ func (a *app) confirmWriteBack() error {
 }
 
 // clearActiveTab 清空当前标签内容。危险操作：先无条件备份，备份失败则
-// 取消清空。不设键盘快捷键，仅顶栏按钮触发。
+// 取消清空。
 func (a *app) clearActiveTab() {
 	if err := a.backupNow(); err != nil {
 		slog.Error("清空当前标签前备份失败，已取消清空", "error", err)
