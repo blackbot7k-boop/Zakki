@@ -4,6 +4,7 @@ package app
 // 所有字段即时应用并自动保存；「恢复本页默认值」在卡片底部，需确认，不清除笔记或备份。
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -71,7 +72,6 @@ func (a *app) appearancePage(c *ui.Context, t *ui.Theme, dark bool) {
 		ui.Column(c).FillWidth().Gap(8).Children(func() {
 			ui.Text(c, "预览").Bold().TextColor(tMuted(c)).FontSize(12)
 			a.themePreview(c, dark)
-			ui.Text(c, "实时应用颜色、排版主题与排版微调").FontSize(11).TextColor(tMuted(c))
 		})
 	}
 	if settingsWideLayout(c) {
@@ -79,7 +79,7 @@ func (a *app) appearancePage(c *ui.Context, t *ui.Theme, dark bool) {
 			ui.Scroll(c.Key("appearance-controls")).Grow(1).FillHeight().Children(func() {
 				a.appearanceControls(c, dark)
 			})
-			ui.Column(c).Width(300).Shrink(0).FillHeight().Children(func() {
+			ui.Column(c).Width(380).Shrink(0).FillHeight().Children(func() {
 				ui.Scroll(c.Key("appearance-preview")).FillWidth().Grow(1).Children(previewPane)
 			})
 		})
@@ -110,17 +110,16 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 		})
 
 		settingsCard(c, "颜色主题", func() {
-			ui.Text(c, "与 Markdown 排版主题相互独立，可自由组合。Tot 随七个点配色。").
-				FontSize(11).TextColor(tMuted(c)).Padding(2, 14, 0, 14)
-			ui.Column(c).FillWidth().Padding(10, 14, 12, 14).Children(func() {
+			ui.Column(c).FillWidth().Padding(8, 14, 10, 14).Children(func() {
 				a.colorThemeCards(c, dark)
 			})
 		})
 
 		settingsCard(c, "Markdown 排版主题", func() {
-			ui.Column(c).FillWidth().Padding(10, 14, 12, 14).Children(func() {
-				a.markdownThemeCards(c)
+			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
+				a.markdownThemeSelect(c)
 			})
+			a.cardResetFooter(c, pageAppearance)
 		})
 
 		settingsCard(c, "排版微调", func() {
@@ -222,47 +221,63 @@ func cardBorder(c *ui.Context, selected bool) ui.Color {
 	return c.Theme().Border
 }
 
-// markdownThemeCards 排版主题选择卡片：两列网格，每张卡片用该主题真实的
-// 字体/字号/行高渲染一句中英文混排小样，下方附说明。
-func (a *app) markdownThemeCards(c *ui.Context) {
-	descriptions := map[string]string{
-		"sonnet":  "JetBrains Mono + 霞鹜文楷，16px / 1.6 行高",
-		"tot":     "系统苹方，15px / 1.5 行高，便签排版",
-		"clear":   "苹方/系统无衬线，16px / 1.65 行高，层级明确",
-		"book":    "宋体/衬线，17px / 1.8 行高，适合中文长文",
-		"compact": "系统无衬线，15px / 1.5 行高，收紧间距",
+// markdownThemeSelect 排版主题下拉：字体已解耦，排版只管间距字号；
+// 右侧预览即时呈现效果，不再放整组样例卡片。
+func (a *app) markdownThemeSelect(c *ui.Context) {
+	options := make([]string, 0, len(markdownLayouts))
+	for _, l := range markdownLayouts {
+		options = append(options, l.name)
 	}
-	ui.Grid(c).Columns(2).Gap(8).FillWidth().Children(func() {
-		for _, l := range markdownLayouts {
-			l := l
-			selected := a.settingsUI.draft.Appearance.MarkdownTheme == l.id
-			btn := ui.ButtonBase(c.Key("md-"+l.id)).Label("排版主题 "+l.name).
-				Radius(8).Cursor(ui.CursorPointer).
-				Padding(10, 12).BorderWidth(1.5).BorderColor(cardBorder(c, selected))
-			if selected {
-				btn.Background(c.Theme().Accent.Mix(c.Theme().Background, 0.92))
-			}
-			btn.Children(func() {
-				ui.Column(c).Gap(4).Children(func() {
-					ui.Text(c, l.name).Bold().FontSize(13)
-					bodyFont := bodyFontStack(a.prefs.Appearance.BodyFont)
-					sampleSize := roundHalf(l.bodySize * 0.72)
-					ui.RichText(c).LineHeight(l.lineHeight).Children(func() {
-						ui.Text(c, "敏捷的棕色狐狸 The quick brown fox，").Font(bodyFont).FontSize(sampleSize)
-						ui.Text(c, "粗体").Font(bodyFont).FontSize(sampleSize).Bold()
-						ui.Text(c, "与").Font(bodyFont).FontSize(sampleSize)
-						ui.Text(c, "代码").Font(monoFontStack(a.prefs.Appearance.MonoFont)).FontSize(sampleSize).TextColor(tMuted(c))
-						ui.Text(c, "。").Font(bodyFont).FontSize(sampleSize)
-					})
-					ui.Text(c, descriptions[l.id]).FontSize(10.5).TextColor(tMuted(c))
-				})
-			})
-			if btn.Clicked() {
-				a.settingsUI.draft.Appearance.MarkdownTheme = l.id
-				a.pushAppearance()
-			}
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+		ui.Text(c, "排版主题").Grow(1)
+		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
+			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
+			a.pushAppearance()
 		}
 	})
+	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
+		FontSize(11).TextColor(tMuted(c))
+}
+
+// markdownThemeDisplay 排版主题键 → 显示名。
+func markdownThemeDisplay(key string) string {
+	for _, l := range markdownLayouts {
+		if l.id == key {
+			return l.name
+		}
+	}
+	return markdownLayouts[0].name
+}
+
+// markdownThemeKey 显示名 → 排版主题键。
+func markdownThemeKey(display string) string {
+	for _, l := range markdownLayouts {
+		if l.name == display {
+			return l.id
+		}
+	}
+	return markdownLayouts[0].id
+}
+
+// markdownLayoutNote 选中排版的一行摘要。
+func markdownLayoutNote(key string) string {
+	l := markdownLayoutByID(key)
+	return fmt.Sprintf("%s：%s，%gpx / %g 行高", l.name, layoutFontNote(l.id), l.bodySize, l.lineHeight)
+}
+
+// layoutFontNote 保留排版名字里的字体意象（仅作说明文字，不影响实际字体）。
+func layoutFontNote(id string) string {
+	switch id {
+	case "book":
+		return "衬线意象"
+	case "compact":
+		return "收紧间距"
+	case "tot":
+		return "便签排版"
+	case "clear":
+		return "层级明确"
+	}
+	return "Typora 式排版"
 }
 
 // typographyOverrides 排版覆盖：每项可「跟随 Markdown 主题」（空 = 跟随）。

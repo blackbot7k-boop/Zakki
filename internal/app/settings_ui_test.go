@@ -65,7 +65,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	tt.Frame()
 	for _, want := range []string{
 		"明暗模式", "颜色主题", "Markdown 排版主题", "排版微调",
-		"预览", "敏捷的棕色狐狸", "恢复本页默认值",
+		"预览", "排版主题", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观页缺少 %q: %v", want, tt.Texts())

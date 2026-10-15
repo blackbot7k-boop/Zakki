@@ -29,6 +29,7 @@ type settingsUIState struct {
 	appearanceModeSel string
 	bodyFontSel       string
 	monoFontSel       string
+	markdownThemeSel  string
 	tabAnimSpeedSel   string
 
 	// 标签页：展开了调色板的标签 ID（0 = 无）。
@@ -52,12 +53,13 @@ type settingsUIState struct {
 func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.draft = clonePrefs(p)
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
+	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
 	ui.bodyFontSel = displayOf(
-		[]string{"", "sonnet", "pingfang", "songti"},
-		[]string{"跟随主题", "Sonnet 同款", "系统苹方", "宋体"}, p.Appearance.BodyFont)
+		[]string{"kai", "pingfang", "songti"},
+		[]string{"霞鹜文楷（默认）", "系统苹方", "宋体"}, p.Appearance.BodyFont)
 	ui.monoFontSel = displayOf(
-		[]string{"", "sonnet", "sfmono", "menlo"},
-		[]string{"跟随主题", "JetBrains Mono", "SF Mono", "Menlo"}, p.Appearance.MonoFont)
+		[]string{"jbm", "sfmono", "menlo"},
+		[]string{"JetBrains Mono（默认）", "SF Mono", "Menlo"}, p.Appearance.MonoFont)
 	ui.bodySizeText = floatText(p.Appearance.BodySize)
 	ui.lineHeightText = floatText(p.Appearance.LineHeight)
 	ui.bodySizeErr, ui.lineHeightErr = "", ""

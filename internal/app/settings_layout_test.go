@@ -40,7 +40,7 @@ func TestSettingsAppearanceControlsStartAtTop(t *testing.T) {
 		t.Fatalf("appearance mode must be visible near top: %+v (found=%v)", mode, ok)
 	}
 	preview, ok := tt.Find("预览")
-	if !ok || preview.X < 570 || preview.W < 280 || preview.W > 310 {
+	if !ok || preview.X < 490 || preview.W < 360 || preview.W > 400 {
 		t.Fatalf("preview must be in a fixed right pane: %+v", preview)
 	}
 	controlsBefore, _ := tt.Find("Markdown 排版主题")
