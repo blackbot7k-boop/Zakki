@@ -129,7 +129,7 @@ func TestFindBindingConflict(t *testing.T) {
 	a := newTestApp(t)
 	// 固定键：搜索 ⌘F。
 	b, _ := parseAccelerator("CmdOrCtrl+F")
-	if name := a.findBindingConflict(cmdBold, b); name != "搜索本点" {
+	if name := a.findBindingConflict(cmdBold, b); name != "查找" {
 		t.Fatalf("固定键冲突应显示名称: %q", name)
 	}
 	// 其他命令的当前绑定。

@@ -11,6 +11,13 @@ func (a *app) applyAlwaysOnTop() {
 
 // showWindow 显示并聚焦窗口（必要时新建）。
 func (a *app) showWindow() {
+	// 向导期间唤起主窗口：聚焦向导本身，避免绕过初始化流程。
+	if a.onboarding.obWin != nil {
+		a.onboarding.obWin.Restore()
+		a.onboarding.obWin.Show()
+		a.onboarding.obWin.Focus()
+		return
+	}
 	if a.win == nil || !a.winOpen {
 		a.createWindow()
 		return

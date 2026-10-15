@@ -1,7 +1,7 @@
 package app
 
 // 主界面：液态标签栏与 Typora 式编辑器。
-//   顶栏 38pt，中性材质，可拖动窗口：⊗ 清空 · 动态实心标签居中 · 置顶
+//   顶栏 38pt，中性材质，可拖动窗口：⊗ 关闭窗口 · 动态实心标签居中 · 置顶
 //   查找条（搜索图标打开）：搜索框 + 命中计数，Enter 跳到下一个
 //   内容区：Typora 式所见即所得编辑（焦点块保留排版；⌘⇧P 切源码模式），
 //           背景为统一中性材质
@@ -66,6 +66,12 @@ func (a *app) view(c *ui.Context) {
 		c.SetTheme(&t)
 		a.statusBar(c, &t, dark)
 	})
+	a.syncEditorMenu(c)
+	if command := a.editMenuPending; command != "" {
+		a.editMenuPending = ""
+		a.runEditCommand(command)
+		c.Invalidate()
+	}
 	// SetTheme repaints the root, so clear it only after the final theme change.
 	if c.Vibrancy() {
 		c.Root().Background(ui.Transparent)
@@ -105,9 +111,12 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(tabTrackHeight).Background(bg).PaddingX(14).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		DragWindow().AlignItems(ui.Center).Children(func() {
-		if iconAction(c, "clear-dot", iconClearDot, "清空当前标签", t, 16) {
-			a.clearActiveTab()
-		}
+		ui.Icon(c.Key("close-window"), iconCloseWindow).Size(16, 16).Label("关闭窗口").
+			TextColor(t.TextMuted).Cursor(ui.CursorPointer).OnClick(func() {
+			if a.win != nil {
+				a.win.Close()
+			}
+		})
 		a.tabStrip(c, dark)
 		a.iconPin(c, t, dark)
 	})
@@ -252,6 +261,26 @@ func iconAction(c *ui.Context, key string, svg *ui.SVG, label string, t *ui.Them
 
 // ---- 查找条 ----
 
+// findStep 在命中集合里循环跳匹配（+1 下一个 / -1 上一个）；
+// 无命中时不动，调用方（查找条按钮、Enter、菜单查找下一个/上一个）共用。
+func (a *app) findStep(dir int) {
+	ms := a.docMatches(a.activeTab().Text, a.query)
+	if len(ms) == 0 {
+		return
+	}
+	a.matchIdx = (a.matchIdx + dir + len(ms)) % len(ms)
+	a.jumpPending = true
+}
+
+// findOpenOrStep 菜单「查找下一个/上一个」入口：查找条未开时先打开，否则跳匹配。
+func (a *app) findOpenOrStep(dir int) {
+	if !a.findOpen {
+		a.findOpen, a.query, a.matchIdx = true, "", 0
+		return
+	}
+	a.findStep(dir)
+}
+
 func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(44).Background(a.chromeColor(headerBackground(dark), dark, c.Vibrancy())).
 		Padding(0, 14).Gap(8).AlignItems(ui.Center).
@@ -264,15 +293,11 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 		}
 		// Enter 跳到下一个命中。
 		if sf.Submitted() {
-			if ms := a.docMatches(a.activeTab().Text, a.query); len(ms) > 0 {
-				a.matchIdx = (a.matchIdx + 1) % len(ms)
-				a.jumpPending = true
-			}
+			a.findStep(1)
 		}
 		matches := a.docMatches(a.activeTab().Text, a.query)
-		if ui.Button(c.Key("find-prev"), "‹").Label("上一个").Clicked() && len(matches) > 0 {
-			a.matchIdx = (a.matchIdx - 1 + len(matches)) % len(matches)
-			a.jumpPending = true
+		if ui.Button(c.Key("find-prev"), "‹").Label("上一个").Clicked() {
+			a.findStep(-1)
 		}
 		count := "无结果"
 		if a.query != "" && len(matches) > 0 {
@@ -282,9 +307,8 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			count = "0/0"
 		}
 		ui.Text(c, count).FontSize(12).TextColor(t.TextMuted)
-		if ui.Button(c.Key("find-next"), "›").Label("下一个").Clicked() && len(matches) > 0 {
-			a.matchIdx = (a.matchIdx + 1) % len(matches)
-			a.jumpPending = true
+		if ui.Button(c.Key("find-next"), "›").Label("下一个").Clicked() {
+			a.findStep(1)
 		}
 		if ui.Button(c.Key("find-close"), "完成").Clicked() {
 			a.findOpen = false
@@ -307,13 +331,16 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 	accent := md.accent
 
 	// TextAreaBase 无自带样式：背景/内边距自己给，聚焦时不会有任何边框。
-	ta := ui.TextAreaBase(c, text).
+	a.captureClipboardService(c)
+	ta := ui.TextAreaBase(c.Key("source-editor"), text).
+		Bind(&a.editorHandle).
+		ContextMenu(a.editorContextMenu).
 		Label("内容").
 		Fill().Grow(1).
 		Padding(14, 20).
 		FontSize(md.bodySize).Font(md.monoFont).LineHeight(md.lineHeight).
 		FocusRing(false).
-		Background(contentBackground(md.background, dark, c.Vibrancy())).
+		Background(a.paperBackground(md.background, dark, c.Vibrancy())).
 		AutoFocus().
 		HandleInput(func(ev ui.InputEvent) bool { return a.recordSourceKey(ev) })
 
@@ -338,6 +365,13 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 	cs, ce := ta.TextSelection()
 	a.srcCaret, a.srcSelEnd = cs, ce
 
+	if a.liveUndoPending != 0 {
+		redo := a.liveUndoPending < 0
+		a.liveUndoPending = 0
+		a.undoLive(redo)
+		c.Invalidate()
+		return
+	}
 	if ta.Changed() {
 		kind := a.consumePendingEditKind()
 		a.rememberLiveEdit(a.srcPrev, kind)
@@ -366,6 +400,14 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 			FontSize(12).TextColor(fg)
 		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
 		ui.Text(c, a.backupLabel()).FontSize(12).TextColor(fg)
+		// 外部备份镜像状态（未配置不显示）。
+		if label, warn := a.mirrorLabel(); label != "" {
+			ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
+			text := ui.Text(c, label).FontSize(12).TextColor(fg)
+			if warn {
+				text.Bold()
+			}
+		}
 		// 保存/载入异常要在界面上可见（完整内容在日志里）。
 		if warn := a.statusWarn(); warn != "" {
 			ui.Text(c, warn).FontSize(12).TextColor(fg).Bold()

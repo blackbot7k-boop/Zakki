@@ -302,7 +302,9 @@ func commandDefByID(id string) (commandDef, bool) {
 // fixedBindings 是不开放改键的既有快捷键：Keymap 录键时作为冲突源，
 // 让「应用命令与全局命令统一校验」有完整依据。
 var fixedBindings = []struct{ acc, name string }{
-	{"CmdOrCtrl+F", "搜索本点"},
+	{"CmdOrCtrl+F", "查找"},
+	{"CmdOrCtrl+G", "查找下一个"},
+	{"Shift+CmdOrCtrl+G", "查找上一个"},
 	{"Shift+CmdOrCtrl+P", "源码模式"},
 	{"Alt+CmdOrCtrl+T", "窗口置顶"},
 	{"Ctrl+1", "切换到标签 1"},
@@ -319,7 +321,7 @@ var fixedBindings = []struct{ acc, name string }{
 	{"Alt+CmdOrCtrl+Left", "上一个标签"},
 	{"Alt+CmdOrCtrl+Right", "下一个标签"},
 	{"CmdOrCtrl+S", "立即备份"},
-	{"Shift+CmdOrCtrl+C", "复制整个标签"},
+	{"Shift+CmdOrCtrl+C", "复制标签全文"},
 	{"CmdOrCtrl+Z", "撤销"},
 	{"Shift+CmdOrCtrl+Z", "重做"},
 	{"CmdOrCtrl+X", "剪切"},

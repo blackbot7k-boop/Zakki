@@ -10,7 +10,7 @@ import (
 
 // 菜单契约：应用菜单只提供一个设置入口；设置窗口内部提供常规、外观、标签与外观、
 // 备份与数据和快捷键导航；不再有打开配置文件入口；
-// Markdown 命令收纳为「编辑 → Markdown」子菜单并展示当前绑定。
+// Markdown 命令收纳为「段落/格式」两个顶层菜单并展示当前绑定。
 
 func menuTopLabels(menu *mygo.Menu) []string {
 	var out []string
@@ -63,37 +63,43 @@ func TestMenuStructureNoConfigEntries(t *testing.T) {
 				}
 			}
 			joined := strings.Join(labels, ",")
-			for _, want := range []string{"立即备份", "复制整个标签"} {
+			for _, want := range []string{"立即备份", "新建标签"} {
 				if !strings.Contains(joined, want) {
 					t.Fatalf("文件菜单缺少 %s：%s", want, joined)
+				}
+			}
+		}
+		if top.Label == "编辑" {
+			var labels []string
+			for _, child := range top.Submenu {
+				labels = append(labels, child.Label)
+			}
+			editJoined := strings.Join(labels, ",")
+			for _, want := range []string{"复制标签全文", "查找", "查找下一个", "查找上一个"} {
+				if !strings.Contains(editJoined, want) {
+					t.Fatalf("编辑菜单缺少 %s：%s", want, editJoined)
 				}
 			}
 		}
 	}
 }
 
-func TestMenuMarkdownSubmenuGroups(t *testing.T) {
+func TestMenuMarkdownCommandsInParagraphAndFormat(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
 	menu := a.createMenu()
 
-	var editTop *mygo.MenuItem
+	var para, format *mygo.MenuItem
 	for _, top := range menu.Items() {
-		if top.Label == "编辑" {
-			editTop = top
+		switch top.Label {
+		case "段落":
+			para = top
+		case "格式":
+			format = top
 		}
 	}
-	if editTop == nil {
-		t.Fatal("缺少编辑菜单")
-	}
-	var markdownSub *mygo.MenuItem
-	for _, child := range editTop.Submenu {
-		if child.Label == "Markdown" {
-			markdownSub = child
-		}
-	}
-	if markdownSub == nil || len(markdownSub.Submenu) == 0 {
-		t.Fatal("编辑菜单缺少 Markdown 子菜单")
+	if para == nil || format == nil {
+		t.Fatal("缺少段落/格式顶层菜单")
 	}
 	// 全部 Markdown 命令都在（按组展开），且显示当前绑定。
 	wantIDs := map[string]bool{}
@@ -103,24 +109,37 @@ func TestMenuMarkdownSubmenuGroups(t *testing.T) {
 		}
 	}
 	got := 0
-	for _, item := range markdownSub.Submenu {
-		if item.ID == "" {
-			continue // 分组分隔线
-		}
-		if !wantIDs[item.ID] {
-			t.Fatalf("意外的 Markdown 菜单项 %q", item.ID)
-		}
-		got++
-		defID := strings.TrimPrefix(item.ID, "cmd-")
-		if item.Accelerator != a.commandBinding(defID) {
-			t.Fatalf("%s 菜单绑定应与 Keymap 一致: %q != %q", defID, item.Accelerator, a.commandBinding(defID))
-		}
-		if item.Click == nil {
-			t.Fatalf("%s 缺少执行入口", defID)
+	for _, top := range []*mygo.MenuItem{para, format} {
+		for _, item := range top.Submenu {
+			if item.ID == "" {
+				continue // 分组分隔线
+			}
+			if !wantIDs[item.ID] {
+				t.Fatalf("意外的 Markdown 菜单项 %q", item.ID)
+			}
+			got++
+			defID := strings.TrimPrefix(item.ID, "cmd-")
+			if item.Accelerator != a.commandBinding(defID) {
+				t.Fatalf("%s 菜单绑定应与 Keymap 一致: %q != %q", defID, item.Accelerator, a.commandBinding(defID))
+			}
+			if item.Click == nil {
+				t.Fatalf("%s 缺少执行入口", defID)
+			}
 		}
 	}
 	if got != len(wantIDs) {
-		t.Fatalf("Markdown 子菜单数量不符: %d != %d", got, len(wantIDs))
+		t.Fatalf("段落/格式菜单命令数量不符: %d != %d", got, len(wantIDs))
+	}
+	// Typora 式分工：块级收段落、行内收格式。
+	inPara := map[string]bool{}
+	for _, item := range para.Submenu {
+		inPara[item.ID] = true
+	}
+	if inPara["cmd-"+cmdBold] {
+		t.Fatal("行内命令应收在格式菜单")
+	}
+	if !inPara["cmd-"+cmdH1] {
+		t.Fatal("标题命令应收在段落菜单")
 	}
 	// 链接命令拿到 ⌘K；清空不再有键盘绑定。
 	if link := findMenuItem(menu, "cmd-"+cmdLink); link.Accelerator != "CmdOrCtrl+K" {
@@ -197,7 +216,7 @@ func TestMenuViewMenuKeepsFixedEntries(t *testing.T) {
 	var tabsSub *mygo.MenuItem
 	for _, child := range viewTop.Submenu {
 		switch child.Label {
-		case "搜索本点", "源码模式", "窗口置顶", "上一个标签", "下一个标签":
+		case "源码模式", "窗口置顶", "上一个标签", "下一个标签":
 		default:
 			if child.Label == "切换标签" {
 				tabsSub = child
@@ -223,6 +242,56 @@ func TestMenuViewMenuKeepsFixedEntries(t *testing.T) {
 	for _, banned := range []string{"正文字体", "正文字号", "行距", "按 Esc 隐藏窗口", "Markdown 主题", "跟随系统"} {
 		if strings.Contains(texts, banned) {
 			t.Fatalf("显示菜单不应再有 %s（迁入设置窗口）", banned)
+		}
+	}
+}
+
+// 角色菜单项默认是英文标签，且「服务」不带子菜单时会成为死项；
+// 这里钉住中文化覆盖与服务子菜单，防止回退。
+func TestMenuRoleItemsLocalizedAndServicesAlive(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	menu := a.createMenu()
+
+	var appSub, winSub []*mygo.MenuItem
+	var fileSub []*mygo.MenuItem
+	for _, top := range menu.Items() {
+		switch {
+		case top.Role == mygo.RoleAppMenu:
+			appSub = top.Submenu
+		case top.Role == mygo.RoleWindowMenu:
+			if top.Label != "窗口" {
+				t.Fatalf("窗口菜单顶层标签应中文化: %q", top.Label)
+			}
+			winSub = top.Submenu
+		case top.Label == "文件":
+			fileSub = top.Submenu
+		}
+	}
+	wantApp := []string{"关于 " + appName, "服务", "隐藏 " + appName, "隐藏其他", "显示全部", "退出 " + appName}
+	var gotApp []string
+	for _, child := range appSub {
+		if child.Role == mygo.RoleServices && child.Submenu == nil {
+			t.Fatal("服务项必须带子菜单，否则 macOS 不填充 servicesMenu")
+		}
+		switch child.Role {
+		case mygo.RoleAbout, mygo.RoleServices, mygo.RoleHide, mygo.RoleHideOthers, mygo.RoleUnhide, mygo.RoleQuit:
+			gotApp = append(gotApp, child.Label)
+		}
+	}
+	if strings.Join(gotApp, ",") != strings.Join(wantApp, ",") {
+		t.Fatalf("应用菜单角色项应中文化: %v", gotApp)
+	}
+	var gotWin []string
+	for _, child := range winSub {
+		gotWin = append(gotWin, child.Label)
+	}
+	if joined := strings.Join(gotWin, ","); !strings.Contains(joined, "最小化") || !strings.Contains(joined, "缩放") || !strings.Contains(joined, "前置全部窗口") {
+		t.Fatalf("窗口菜单子项应中文化: %v", joined)
+	}
+	for _, child := range fileSub {
+		if child.Role == mygo.RoleClose && child.Label != "关闭窗口" {
+			t.Fatalf("关闭项应中文化: %q", child.Label)
 		}
 	}
 }
@@ -447,7 +516,7 @@ func TestKeymapUnbindAndReset(t *testing.T) {
 		t.Fatal("默认未绑定命令应可设置")
 	}
 	// 固定键冲突。
-	if err := a.setCommandBinding(cmdItalic, "CmdOrCtrl+F"); err == nil || !strings.Contains(err.Error(), "搜索本点") {
+	if err := a.setCommandBinding(cmdItalic, "CmdOrCtrl+F"); err == nil || !strings.Contains(err.Error(), "查找") {
 		t.Fatalf("固定键冲突应显示名称: %v", err)
 	}
 	// 全局命令不能占用文档命令的键。

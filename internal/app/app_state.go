@@ -47,6 +47,9 @@ type liveEditorState struct {
 	mdProjection       liveProjection
 	liveUndo, liveRedo []liveEdit
 	liveUndoPending    int
+	editorHandle       ui.Handle
+	documentMenu       bool
+	editMenuPending    string
 	mdActive           int
 	mdDraft            string
 	mdCaret            int
@@ -75,12 +78,14 @@ type liveEditorState struct {
 	clipSvcOK        bool
 	scrollActive     bool
 	liveClickHandled bool
-	mdCacheValid     bool
-	mdCacheDoc       string
-	mdCacheBlocks    []liveBlock
-	mdCacheLines     []string
-	lowerDoc         string
-	lowerCache       string
+	// liveScroll 实时预览滚动位置：手账纸面画在视口上，按它对齐内容滚动。
+	liveScroll    ui.ScrollState
+	mdCacheValid  bool
+	mdCacheDoc    string
+	mdCacheBlocks []liveBlock
+	mdCacheLines  []string
+	lowerDoc      string
+	lowerCache    string
 }
 
 // formatState 格式命令意图与链接浮层（live_format.go）。
@@ -110,6 +115,8 @@ type desktopRefs struct {
 	menu         *mygo.Menu
 	miPreview    *mygo.MenuItem
 	miFind       *mygo.MenuItem
+	miFindNext   *mygo.MenuItem
+	miFindPrev   *mygo.MenuItem
 	miTop        *mygo.MenuItem
 	hotkeyAcc    string
 	noticeHotkey string
@@ -142,6 +149,7 @@ type app struct {
 	desktopRefs
 	settingsWindowState
 	prefsRuntimeState
+	onboarding onboardingState
 
 	cfg   settings
 	ready bool

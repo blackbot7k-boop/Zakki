@@ -12,7 +12,8 @@ func (a *app) selectDocWide() {
 	// 表格单元格内：保持单元格原生全选语义。
 	if a.mdActive >= 0 && a.mdActive < len(a.mdBlocks()) && a.mdBlocks()[a.mdActive].kind == bkTable {
 		a.clearDocSelection()
-		a.selSyncStart, a.selSyncEnd = 0, utf8.RuneCountInString(a.mdVisible)
+		p := a.mdProjection
+		a.selSyncStart, a.selSyncEnd = p.sourceOffset(0), p.sourceOffset(len(p.units))
 		return
 	}
 	a.selDoc = true
@@ -24,7 +25,12 @@ func (a *app) selectDocWide() {
 
 // menuSelectAll 菜单「全选」入口：预览态先聚焦末块，再进文档级选区。
 func (a *app) menuSelectAll() {
-	if !a.cfg.Source && a.mdActive < 0 {
+	if a.cfg.Source {
+		a.clearDocSelection()
+		a.srcSelSyncStart, a.srcSelSyncEnd = 0, utf8.RuneCountInString(a.activeTab().Text)
+		return
+	}
+	if a.mdActive < 0 {
 		a.focusBlockEnd(len(a.mdBlocks()) - 1)
 	}
 	a.selectDocWide()
