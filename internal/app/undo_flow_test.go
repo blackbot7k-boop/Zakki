@@ -69,14 +69,10 @@ func TestUndoPlainTypingSteps(t *testing.T) {
 	if got := a.tabs[0].Text; got != "甲乙" {
 		t.Fatalf("输入 doc=%q", got)
 	}
-	tt.Key(ui.Cmd, ui.KeyZ)
-	tt.Frame()
-	if got := a.tabs[0].Text; got != "甲" {
-		t.Fatalf("一次撤销 doc=%q, want 甲", got)
-	}
+	// 连续输入合并为一个撤销事务（同光标连续插入），一次撤销回退整段。
 	tt.Key(ui.Cmd, ui.KeyZ)
 	tt.Frame()
 	if got := a.tabs[0].Text; got != "" {
-		t.Fatalf("两次撤销 doc=%q, want 空", got)
+		t.Fatalf("连续输入合并后一次撤销 doc=%q, want 空", got)
 	}
 }
