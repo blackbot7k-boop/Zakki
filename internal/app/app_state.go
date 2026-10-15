@@ -86,7 +86,6 @@ type liveEditorState struct {
 	mdCacheBlocks  []liveBlock
 	mdCacheLines   []string
 	mdCacheOffsets []int // 块首 rune 偏移（末位为全文宽度），见 rebuildRuneOffsets
-	mdCacheWidths  []int // 每块含换行的 rune 宽度
 	// 提交管线 hint：spliceDoc 刚拼好的新文档行切分，mdBlocks 直接复用免一次全文 Split。
 	spliceHintDoc   string
 	spliceHintLines []string
@@ -98,6 +97,7 @@ type liveEditorState struct {
 	rangesCacheDoc    string
 	rangesCacheQuery  string
 	rangesCacheDark   bool
+	rangesCacheAccent ui.Color
 	rangesCache       []ui.TextRange
 	matchesCacheDoc   string
 	matchesCacheQuery string

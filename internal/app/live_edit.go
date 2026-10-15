@@ -91,16 +91,12 @@ func (a *app) mdBlocks() []liveBlock {
 // 二分替代每次提交 O(全文) 的逐块扫描。
 func (a *app) rebuildRuneOffsets() {
 	offsets := a.mdCacheOffsets[:0]
-	widths := a.mdCacheWidths[:0]
 	off := 0
 	for _, b := range a.mdCacheBlocks {
 		offsets = append(offsets, off)
-		w := utf8.RuneCountInString(b.raw) + 1
-		widths = append(widths, w)
-		off += w
+		off += utf8.RuneCountInString(b.raw) + 1
 	}
 	a.mdCacheOffsets = append(offsets, off)
-	a.mdCacheWidths = widths
 }
 
 // blockRuneOffset 返回块 idx 在全文中的 rune 偏移（O(log n)，见 rebuildRuneOffsets）。
@@ -452,7 +448,7 @@ func (a *app) applyDocEditAt(doc string, docCaret int, syncSel bool) {
 	a.lowerDoc = ""
 	a.invalidateMdCache()
 	blocks := a.mdBlocks()
-	idx, blockOff := blockOfRuneOffset(blocks, docCaret)
+	idx, blockOff := a.blockOfRuneOffset(docCaret)
 	a.mdActive = idx
 	a.mdDraft = blocks[idx].raw
 	caret := docCaret - blockOff
