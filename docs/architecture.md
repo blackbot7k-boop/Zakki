@@ -4,45 +4,48 @@
 （关键处标注了文件与函数）。项目是 [MyGo](https://github.com/egoist/mygo) 原生 Go UI
 桌面应用，无 HTML/JS/webview，纯 Go 单二进制。
 
+项目分两层：`internal/app` 是 UI 与应用装配（唯一允许依赖 MyGo 的 internal 包）；
+`internal/` 其余包是纯逻辑与持久化，禁止依赖 MyGo 与 `internal/app`。根目录只有入口 `main.go`。
+
 ## 模块职责
 
 | 文件 | 职责 |
 |---|---|
-| `main.go` | 应用生命周期：入口 `main()`、单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「编辑 → Markdown」子菜单收纳格式命令并展示当前绑定；「显示」保留搜索/源码/置顶与「切换标签」子菜单；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `shutdown`）。窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）。 |
-| `prefs_runtime.go` / `prefs_bridge.go` | 偏好运行时集成：`loadPreferences`/`updatePreferences`；写盘委托 `prefs.Store`。类型别名在 `prefs_bridge.go`。 |
-| `config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
-| `notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`。 |
+| `main.go` / `internal/app/lifecycle.go` | 入口 `main()` 只调 `app.Run()`；生命周期：单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「编辑 → Markdown」子菜单收纳格式命令并展示当前绑定；「显示」保留搜索/源码/置顶与「切换标签」子菜单；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `shutdown`）。装配在 `internal/app`；窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）。 |
+| `internal/app/prefs_runtime.go` / `internal/app/prefs_bridge.go` | 偏好运行时集成：`loadPreferences`/`updatePreferences`；写盘委托 `prefs.Store`。类型别名在 `prefs_bridge.go`。 |
+| `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
+| `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/notes` | `tot-md.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）。 |
 | `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。 |
-| `live_markdown.go` / `view_highlight.go` | 根目录桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`）。 |
-| `menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
-| `live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
-| `live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
-| `settings_window.go` / `settings_ui.go` / `settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注册新键成功后再注销旧键）。 |
-| `view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖。 |
-| `window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`。 |
-| `view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`。 |
-| `app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
-| `state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
-| `tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
-| `tab_strip.go` | 标签栏液态动画与重命名几何。 |
-| `settings_tabs.go` | 设置窗口「标签与外观」页。 |
-| `view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏。 |
-| `view_live.go` | 实时预览块列表：`livePane`、焦点块 `activeText` 与非焦点块渲染。 |
-| `live_blocks.go` | 按行切块：`liveBlocks` / `parseLines`。焦点块保留排版并编辑可见文字；Markdown 标记留在源文本中。 |
-| `live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存。 |
-| `live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块。 |
-| `live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
-| `live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
-| `table_edit.go` | 表格编辑：`createTableOnEnter`、`navigateTable`、`tableEnter`。 |
-| `table_actions.go` | 表格工具状态 `tableTools` 与行列增删。 |
-| `table_toolbar.go` | 表格悬浮工具栏。 |
-| `live_syntax.go` | 块级类型与 `parseBlocks`（测试/预览适配）；行内解析与格式变换见 `internal/markdown`。 |
-| `view_icons.go` | 内嵌 Lucide 图标（ISC 许可），24×24 viewBox、2px 圆头描边，`ui.MustParseSVG` 生成。 |
-| `tray_icon.go` | 托盘图标：程序化生成透明底白色单圆环 PNG（`trayPNG`），超采样抗锯齿。 |
+| `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`）。 |
+| `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
+| `internal/app/live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
+| `internal/app/live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
+| `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注册新键成功后再注销旧键）。 |
+| `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖。 |
+| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`。 |
+| `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`。 |
+| `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
+| `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
+| `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
+| `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何。 |
+| `internal/app/settings_tabs.go` | 设置窗口「标签与外观」页。 |
+| `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏。 |
+| `internal/app/view_live.go` | 实时预览块列表：`livePane`、焦点块 `activeText` 与非焦点块渲染。 |
+| `internal/app/live_blocks.go` | 按行切块：`liveBlocks` / `parseLines`。焦点块保留排版并编辑可见文字；Markdown 标记留在源文本中。 |
+| `internal/app/live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存。 |
+| `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块。 |
+| `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
+| `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
+| `internal/app/table_edit.go` | 表格编辑：`createTableOnEnter`、`navigateTable`、`tableEnter`。 |
+| `internal/app/table_actions.go` | 表格工具状态 `tableTools` 与行列增删。 |
+| `internal/app/table_toolbar.go` | 表格悬浮工具栏。 |
+| `internal/app/live_syntax.go` | 块级类型与 `parseBlocks`（测试/预览适配）；行内解析与格式变换见 `internal/markdown`。 |
+| `internal/app/view_icons.go` | 内嵌 Lucide 图标（ISC 许可），24×24 viewBox、2px 圆头描边，`ui.MustParseSVG` 生成。 |
+| `internal/app/tray_icon.go` | 托盘图标：程序化生成透明底白色单圆环 PNG（`trayPNG`），超采样抗锯齿。 |
 
 ## 线程模型（MyGo 硬约束，违反会在运行期出错或被 `go tool mygo vet` 拦下）
 
@@ -160,7 +163,7 @@
   **绝不写真实用户目录**。保存、备份与写保护在 `internal/notes`；`persistence_test.go` 覆盖载入映射与清空标签。
 - **`ui.NewTester(a.view, w, h)`**：无窗口跑视图（构建/断言文本、模拟按键），
   `main_test.go`/`tab_style_test.go`/`live_boundary_test.go`/`live_focus_test.go` 用它。
-- **偏好测试**：根目录 `prefs_test.go` 覆盖迁移优先级（TOML/JSON/笔记旧设置）、
+- **偏好测试**：`internal/prefs` 的测试覆盖迁移优先级（TOML/JSON/笔记旧设置）、
   损坏与超前版本恢复、写失败报告、修订号防回写；默认值与严格解码在 `internal/prefs`；
   旧配置解码在 `internal/legacyconfig`；笔记版本迁移表在 `internal/notes`；
   `menu_commands_test.go` / `internal/markdown` 的格式与行内边界测试 / `view_theme_test.go`

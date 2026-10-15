@@ -20,16 +20,17 @@
 | [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) | mutex 与它保护的字段放在同一结构体并紧挨声明；不嵌入 mutex；不用可变全局状态；结构体零值可用或提供构造函数。 |
 | MyGo 官方示例与仓库约定（`go list -m -f '{{.Dir}}' github.com/egoist/mygo`） | `examples/todo/store.go` 把存储与视图分开；`examples/mayoi`、`examples/farm` 按领域（world/art/sound）分文件，根目录 `package main`。MyGo 自身用 `internal/` 加 `internal/fake` 做单测。`go tool mygo vet` 内部执行 `go vet ./...` 并分析 `./...` 的全部包，因此子包同样受 UI 生命周期检查。 |
 | [micro 编辑器](https://github.com/zyedidia/micro) | `internal/buffer`（文本模型）与 `internal/display`（渲染）分离，文本模型不依赖渲染层。对应本项目：Markdown 解析与格式变换不依赖 MyGo UI，实时预览编辑留在 UI 层。 |
-| [lazygit](https://github.com/jesseduffield/lazygit) | `pkg/gui` 单向依赖 `pkg/commands`、`pkg/config`，领域层从不反向引用 GUI。对应本项目：根目录 UI 依赖 `internal/*`，`internal/*` 不知道 UI 的存在。 |
+| [lazygit](https://github.com/jesseduffield/lazygit) | `pkg/gui` 单向依赖 `pkg/commands`、`pkg/config`，领域层从不反向引用 GUI。对应本项目：`internal/app` 依赖纯逻辑包，纯逻辑包不知道 UI 的存在。 |
 | [.agents/skills/mygo-maintenance/SKILL.md](../.agents/skills/mygo-maintenance/SKILL.md) | MyGo 的生命周期、身份、线程与测试规则（第 4 节引用）。 |
 
 ## 2. 目标布局
 
-采用**折中布局**：根目录 `package main` 只放 MyGo UI 与应用装配；纯逻辑和持久化下沉到 `internal/`。
+采用**薄入口 + 领域包**布局：根目录只留入口 `main.go`（调 `internal/app.Run()`）；
+MyGo UI 与应用装配整体作为 `internal/app` 一个包；纯逻辑和持久化下沉到 `internal/` 其余包。
 
-理由：UI 代码大量依赖 `*app` 与 `*ui.Context`，强行拆包只会制造大量导出和循环依赖；
-而解析、格式变换、持久化是纯逻辑，独立成包后边界可被编译器和 `arch-check` 机械保证，
-也能脱离 MyGo 做快速单测。
+理由：UI 代码大量依赖 `*app` 与 `*ui.Context`，按文件逐个拆包只会制造大量导出和循环依赖；
+但整层平移成一个包不需要导出任何内部符号，边界依旧可被编译器和 `arch-check` 机械保证；
+解析、格式变换、持久化是纯逻辑，独立成包后可脱离 MyGo 做快速单测。
 
 ```text
 tot-md-mygo/
@@ -37,15 +38,10 @@ tot-md-mygo/
 ├── Makefile                  # 本地/CI 统一检查入口
 ├── go.mod / go.sum
 ├── mygo.json                 # MyGo 打包配置
-├── main.go                   # 入口：生命周期、单实例、日志、窗口创建
-├── menu_*.go / tray*.go      # 桌面集成：菜单、托盘、全局热键
-├── view*.go                  # 主窗口视图构建
-├── live_*.go                 # Typora 式实时预览编辑（UI 侧）
-├── tab_*.go                  # 动态标签与标签栏
-├── table_*.go                # 表格的 UI 侧动作与工具条
-├── settings_*.go             # 设置窗口
-├── *_test.go                 # 根目录只放 UI/集成测试
+├── main.go                   # 唯一入口：调 internal/app.Run()
 ├── internal/
+│   ├── app/                  # MyGo UI 与应用装配：生命周期、菜单、托盘、视图、实时预览、
+│   │                         # 标签、表格、设置、全局热键；文件按领域前缀命名（live_*/view_*…）
 │   ├── markdown/             # 解析、行内 span、块切分、格式变换、表格纯函数
 │   ├── notes/                # 笔记数据模型、版本迁移、保存、备份、损坏隔离、写回
 │   ├── prefs/                # 偏好模型、校验、解码、迁移、保存
@@ -59,6 +55,8 @@ tot-md-mygo/
 ```
 
 ### 2.1 现有文件 → 目标位置
+
+> 本表是当初单包迁移时的历史映射。表中“根目录”自 UI 层整体下沉后（`refactor: UI 层平移 internal/app`）均指 `internal/app`。
 
 | 现有文件 | 目标位置 | 说明 |
 |---|---|---|
@@ -77,15 +75,17 @@ tot-md-mygo/
 
 ```mermaid
 flowchart TD
-    rootMain["根目录 package main: 装配 + MyGo UI"]
+    entry["main.go: 入口"]
+    appPkg["internal/app: 装配 + MyGo UI"]
     mdPkg["internal/markdown"]
     notesPkg["internal/notes"]
     prefsPkg["internal/prefs"]
     legacyPkg["internal/legacyconfig"]
     atomicPkg["internal/atomicfile"]
-    rootMain --> mdPkg
-    rootMain --> notesPkg
-    rootMain --> prefsPkg
+    entry --> appPkg
+    appPkg --> mdPkg
+    appPkg --> notesPkg
+    appPkg --> prefsPkg
     prefsPkg --> legacyPkg
     prefsPkg --> atomicPkg
     notesPkg --> atomicPkg
@@ -93,13 +93,15 @@ flowchart TD
 
 **必须**：
 
-1. `internal/` 下所有包**禁止** import `github.com/egoist/mygo` 及其任何子包（含 `ui`）。
-   需要颜色、文本区间等 UI 类型时，在 `internal` 包里定义领域类型（如 `markdown.SpanKind`），
-   由根目录 view 层转换为 `ui.TextRange`。
-2. `internal` 包之间只允许上图中的边：
+1. 纯逻辑包（`markdown`/`notes`/`prefs`/`legacyconfig`/`atomicfile`）**禁止** import `github.com/egoist/mygo`
+   及其任何子包（含 `ui`）。需要颜色、文本区间等 UI 类型时，在 `internal` 包里定义领域类型
+   （如 `markdown.SpanKind`），由 `internal/app` 转换为 `ui.TextRange`。`internal/app` 是
+   唯一允许依赖 MyGo 的 internal 包。
+2. 纯逻辑包禁止反向依赖 `internal/app`；`internal` 包之间只允许下图中的边：
 
    | 包 | 允许依赖的 internal 包 |
    |---|---|
+   | `app` | `markdown`、`notes`、`prefs`、`legacyconfig`、`atomicfile`（唯一可依赖 MyGo） |
    | `markdown` | 无 |
    | `atomicfile` | 无 |
    | `legacyconfig` | 无 |
@@ -115,7 +117,7 @@ flowchart TD
 由阶段 1 落地，加入 `make check` 与 CI。参考实现（Makefile 必须用 tab 缩进）：
 
 ```make
-# 包 → 允许依赖的 internal 包（空格分隔，空表示无）
+# 纯逻辑包 → 允许依赖的 internal 包（空格分隔，空表示无）
 ARCH_RULES := \
 	markdown: \
 	atomicfile: \
@@ -124,7 +126,7 @@ ARCH_RULES := \
 	prefs:legacyconfig,atomicfile
 
 arch-check:
-	@echo "==> arch-check：internal 包不得依赖 MyGo，且只允许约定的 internal 依赖"
+	@echo "==> arch-check：纯逻辑包不得依赖 MyGo 与 internal/app，且只允许约定的 internal 依赖"
 	@fail=0; for rule in $(ARCH_RULES); do \
 		pkg=$${rule%%:*}; allow=$${rule#*:}; dir=./internal/$$pkg; \
 		[ -d "$$dir" ] || continue; \
@@ -133,6 +135,8 @@ arch-check:
 		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
+	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+		case " markdown atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 ```
 
@@ -142,7 +146,7 @@ arch-check:
 
 ### 4.1 `app` 是装配根
 
-- `app` **应**只由领域子结构体和 Store 组合而成，不再平铺零散字段。目标形态：
+- `app`（`internal/app` 包内）**应**只由领域子结构体和 Store 组合而成，不再平铺零散字段。目标形态：
 
   ```go
   type app struct {
@@ -189,10 +193,10 @@ arch-check:
 ### 5.1 文件与命名
 
 - 非测试文件软上限 **600 行**，超过 **800 行必须拆分**。一个文件只负责一个领域。
-- 根目录文件按领域前缀命名：`live_*`、`tab_*`、`table_*`、`settings_*`、`menu_*`、`view_*`。
+- `internal/app` 文件按领域前缀命名：`live_*`、`tab_*`、`table_*`、`settings_*`、`menu_*`、`view_*`。
   新文件立即遵守；既有文件在阶段 5 统一重命名，之前不单独改名。
 - 测试文件与被测文件同前缀（`live_edit.go` ↔ `live_edit_test.go`）。
-- `internal` 包对外只导出根目录真正需要的标识符；导出名不重复包名
+- `internal` 包对外只导出调用方真正需要的标识符；导出名不重复包名
   （`markdown.ParseBlocks`、`notes.Store`、`prefs.Default()`）。
 - 禁止 `util`、`common`、`helpers`、`misc` 之类的包名和文件名。
 
@@ -224,7 +228,7 @@ arch-check:
 |---|---|---|
 | 纯逻辑单测 | `internal/<pkg>/*_test.go` | 表驱动；不依赖 MyGo；覆盖 CJK/emoji/光标映射等边界。 |
 | 持久化回归 | `internal/notes`、`internal/prefs` | 一律 `t.TempDir()` + 注入时钟；**绝不**写真实用户目录；覆盖损坏、超前版本、写失败、修订号防回写。 |
-| UI 与集成 | 根目录 `*_test.go` | `ui.NewTester` 构建视图、模拟按键；覆盖元素消失再出现、焦点、输入法、快捷键；用 `newTestApp(t)`。 |
+| UI 与集成 | `internal/app/*_test.go` | `ui.NewTester` 构建视图、模拟按键；覆盖元素消失再出现、焦点、输入法、快捷键；用 `newTestApp(t)`。 |
 | 性能 | `bench_test.go` 及各包 `Benchmark*` | 性能敏感路径（块切分、投影、渲染缓存）保留基准，重构前后对比。 |
 
 - 修 bug **必须**先补能复现的失败测试。

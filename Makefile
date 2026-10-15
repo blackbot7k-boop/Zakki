@@ -3,7 +3,8 @@
 # 只检查仓库源码的 *.go，排除 build/ 与 .mygo/ 等生成目录。
 GO_FILES := $(shell find . -name '*.go' -not -path './build/*' -not -path './.mygo/*')
 
-# 包 → 允许依赖的 internal 包（空格分隔，空表示无）
+# 纯逻辑包 → 允许依赖的 internal 包（空格分隔，空表示无）。
+# 这些包禁止依赖 MyGo，也禁止反向依赖 internal/app（UI 层）。
 ARCH_RULES := \
 	markdown: \
 	atomicfile: \
@@ -34,7 +35,7 @@ race:
 	go test -race ./... -count=1
 
 arch-check:
-	@echo "==> arch-check：internal 包不得依赖 MyGo，且只允许约定的 internal 依赖"
+	@echo "==> arch-check：纯逻辑包不得依赖 MyGo 与 internal/app，且只允许约定的 internal 依赖"
 	@fail=0; for rule in $(ARCH_RULES); do \
 		pkg=$${rule%%:*}; allow=$${rule#*:}; dir=./internal/$$pkg; \
 		[ -d "$$dir" ] || continue; \
@@ -43,6 +44,8 @@ arch-check:
 		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
+	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+		case " markdown atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 
 check: fmt-check vet test race arch-check
