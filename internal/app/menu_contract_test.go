@@ -273,8 +273,12 @@ func TestSettingsViewRendersPages(t *testing.T) {
 		tt.Frame()
 		switch page {
 		case pageGeneral:
-			if !tt.HasText("记忆主窗口位置与尺寸") || !tt.HasText("按 Esc 隐藏窗口") {
+			if !tt.HasText("记忆主窗口位置与尺寸") {
 				t.Fatalf("常规页缺少设置项: %v", tt.Texts())
+			}
+			// 置顶走顶栏按钮，Esc 隐藏保持默认；两者不再提供开关。
+			if tt.HasText("窗口置顶") || tt.HasText("按 Esc 隐藏窗口") {
+				t.Fatalf("常规页不应再有置顶/Esc 开关: %v", tt.Texts())
 			}
 		case pageAppearance:
 			if !tt.HasText("颜色主题") || !tt.HasText("Markdown 排版主题") {
@@ -331,17 +335,16 @@ func TestSettingsGeneralSwitchesApply(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 760, 600)
 	tt.Frame()
-	if err := tt.Click("窗口置顶开关"); err != nil {
+	if err := tt.Click("记忆主窗口位置开关"); err != nil {
 		t.Fatal(err)
 	}
-	if !a.prefs.Window.AlwaysOnTop || !a.cfg.AlwaysOnTop {
-		t.Fatalf("置顶开关应即时生效: %+v", a.prefs.Window)
+	if a.prefs.Window.RememberBounds {
+		t.Fatalf("记忆位置开关应即时生效: %+v", a.prefs.Window)
 	}
-	if err := tt.Click("按 Esc 隐藏窗口开关"); err != nil {
-		t.Fatal(err)
-	}
-	if a.prefs.Window.HideOnEscape {
-		t.Fatalf("Esc 开关应即时生效: %+v", a.prefs.Window)
+	a.shutdownPreferences()
+	prefs, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
+	if err != nil || prefs.Window.RememberBounds {
+		t.Fatalf("变更应自动保存: %+v %v", prefs, err)
 	}
 }
 

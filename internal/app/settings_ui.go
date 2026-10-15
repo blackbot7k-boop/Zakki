@@ -17,18 +17,6 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(14).Children(func() {
 		a.migrationStatus(c)
 		settingsCard(c, "窗口", func() {
-			settingsRow(c, "窗口置顶", "主窗口始终保持在其他窗口之上", func() {
-				if ui.Switch(c, &a.settingsUI.draft.Window.AlwaysOnTop).Label("窗口置顶开关").Changed() {
-					a.pushWindow()
-				}
-			}).PaddingX(14)
-			cardDivider(c)
-			settingsRow(c, "按 Esc 隐藏窗口", "关闭查找条与浮层后，Esc 隐藏主窗口", func() {
-				if ui.Switch(c, &a.settingsUI.draft.Window.HideOnEscape).Label("按 Esc 隐藏窗口开关").Changed() {
-					a.pushWindow()
-				}
-			}).PaddingX(14)
-			cardDivider(c)
 			settingsRow(c, "记忆主窗口位置与尺寸", "从下次创建主窗口起生效；关闭窗口后重新打开即应用", func() {
 				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label("记忆主窗口位置开关").Changed() {
 					a.pushWindow()

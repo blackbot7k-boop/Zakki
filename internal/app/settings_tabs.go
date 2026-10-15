@@ -108,16 +108,11 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 				a.switchTab(i)
 			}
 
-			// 名称输入：即时保存（未命名 = 只显示圆点）。
-			nameInput := ui.TextInput(c.Key(fmt.Sprintf("tabname-%d", tb.ID)), &a.tabs[i].Name).
-				Placeholder("未命名").Grow(1).
-				Label("标签名称 " + a.menuTitle(i))
-			if nameInput.Changed() {
-				a.renameTab(i, a.tabs[i].Name)
-			}
+			// 重命名只在标签栏进行（⌘R / 双击圆点），设置页不再提供重命名。
+			ui.Text(c, a.menuTitle(i)).Grow(1)
 
 			if i < 9 {
-				ui.Text(c, fmt.Sprintf("⌘%d", i+1)).FontSize(11).TextColor(tMuted(c))
+				ui.Text(c, fmt.Sprintf("⌃%d", i+1)).FontSize(11).TextColor(tMuted(c))
 			}
 			if ui.Button(c.Key(fmt.Sprintf("tabup-%d", tb.ID)), "↑").
 				Label("上移 " + a.menuTitle(i)).Disabled(i == 0).Clicked() {
