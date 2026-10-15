@@ -1,8 +1,8 @@
 package app
 
 import (
-	"fmt"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -33,7 +33,20 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	}
 
 	style := a.resolveStyle(-1, dark, true)
-	pane := ui.Scroll(c).Grow(1).Fill().Background(contentBackground(style.background, dark, c.Vibrancy())).Children(func() {
+	pane := ui.Scroll(c).Grow(1).Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
+		TrackScroll(&a.liveScroll)
+	if style.sketch {
+		// 纸面画在滚动视口上而不是内容列上：内容比视口短时，下方空白同样是纸。
+		dots := withAlpha(style.textMuted, 0.22)
+		margin := withAlpha(style.accent, 0.38)
+		marginX := style.padX * 0.45
+		pane.Draw(func(p *ui.Painter, r ui.Rect) {
+			// 绘制时读最新滚动量：滚动可能只重绘不重建，点阵仍与文字同步。
+			dotGrid(p, r, a.liveScroll.Y, dots)
+			sketchLine(p, r.X+marginX, r.Y, r.X+marginX, r.Y+r.H, 1.2, margin, 3)
+		})
+	}
+	pane.Children(func() {
 		ui.Column(c).Fill().Padding(style.padX, style.padY).Gap(style.blockGap).
 			Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight).Children(func() {
 			// 预览态（mdActive=-1）全块渲染；点击内容区后编辑可见文字，
@@ -76,25 +89,21 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 		case bkTable:
 			a.editTable(c, t, blk)
 		case bkTask:
-			a.taskCheckbox(c, blk)
+			a.taskCheckbox(c, blk, md)
 			a.activeText(c, t, blk, projectBlock(blk))
 		case bkList:
-			label := "•"
-			if blk.n > 0 {
-				label = fmt.Sprintf("%d.", blk.n)
-			}
-			ui.Text(c, label).TextColor(md.accent)
+			listMarker(c, md, blk)
 			a.activeText(c, t, blk, projectBlock(blk))
 		case bkQuote:
-			ui.Box(c).Width(3).FillHeight().Radius(2).Background(md.quoteBorder)
+			quoteBar(c, md, uint32(blk.start))
 			a.activeText(c, t, blk, projectBlock(blk))
 		case bkCode:
-			ui.Column(c).FillWidth().Padding(md.codePadX, md.codePadY).Radius(8).Background(t.Surface).Children(func() {
+			codeCard(c, md, t, uint32(blk.start)).FillWidth().Children(func() {
 				a.activeText(c, t, blk, projectBlock(blk))
 			})
 		case bkRule:
 			ui.Column(c).FillWidth().Children(func() {
-				ui.Box(c).Height(1).FillWidth().Background(md.rule)
+				ruleLine(c, md, uint32(blk.start))
 				a.activeText(c, t, blk, projectBlock(blk))
 			})
 		default:
@@ -116,7 +125,8 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	}
 
 	a.captureClipboardService(c)
-	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).Label("内容")
+	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).
+		Bind(&a.editorHandle).ContextMenu(a.editorContextMenu).Label("内容")
 	if a.selDoc {
 		// 文档级全选：焦点块的输入框铺选区底色，避免自绘背景盖住色带。
 		ta = ta.Background(t.Selection)
@@ -133,7 +143,10 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	if ta.Clicked() {
 		a.liveClickHandled = true
 	}
-	ta.FocusBind(&a.liveFocus, 1)
+	if a.liveFocus > 0 {
+		a.liveFocus = 0
+		a.editorHandle.Focus(c)
+	}
 	switch blk.kind {
 	case bkHeading:
 		styleHeading(ta, blk.level, md)
@@ -180,6 +193,14 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 			a.docSelectionReplace(a.mdVisible, p, cs)
 			c.Invalidate()
 			return
+		}
+		// 退化的未闭合围栏（整块只有一行围栏，如刚键入的 ```）：可编辑区域
+		// 是围栏行末尾的零宽区间，直接插入会改写围栏行（变成语言标识）。
+		// 换用带合成内容行的投影，让输入落到围栏之后。
+		if p.start == p.end && p.end == utf8.RuneCountInString(p.raw) && p.end > 0 {
+			if i := strings.LastIndexByte(p.raw, '\n'); isFenceLine(p.raw[i+1:]) {
+				p = projectRegion(p.raw+"\n", p.end+1, p.end+1, false, false)
+			}
 		}
 		raw, caret := p.replaceSelection(a.mdVisible, cs, oldStart, oldEnd)
 		kind := editInput
@@ -288,22 +309,25 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 // renderLiveBlock 输出一个非焦点块的排版内容（列表现有 Row 内）。
 func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlock) {
 	md := a.resolveStyle(-1, dark, true)
-	accent := md.accent
 	switch blk.kind {
 	case bkTable:
 		a.tableGrid(c, t, md, blk, false)
 	case bkHeading:
-		h := projectBlock(blk).content(c, t, accent).TextColor(t.Text)
+		if md.sketch {
+			a.sketchHeading(c, t, md, blk)
+			return
+		}
+		h := projectBlock(blk).content(c, t, md).TextColor(t.Text)
 		styleHeading(h, blk.level, md)
 	case bkRule:
-		ui.Box(c).Height(1).FillWidth().Background(md.rule)
+		ruleLine(c, md, uint32(blk.start))
 	case bkQuote:
-		ui.Box(c).Width(3).FillHeight().Radius(2).Background(md.quoteBorder)
+		quoteBar(c, md, uint32(blk.start))
 		ui.RichText(c).Grow(1).TextColor(t.TextMuted).Children(func() {
-			renderInline(c, t, accent, blk.text, blk.spans)
+			renderInline(c, t, md, blk.text, blk.spans)
 		})
 	case bkCode:
-		ui.Column(c).Fill().Padding(md.codePadX, md.codePadY).Radius(8).Background(t.Surface).Children(func() {
+		codeCard(c, md, t, uint32(blk.start)).Fill().Children(func() {
 			lines := blk.lines
 			if len(lines) == 0 {
 				lines = []string{" "}
@@ -316,34 +340,31 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 			}
 		})
 	case bkList:
-		label := "•"
-		if blk.n > 0 {
-			label = fmt.Sprintf("%d.", blk.n)
-		}
-		ui.Text(c, label).TextColor(accent)
-		inlineContent(c, t, accent, blk.text, blk.spans).Grow(1)
+		listMarker(c, md, blk)
+		inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
 	case bkTask:
-		a.taskCheckbox(c, blk)
-		projectBlock(blk).content(c, t, accent).Grow(1)
+		a.taskCheckbox(c, blk, md)
+		projectBlock(blk).content(c, t, md).Grow(1)
 	default:
-		projectBlock(blk).content(c, t, accent).Grow(1)
+		projectBlock(blk).content(c, t, md).Grow(1)
 	}
 }
 
 // inlineContent 输出段落文字：无行内标记时用普通 Text（可被命中测试/测试
 // 工具找到），有标记时用 RichText 混排。spans 用切分时预计算的缓存。
-func inlineContent(c *ui.Context, t *ui.Theme, accent ui.Color, text string, spans []mSpan) ui.Element {
+func inlineContent(c *ui.Context, t *ui.Theme, md resolvedStyle, text string, spans []mSpan) ui.Element {
 	if len(spans) == 0 {
 		return ui.Text(c, text)
 	}
 	rt := ui.RichText(c)
-	rt.Children(func() { renderInline(c, t, accent, text, spans) })
+	rt.Children(func() { renderInline(c, t, md, text, spans) })
 	return rt
 }
 
 // renderInline 在当前 RichText 段落内输出带样式的行内片段。
 // spans 是切分时预计算的行内标记（勿传 nil 渲染带标记的文本）。
-func renderInline(c *ui.Context, t *ui.Theme, accent ui.Color, text string, spans []mSpan) {
+func renderInline(c *ui.Context, t *ui.Theme, md resolvedStyle, text string, spans []mSpan) {
+	accent := md.accent
 	if len(spans) == 0 {
 		ui.Text(c, text)
 		return
@@ -358,12 +379,23 @@ func renderInline(c *ui.Context, t *ui.Theme, accent ui.Color, text string, span
 		switch sp.kind {
 		case spanBold:
 			styled.Bold()
+			if md.sketch {
+				styled.TextBackground(sketchMark(md))
+			}
 		case spanItalic:
 			styled.Italic()
 		case spanCode:
 			styled.Font("monospace").TextColor(t.TextMuted)
+			if md.sketch {
+				styled.TextBackground(md.codeBackground)
+			}
 		case spanLink:
-			styled.TextColor(accent).Underline()
+			styled.TextColor(accent)
+			if md.sketch {
+				styled.WavyUnderline().DecorationColor(accent)
+			} else {
+				styled.Underline()
+			}
 		}
 		prev = sp.end
 	}

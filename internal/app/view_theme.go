@@ -117,6 +117,25 @@ var colorThemes = []colorThemeDef{
 			codeBackground: ui.Hex("#2b3140"), quoteBorder: ui.Hex("#5d6675"), rule: ui.Hex("#3e4553"),
 		},
 	},
+	{
+		// 手绘：浅色是米黄纸张 + 墨水字 + 朱红批注，选区像荧光笔；深色是夜间手账。
+		id:   "sketch",
+		name: "手绘",
+		light: colorPalette{
+			background: ui.Hex("#fbf6ea"), header: ui.Hex("#f3ead6"), status: ui.Hex("#f3ead6"),
+			surface: ui.Hex("#fffcf3"), border: ui.Hex("#d8c9a8"),
+			text: ui.Hex("#2d2a26"), textMuted: ui.Hex("#6b6252"),
+			accent: ui.Hex("#b23a1e"), selection: ui.RGBA(255, 212, 64, 0.45),
+			codeBackground: ui.Hex("#f2e9d4"), quoteBorder: ui.Hex("#e2b33a"), rule: ui.Hex("#cbb991"),
+		},
+		dark: colorPalette{
+			background: ui.Hex("#262420"), header: ui.Hex("#2f2c26"), status: ui.Hex("#2f2c26"),
+			surface: ui.Hex("#322e27"), border: ui.Hex("#4b4538"),
+			text: ui.Hex("#efe7d6"), textMuted: ui.Hex("#b7ac95"),
+			accent: ui.Hex("#f2a66e"), selection: ui.RGBA(240, 200, 90, 0.30),
+			codeBackground: ui.Hex("#322e27"), quoteBorder: ui.Hex("#c9a23a"), rule: ui.Hex("#5a523f"),
+		},
+	},
 }
 
 // colorThemeByID 按 ID 找颜色主题；未知 ID 回退 Tot。
@@ -221,6 +240,10 @@ type markdownLayout struct {
 	codePadX, codePadY   float32 // 代码块内边距
 	quoteIndent          float32 // 引用左缩进
 	tablePadX, tablePadY float32 // 表格单元格内边距
+	// 装饰尺寸：0 表示默认（引用竖条 3、代码圆角 8、代码无描边）。
+	quoteBar   float32 // 引用竖条宽度
+	codeRadius float32 // 代码块圆角
+	codeBorder float32 // 代码块描边宽度
 }
 
 var markdownLayouts = []markdownLayout{
@@ -259,6 +282,15 @@ var markdownLayouts = []markdownLayout{
 		headingScale: [6]float32{1.6, 1.38, 1.2, 1.05, 0.93, 0.86},
 		codePadX:     9, codePadY: 7, quoteIndent: 6, tablePadX: 6, tablePadY: 4,
 	},
+	{
+		// 手账：疏朗行距、荧光笔式粗引用条、圆角描边代码卡，配合手绘颜色主题。
+		id: "sketch", name: "手账",
+		bodySize: 16, lineHeight: 1.75, blockGap: 16,
+		padX: 28, padY: 26,
+		headingScale: [6]float32{1.6, 1.38, 1.2, 1.06, 0.96, 0.9},
+		codePadX:     14, codePadY: 12, quoteIndent: 10, tablePadX: 9, tablePadY: 7,
+		quoteBar: 5, codeRadius: 12, codeBorder: 1.5,
+	},
 }
 
 func markdownLayoutByID(id string) markdownLayout {
@@ -284,20 +316,71 @@ func markdownLayoutNames() []string {
 const (
 	sonnetBodyFont = "JetBrains Mono, LXGW WenKai, 霞鹜文楷, LXGW WenKai Screen, Noto Serif SC, Georgia, serif"
 	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, monospace"
+	// 手写搭配：正文用霞鹜文楷（中西文同一套字形，长时间阅读不累）；
+	// 标题用手札体（系统可下载字体）点出手写感，未安装时回退文楷。
+	// 不用 Noteworthy 等西文手写体：与中文字宽、笔画粗细不匹配，混排发乱。
+	handBodyFont    = "LXGW WenKai, 霞鹜文楷, Klee, Kaiti SC, serif"
+	handHeadingFont = "Hannotate SC, LXGW WenKai, 霞鹜文楷, Kaiti SC, serif"
+	// hannotateFont 全文手札体：中西文都用手札体，未安装时回退文楷。
+	hannotateFont = handHeadingFont
 )
 
-// bodyFontStack 是设置里可选的正文字体栈。
-// bodyFontStack 把用户正文字体键解析为字体栈。字体与排版主题解耦：
+// cjkFontStack 把中文字体键解析为字体栈。字体与排版主题解耦：
 // ""（默认）、kai、sonnet（旧值别名）都是霞鹜文楷栈，与主题选择无关。
-func bodyFontStack(key string) string {
+// 栈里保留自带的西文字形，供 latinFont 为空（跟随中文字体）时使用。
+func cjkFontStack(key string) string {
 	switch key {
 	case "pingfang":
 		return "-apple-system, PingFang SC, Hiragino Sans GB, system-ui, sans-serif"
 	case "songti":
 		return "Songti SC, STSong, Georgia, Noto Serif SC, serif"
+	case "hand":
+		return handBodyFont
+	case "hannotate":
+		return hannotateFont
 	default:
 		return sonnetBodyFont
 	}
+}
+
+// latinFontStack 把西文字体键解析为字体栈；空串表示跟随中文字体。
+// 这些字体都不含中文字形，因此放在字体栈最前面只会接管西文。
+func latinFontStack(key string) string {
+	switch key {
+	case "jetbrains":
+		return "JetBrains Mono"
+	case "system":
+		return "-apple-system, SF Pro Text, Helvetica Neue, Arial, sans-serif"
+	case "noteworthy":
+		return "Noteworthy"
+	case "bradley":
+		return "Bradley Hand"
+	}
+	return ""
+}
+
+// composeFontStack 组合西文与中文字体栈：西文在前，中文字形落到后面的中文栈。
+// 西文为空时直接用中文栈，旧偏好文件的渲染结果因此保持不变。
+func composeFontStack(latin, cjk string) string {
+	if latin == "" {
+		return cjk
+	}
+	return latin + ", " + cjk
+}
+
+// bodyFontStack 正文最终字体栈（中文字体键 + 西文字体键）。
+func bodyFontStack(cjkKey, latinKey string) string {
+	return composeFontStack(latinFontStack(latinKey), cjkFontStack(cjkKey))
+}
+
+// headingFontStack 标题最终字体栈：只有手写搭配的标题中文字体换成手札体，
+// 其余跟随正文；西文部分始终与正文同一选择。
+func headingFontStack(cjkKey, latinKey string) string {
+	cjk := cjkFontStack(cjkKey)
+	if cjkKey == "hand" {
+		cjk = handHeadingFont
+	}
+	return composeFontStack(latinFontStack(latinKey), cjk)
 }
 
 // monoFontStack 是用户代码字体键到字体栈的解析，解耦规则同 bodyFontStack。
@@ -325,6 +408,7 @@ type resolvedStyle struct {
 	rule                        ui.Color
 	// 排版
 	bodyFont, monoFont      string
+	headingFont             string // 标题字体：默认同正文，手写搭配为手札体
 	bodySize, lineHeight    float32
 	blockGap                float32
 	padX, padY              float32
@@ -333,6 +417,9 @@ type resolvedStyle struct {
 	codePadX, codePadY      float32
 	quoteIndent             float32
 	tablePadX, tablePadY    float32
+	quoteBar, codeRadius    float32
+	codeBorder              float32
+	sketch                  bool // 手账排版：引用/代码/分隔线/标题改为手绘装饰
 }
 
 // colorPaletteFor 解析颜色层：Tot 主题在 dot 上下文（主窗口）随点配色，
@@ -365,18 +452,23 @@ func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 		codeBackground: pal.codeBackground, quoteBorder: pal.quoteBorder, rule: pal.rule,
 
 		// 字体与排版主题解耦：始终用用户选择的字体键（空 = 默认栈）。
-		bodyFont:   bodyFontStack(a.prefs.Appearance.BodyFont),
-		monoFont:   monoFontStack(a.prefs.Appearance.MonoFont),
-		bodySize:   layout.bodySize,
-		lineHeight: layout.lineHeight,
-		blockGap:   layout.blockGap,
-		padX:       layout.padX, padY: layout.padY,
+		bodyFont:    bodyFontStack(a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont),
+		headingFont: headingFontStack(a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont),
+		monoFont:    monoFontStack(a.prefs.Appearance.MonoFont),
+		bodySize:    layout.bodySize,
+		lineHeight:  layout.lineHeight,
+		blockGap:    layout.blockGap,
+		padX:        layout.padX, padY: layout.padY,
 		codePadX: layout.codePadX, codePadY: layout.codePadY,
 		quoteIndent:   layout.quoteIndent,
 		tablePadX:     layout.tablePadX,
 		tablePadY:     layout.tablePadY,
 		codeSize:      roundHalf(layout.bodySize * 0.875),
 		codeLineHeigh: roundHalf(layout.lineHeight*0.98 + 0.02),
+		quoteBar:      orFloat(layout.quoteBar, 3),
+		codeRadius:    orFloat(layout.codeRadius, 8),
+		codeBorder:    layout.codeBorder,
+		sketch:        layout.id == "sketch",
 	}
 	for i, scale := range layout.headingScale {
 		s.headingSizes[i] = roundHalf(layout.bodySize * scale)
@@ -404,6 +496,13 @@ func (s resolvedStyle) apply(t ui.Theme) ui.Theme {
 	t.Surface, t.Border, t.Accent = s.surface, s.border, s.accent
 	t.Selection, t.Font, t.FontSize = s.selection, s.bodyFont, s.bodySize
 	return t
+}
+
+func orFloat(v, def float32) float32 {
+	if v > 0 {
+		return v
+	}
+	return def
 }
 
 func roundHalf(v float32) float32 {

@@ -150,7 +150,7 @@ func absByte(a, b uint8) int {
 	return int(b - a)
 }
 
-func TestTrayRingPNG(t *testing.T) {
+func TestTrayInkZPNG(t *testing.T) {
 	img, err := png.Decode(bytes.NewReader(trayPNG()))
 	if err != nil {
 		t.Fatal(err)
@@ -161,13 +161,16 @@ func TestTrayRingPNG(t *testing.T) {
 	at := func(x, y int) color.NRGBA {
 		return color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
 	}
-	for _, p := range [][2]int{{0, 0}, {18, 18}, {18, 0}, {18, 35}, {8, 18}} {
+	// Z 的上下横之间、Z 与句点之外应透明；笔画中段与句点应不透明。
+	for _, p := range [][2]int{{0, 0}, {35, 35}, {10, 14}, {28, 14}} {
 		if at(p[0], p[1]).A != 0 {
 			t.Errorf("tray should be transparent at %v", p)
 		}
 	}
-	if c := at(3, 18); c != (color.NRGBA{255, 255, 255, 255}) {
-		t.Errorf("tray ring pixel=%+v, want opaque white", c)
+	for _, p := range [][2]int{{18, 18}, {8, 26}} {
+		if at(p[0], p[1]).A != 255 {
+			t.Errorf("tray stroke should be opaque at %v", p)
+		}
 	}
 	partial := false
 	for y := 0; y < 36; y++ {
@@ -176,15 +179,15 @@ func TestTrayRingPNG(t *testing.T) {
 			if c.A > 0 && (c.R != 255 || c.G != 255 || c.B != 255) {
 				t.Fatalf("non-white tray pixel at %d,%d: %+v", x, y, c)
 			}
+			if (x == 0 || x == 35 || y == 0 || y == 35) && c.A != 0 {
+				t.Fatalf("tray should have transparent padding at %d,%d", x, y)
+			}
 			if c.A > 0 && c.A < 255 {
 				partial = true
-			}
-			if c != at(35-x, y) || c != at(x, 35-y) {
-				t.Fatalf("tray ring is not centered/symmetric at %d,%d", x, y)
 			}
 		}
 	}
 	if !partial {
-		t.Error("tray ring should have antialiased edges")
+		t.Error("tray icon should have antialiased edges")
 	}
 }

@@ -10,21 +10,27 @@ import (
 
 func styleHeading(h ui.Element, level int, md resolvedStyle) {
 	level = clamp(level, 1, 6)
-	h.FontSize(md.headingSizes[level-1]).LineHeight(1.25).Bold()
+	h.Font(md.headingFont).FontSize(md.headingSizes[level-1]).LineHeight(1.25).Bold()
 }
 
 // Separate the checkbox hit target from the editable text. Clicking the text
 // edits the task; clicking the square toggles it, even while its text has focus.
-func (a *app) taskCheckbox(c *ui.Context, blk liveBlock) {
-	checked := blk.checked
-	ui.Checkbox(c.Key("task-"+strconv.Itoa(blk.start)), &checked, "").
-		Label("完成：" + projectBlock(blk).text).OnChange(func() {
+func (a *app) taskCheckbox(c *ui.Context, blk liveBlock, md resolvedStyle) {
+	toggle := func() {
 		before := a.liveSnapshot()
 		a.activeTab().Text = toggleTaskLine(a.activeTab().Text, blk.start)
 		a.resyncLive(a.mdCaret)
 		a.rememberLiveEdit(before, editCommand)
 		a.onEdited()
-	})
+	}
+	key := c.Key("task-" + strconv.Itoa(blk.start))
+	label := "完成：" + projectBlock(blk).text
+	if md.sketch {
+		sketchCheckbox(c, key, label, blk.checked, md, uint32(blk.start), toggle)
+		return
+	}
+	checked := blk.checked
+	ui.Checkbox(key, &checked, "").Label(label).OnChange(toggle)
 }
 
 func (a *app) recordProjectedKey(ev ui.InputEvent, p liveProjection) bool {
@@ -157,7 +163,6 @@ func tableCellAt(cells []tableCell, caret int) int {
 }
 
 func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBlock, editing bool) {
-	accent := md.accent
 	cols := len(blk.table.align)
 	if cols == 0 {
 		return
@@ -178,16 +183,50 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 		}
 	}
 	index := 0
-	ui.Column(c).FillWidth().Border(1, t.Border).Radius(6).Clip().Children(func() {
+	grid := ui.Column(c).FillWidth()
+	if md.sketch {
+		// 手账：外框与格线都用铅笔线；单元格不铺底色，避免盖住线条。
+		frame := md.textMuted
+		grid.Draw(func(p *ui.Painter, r ui.Rect) { sketchRect(p, r, 1.4, frame, uint32(blk.start)) })
+	} else {
+		grid.Radius(6).Clip().Border(1, t.Border)
+	}
+	grid.Children(func() {
 		for row, cells := range blk.table.rows {
 			ui.Row(c.Key(fmt.Sprintf("row-%d", row))).FillWidth().Children(func() {
 				for col := 0; col < cols; col++ {
 					ci := index + col
 					cell := ui.Box(c.Key(fmt.Sprintf("cell-%d", col))).Grow(1).Basis(0).MinWidth(0).Padding(md.tablePadY, md.tablePadX).
-						BorderWidth(0, 0, 1, 1).BorderColor(t.Border).
 						Label(fmt.Sprintf("单元格 %d,%d", row+1, col+1))
+					switch {
+					case md.sketch:
+						lastRow := row == len(blk.table.rows)-1
+						header, left := row == 0, col > 0
+						ink := withAlpha(md.textMuted, 0.8)
+						seed := uint32(blk.start + row*31 + col*7)
+						cell.Draw(func(p *ui.Painter, r ui.Rect) {
+							if header {
+								highlighter(p, r.X+3, r.Y+r.H*0.55, r.W-6, r.H*0.3, sketchMark(md), seed)
+							}
+							if !lastRow {
+								w := float32(1.1)
+								if header {
+									w = 1.8 // 表头下画一道更重的线
+								}
+								sketchLine(p, r.X+2, r.Y+r.H, r.X+r.W-2, r.Y+r.H, w, ink, seed)
+							}
+							if left {
+								sketchLine(p, r.X, r.Y+2, r.X, r.Y+r.H-2, 1.1, ink, seed+5)
+							}
+						})
+					default:
+						cell.BorderWidth(0, 0, 1, 1).BorderColor(t.Border)
+					}
 					if row == 0 {
-						cell.Background(t.Surface).Bold()
+						cell.Bold()
+						if !md.sketch {
+							cell.Background(t.Surface)
+						}
 					}
 					cell.Children(func() {
 						if editing && ci == target && col < len(cells) {
@@ -201,7 +240,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 							if col < len(cells) {
 								p = projectRegion(cells[col].text, 0, utf8.RuneCountInString(cells[col].text), true, true)
 							}
-							p.content(c, t, accent).FillWidth().FontSize(md.codeSize).TextAlign(tableAlignment(blk.table.align[col]))
+							p.content(c, t, md).FillWidth().FontSize(md.codeSize).TextAlign(tableAlignment(blk.table.align[col]))
 						}
 					})
 					cell.OnClick(func() {
