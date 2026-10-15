@@ -497,6 +497,9 @@ func (a *app) focusBlock(idx int, start, end int) {
 	a.mdCaret, a.mdSelEnd = start, end
 	a.liveFocus = 1
 	a.scrollActive = true
+	// 虚拟列表：目标块可能不在已构建范围，请求列表把它滚入视图，
+	// 下一帧焦点编辑器才会被构建并接管焦点。
+	a.liveList.ScrollIntoView(idx)
 	a.maybeExpirePending()
 }
 

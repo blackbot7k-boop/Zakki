@@ -33,44 +33,54 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	}
 
 	style := a.resolveStyle(-1, dark, true)
-	pane := ui.Scroll(c).Grow(1).Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
-		TrackScroll(&a.liveScroll)
-	if style.sketch {
-		// 纸面画在滚动视口上而不是内容列上：内容比视口短时，下方空白同样是纸。
-		dots := withAlpha(style.textMuted, 0.22)
-		margin := withAlpha(style.accent, 0.38)
-		marginX := style.padX * 0.45
-		pane.Draw(func(p *ui.Painter, r ui.Rect) {
-			// 绘制时读最新滚动量：滚动可能只重绘不重建，点阵仍与文字同步。
-			dotGrid(p, r, a.liveScroll.Y, dots)
-			sketchLine(p, r.X+marginX, r.Y, r.X+marginX, r.Y+r.H, 1.2, margin, 3)
-		})
+	// 虚拟化列表：只构建视口内外的少数块，长文档的首帧与稳态帧成本与
+	// 可见块数相关，而与文档总块数无关（编辑器仍按块工作，见 live_edit.go）。
+	blockStarts := make([]int, len(blocks))
+	for i := 1; i < len(blocks); i++ {
+		blockStarts[i] = blockStarts[i-1] + utf8.RuneCountInString(blocks[i-1].raw) + 1
 	}
-	pane.Children(func() {
-		ui.Column(c).Fill().Padding(style.padX, style.padY).Gap(style.blockGap).
-			Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight).Children(func() {
-			// 预览态（mdActive=-1）全块渲染；点击内容区后编辑可见文字，
-			// 聚焦不会把当前行切成 Markdown 源码。
-			// 快照 active：块内 Enter 可能在本轮构建中把 mdActive 挧到别的块，
-			// 同一路循环不能因此误建第二个编辑器（同 key 冲突），重建交给下一帧。
-			active := a.mdActive
-			off := 0
-			for i, blk := range blocks {
-				blockEnd := off + utf8.RuneCountInString(blk.raw)
-				if i == active {
-					a.activeBlock(c, t)
-				} else {
-					a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), off, blockEnd+1)
-				}
-				off = blockEnd + 1
-			}
-		})
+	// 快照 active：块内 Enter 可能在本轮构建中把 mdActive 挤到别的块，
+	// 同一帧不能因此误建第二个编辑器（同 handle 冲突），重建交给下一帧。
+	active := a.mdActive
+	// 外层 Column 兜底空白点击：List 自身不报告左右留白与行间空隙的点击。
+	wrap := ui.Column(c).Fill().Grow(1)
+	// List 不报告左右留白与行间空隙的点击；外层 Column 兜底为「空白点击」。
+	// 内层行/输入框的点击会先置 liveClickHandled（同为 OnClick 回调，按构建
+	// 顺序先执行），空白点击据此让路。
+	wrap.OnClick(func() {
+		if !a.liveClickHandled {
+			a.focusBlockEnd(len(a.mdBlocks()) - 1)
+		}
 	})
-	// 点击内容区空白也是编辑意图：空点从头输入，有内容的点在文末继续。
-	// 内层文字、输入框和表格已处理的点击保留自己的光标，不被重定向。
-	if pane.Clicked() && !a.liveClickHandled {
-		a.focusBlockEnd(len(a.mdBlocks()) - 1)
-	}
+	wrap.Children(func() {
+		list := ui.List(c, &a.liveList, len(blocks), func(i int) {
+			blk := blocks[i]
+			if i == active {
+				a.activeBlock(c, t)
+				return
+			}
+			start := blockStarts[i]
+			blockEnd := start + utf8.RuneCountInString(blk.raw)
+			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1)
+		})
+		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
+			TrackScroll(&a.liveScroll).
+			Padding(style.padX, style.padY).Gap(style.blockGap).
+			Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight)
+		if style.sketch {
+			// 纸面画在滚动视口上而不是内容行上：内容比视口短时，下方空白同样是纸。
+			dots := withAlpha(style.textMuted, 0.22)
+			margin := withAlpha(style.accent, 0.38)
+			marginX := style.padX * 0.45
+			list.Draw(func(p *ui.Painter, r ui.Rect) {
+				// 绘制时读最新滚动量：滚动可能只重绘不重建，点阵仍与文字同步。
+				dotGrid(p, r, a.liveScroll.Y, dots)
+				sketchLine(p, r.X+marginX, r.Y, r.X+marginX, r.Y+r.H, 1.2, margin, 3)
+			})
+		}
+	})
+	// 点击内容区空白也是编辑意图：见 wrap.OnClick；内层文字、输入框和表格
+	// 已处理的点击保留自己的光标，不被重定向。
 	// 只消费一次点击标记，避免影响下一次视口点击。
 	a.liveClickHandled = false
 }

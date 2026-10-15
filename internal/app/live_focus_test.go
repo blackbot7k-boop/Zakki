@@ -38,6 +38,7 @@ func TestLivePaneResizeAndScrollFocus(t *testing.T) {
 			t.Fatal(err)
 		}
 		tt.ClickAt(8, float32(height-60)) // 左侧空白
+		tt.Frame() // 虚拟列表：焦点编辑器所在行在点击后的下一帧构建
 		if a.mdActive != len(a.mdBlocks())-1 || !tt.Focused("内容") {
 			t.Fatalf("blank gutter after resize %d should focus document end: active=%d", height, a.mdActive)
 		}
