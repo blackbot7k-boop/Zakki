@@ -13,7 +13,10 @@ import (
 )
 
 // CurrentVersion 是当前程序读写的偏好版本。
-const CurrentVersion = 1
+// 版本 2 起 appearance 分开记录中文字体（bodyFont）与西文字体（latinFont）。
+// 版本 3 起 backup 记录外部备份目的地（mirrorDir）与 Git 自动化模式（gitMode）；
+// 旧版本程序读到版本 3 会按「版本超前」拒绝并保留原文件。
+const CurrentVersion = 3
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -32,13 +35,15 @@ type Preferences struct {
 }
 
 type Appearance struct {
-	AppearanceMode string  `json:"appearanceMode"`
-	ColorTheme     string  `json:"colorTheme"`
-	MarkdownTheme  string  `json:"markdownTheme"`
-	BodyFont       string  `json:"bodyFont"`
-	MonoFont       string  `json:"monoFont"`
-	BodySize       float32 `json:"bodySize"`
-	LineHeight     float32 `json:"lineHeight"`
+	AppearanceMode string `json:"appearanceMode"`
+	ColorTheme     string `json:"colorTheme"`
+	MarkdownTheme  string `json:"markdownTheme"`
+	// BodyFont 是中文字体；LatinFont 是西文字体，空串表示跟随中文字体。
+	BodyFont   string  `json:"bodyFont"`
+	LatinFont  string  `json:"latinFont"`
+	MonoFont   string  `json:"monoFont"`
+	BodySize   float32 `json:"bodySize"`
+	LineHeight float32 `json:"lineHeight"`
 }
 
 type Window struct {
@@ -51,6 +56,12 @@ type Backup struct {
 	IntervalMinutes int  `json:"intervalMinutes"`
 	Keep            int  `json:"keep"`
 	OnLaunch        bool `json:"onLaunch"`
+	// MirrorDir 是外部备份目的地（云盘同步文件夹或 Git 仓库的本地 clone），
+	// 空串表示未配置，仅保留本地备份。每次本地备份成功后镜像一份到这里。
+	MirrorDir string `json:"mirrorDir"`
+	// GitMode 是镜像目录的 Git 自动化：off / commit / commitPush。
+	// 仅当 MirrorDir 是 Git 仓库时有意义；失败只提示，不影响备份本身。
+	GitMode string `json:"gitMode"`
 }
 
 type Keymap struct {
@@ -73,7 +84,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			MarkdownTheme:  "sonnet",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
-		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true},
+		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitMode: "off"},
 		Keymap: Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
 			AutosaveDelayMS: 800,
@@ -100,10 +111,12 @@ func (p Preferences) Validate(v AccelValidator) error {
 		allowed     []string
 	}{
 		{"appearance.appearanceMode", p.Appearance.AppearanceMode, []string{"system", "light", "dark"}},
-		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"tot", "paper", "warmSand", "mistTeal", "graphite"}},
-		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "tot", "clear", "book", "compact"}},
-		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti"}},
+		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"tot", "paper", "warmSand", "mistTeal", "graphite", "sketch"}},
+		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "tot", "clear", "book", "compact", "sketch"}},
+		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
+		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley"}},
 		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
+		{"backup.gitMode", p.Backup.GitMode, []string{"off", "commit", "commitPush"}},
 	} {
 		valid := false
 		for _, allowed := range field.allowed {
@@ -176,12 +189,10 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Keymap.Overrides == nil {
 		p.Keymap.Overrides = map[string]string{}
 	}
-	if p.Version == 0 {
-		p.Version = CurrentVersion
-	}
 	if p.Version > CurrentVersion {
 		return Preferences{}, fmt.Errorf("偏好版本 %d 高于当前支持的 %d（文件保持原样）", p.Version, CurrentVersion)
 	}
+	p = migrate(p)
 	def := Default(5)
 	if p.Appearance.AppearanceMode == "" {
 		p.Appearance.AppearanceMode = def.Appearance.AppearanceMode
@@ -198,6 +209,10 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Backup.Keep == 0 {
 		p.Backup.Keep = def.Backup.Keep
 	}
+	// gitMode 缺键（含版本 2 及更早的文件）按关闭处理：行为与升级前一致。
+	if p.Backup.GitMode == "" {
+		p.Backup.GitMode = def.Backup.GitMode
+	}
 	if p.Advanced.AutosaveDelayMS == 0 {
 		p.Advanced.AutosaveDelayMS = def.Advanced.AutosaveDelayMS
 	}
@@ -211,6 +226,17 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		return Preferences{}, err
 	}
 	return p, nil
+}
+
+// migrate 把旧版本偏好升级到 CurrentVersion。版本 1 只有一个正文字体键，
+// 西文当时取自同一套字体栈，因此升级后 latinFont 留空（跟随中文字体），
+// 渲染结果与升级前完全一致。
+func migrate(p Preferences) Preferences {
+	if p.Version < 2 {
+		p.Appearance.LatinFont = ""
+	}
+	p.Version = CurrentVersion
+	return p
 }
 
 func rejectJSONNull(value any, path string) error {

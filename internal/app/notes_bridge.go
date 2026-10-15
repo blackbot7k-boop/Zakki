@@ -35,5 +35,7 @@ func notesMigrateOptions() notes.MigrateOptions {
 }
 
 func newNotesStore(dataFile, backupDir string, now func() time.Time) *notes.Store {
-	return notes.NewStore(dataFile, backupDir, now, notesMigrateOptions())
+	s := notes.NewStore(dataFile, backupDir, now, notesMigrateOptions())
+	s.RunGit = notes.DefaultGitRunner()
+	return s
 }
