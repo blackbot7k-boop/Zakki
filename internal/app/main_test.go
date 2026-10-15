@@ -597,3 +597,32 @@ func TestNoDirectProductionAppInTests(t *testing.T) {
 		}
 	}
 }
+
+// TestSettingsTabMotionAndShapeRoundtrip 顶栏动效开关与标签形状随数据文件保存/载入。
+func TestSettingsTabMotionAndShapeRoundtrip(t *testing.T) {
+	a := newTestApp(t)
+	a.cfg.TabMotionOff = true
+	a.cfg.TabDotShape = "hexagon"
+	if err := a.notes.SaveNow(a.snapshotFile()); err != nil {
+		t.Fatal(err)
+	}
+	b := newTestApp(t)
+	b.notes.DataFile = a.notes.DataFile // 读同一个临时目录的数据文件
+	raw, err := os.ReadFile(b.notes.DataFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, _, err := b.notes.ParseRaw(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.applySavedFile(f)
+	if !b.cfg.TabMotionOff || b.cfg.TabDotShape != "hexagon" {
+		t.Fatalf("顶栏动效/形状未回读: %+v", b.cfg)
+	}
+	// 未知形状清洗为默认圆点。
+	b.cfg.TabDotShape = "bogus"
+	if !isValidTabDotShape("dot") || isValidTabDotShape("bogus") {
+		t.Fatal("形状校验应拒绝未知值")
+	}
+}

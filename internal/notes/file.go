@@ -33,6 +33,10 @@ type Settings struct {
 	TabAnimSpeed  float32 `json:"tabAnimSpeed,omitempty"`
 	MonoDots      bool    `json:"monoDots"`
 	GlassStrength float32 `json:"glassStrength,omitempty"`
+	// TabMotionOff 关闭顶栏液态切换动画（缺键 false = 开启动画）。
+	TabMotionOff bool `json:"tabMotionOff"`
+	// TabDotShape 是非当前标签圆点的形状；空串或未知值按 "dot" 渲染。
+	TabDotShape string `json:"tabDotShape,omitempty"`
 }
 
 // Tab 是磁盘上的一条标签。

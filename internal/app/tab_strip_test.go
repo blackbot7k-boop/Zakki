@@ -257,3 +257,88 @@ func TestCMotionRunsWithoutAdditionalInput(t *testing.T) {
 		t.Fatalf("orange selected tab is absent: %+v", p)
 	}
 }
+
+// TestHeaderHidesStripWithSingleTab 只有一个标签时顶栏不渲染标签区；
+// 恢复多标签后标签区重新出现，且不残留旧几何导致的动画。
+func TestHeaderHidesStripWithSingleTab(t *testing.T) {
+	a := newTestApp(t)
+	a.tabs = a.tabs[:1]
+	tt := ui.NewTester(func(c *ui.Context) { a.header(c, c.Theme(), false) }, 420, 38)
+	tt.Frame()
+	if !a.tabStripHidden() {
+		t.Fatal("单标签应隐藏标签区")
+	}
+	if tt.HasText("标签 1") {
+		t.Fatalf("单标签顶栏不应有标签元素, texts=%q", tt.Texts())
+	}
+	// 新增第二个标签：标签区恢复，当前标签以胶囊+标题呈现。
+	a.tabs = append(a.tabs, tab{ID: 2})
+	tt.Frame()
+	if a.tabStripHidden() {
+		t.Fatal("多标签应显示标签区")
+	}
+	if !tt.HasText("标签 1") {
+		t.Fatalf("恢复后应有当前标签胶囊, texts=%q", tt.Texts())
+	}
+}
+
+// TestTabDotShapesRender 每种形状都能画出像素，未知值回退圆点；
+// 圆环是描边（中心透明），其余形状中心不透明。
+func TestTabDotShapesRender(t *testing.T) {
+	a := newTestApp(t)
+	a.tabs = a.tabs[:1]
+	a.tabs = append(a.tabs, tab{ID: 2, Color: "#0f75e9"})
+	// 先用真实 tabStrip 布一帧，得到 slot 几何。
+	prep := ui.NewTester(func(c *ui.Context) { a.tabStrip(c, false) }, 300, 38)
+	prep.Frame()
+	// 非当前标签在当前胶囊右侧；取第二个 slot 的圆心。
+	cx := a.lastSlots[1].cx
+	cy := float32(19)
+	for _, shape := range []string{"dot", "ring", "square", "rsquare", "pill", "diamond",
+		"hexagon", "triangle", "star", "drop", "leaf"} {
+		a.cfg.TabDotShape = shape
+		tt := ui.NewTester(func(c *ui.Context) {
+			c.Root().Background(ui.Transparent)
+			ui.Box(c).Fill().Draw(func(p *ui.Painter, r ui.Rect) {
+				a.paintTabStrip(p, ui.Rect{X: 0, Y: 0, W: 300, H: 38}, false)
+			})
+		}, 300, 38)
+		tt.Frame()
+		center := tabPixel(tt, cx, cy)
+		if shape == "ring" {
+			if center.A != 0 {
+				t.Fatalf("%s 圆环中心应透明: %+v", shape, center)
+			}
+			if tabPixel(tt, cx, cy-4.5).A == 0 {
+				t.Fatalf("%s 圆环描边应有像素", shape)
+			}
+			continue
+		}
+		if center.A == 0 {
+			t.Fatalf("%s 中心应有像素（回退到圆点了吗？）", shape)
+		}
+	}
+	// 未知值非法（渲染与载入路径据此回退圆点）。
+	if isValidTabDotShape("nope") {
+		t.Fatal("未知形状应被视为非法值")
+	}
+	if !isValidTabDotShape("") || !isValidTabDotShape(tabDotShapeDot) {
+		t.Fatal("空串与默认形状应为合法值")
+	}
+}
+
+// TestTabMotionOffSkipsMorph 关闭顶栏动效后切换标签直接就位，无补间动画。
+func TestTabMotionOffSkipsMorph(t *testing.T) {
+	a, tt, clk := newAnimTestApp(t)
+	a.cfg.TabMotionOff = true
+	a.switchTab((a.active + 1) % len(a.tabs))
+	tt.Frame()
+	if a.morph.active {
+		t.Fatal("关闭动效后不应有补间状态")
+	}
+	clk.advance(time.Second)
+	tt.Frame()
+	if a.morph.active {
+		t.Fatal("关闭动效后不应有补间状态（推进时间后）")
+	}
+}

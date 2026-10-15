@@ -44,6 +44,8 @@ func (a *app) snapshotFile() savedFile {
 			TabAnimSpeed:  a.cfg.TabAnimSpeed,
 			MonoDots:      a.cfg.MonoDots,
 			GlassStrength: a.cfg.GlassStrength,
+			TabMotionOff:  a.cfg.TabMotionOff,
+			TabDotShape:   a.cfg.TabDotShape,
 		},
 	}
 }
@@ -135,6 +137,12 @@ func (a *app) applySavedFile(f savedFile) {
 	a.cfg.Source = f.Settings.Source
 	a.cfg.TabTitleWidth, a.cfg.TabAnimSpeed = f.Settings.TabTitleWidth, f.Settings.TabAnimSpeed
 	a.cfg.MonoDots, a.cfg.GlassStrength = f.Settings.MonoDots, f.Settings.GlassStrength
+	a.cfg.TabMotionOff = f.Settings.TabMotionOff
+	// 未知形状值回退默认圆点，避免旧/外来文件让顶栏画不出形状。
+	if !isValidTabDotShape(f.Settings.TabDotShape) {
+		f.Settings.TabDotShape = ""
+	}
+	a.cfg.TabDotShape = f.Settings.TabDotShape
 }
 
 // recoverFromBrokenFile 数据文件不可用时的兜底：复制隔离原件（绝不删除或

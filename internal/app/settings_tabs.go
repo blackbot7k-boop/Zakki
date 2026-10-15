@@ -37,9 +37,45 @@ func tabAnimSpeedDisplay(speed float32) string {
 	return tabAnimSpeedOptions[1].display // 非法值收敛到「正常」
 }
 
+// tabDotShapeOptions 标签形状选择项（ID 与显示文案，顺序即下拉顺序）。
+var tabDotShapeOptions = []struct {
+	id, display string
+}{
+	{tabDotShapeDot, "圆点"},
+	{tabDotShapeRing, "圆环"},
+	{tabDotShapeSquare, "方点"},
+	{tabDotShapeRSquare, "圆角方"},
+	{tabDotShapePill, "胶囊"},
+	{tabDotShapeDiamond, "菱形"},
+	{tabDotShapeHexagon, "六边形"},
+	{tabDotShapeTriangle, "三角"},
+	{tabDotShapeStar, "星形"},
+	{tabDotShapeDrop, "水滴"},
+	{tabDotShapeLeaf, "叶片"},
+}
+
+func tabDotShapeDisplay(id string) string {
+	for _, o := range tabDotShapeOptions {
+		if o.id == id {
+			return o.display
+		}
+	}
+	return tabDotShapeOptions[0].display // 空串/非法值收敛到「圆点」
+}
+
+func tabDotShapeKey(display string) string {
+	for _, o := range tabDotShapeOptions {
+		if o.display == display {
+			return o.id
+		}
+	}
+	return tabDotShapeDot
+}
+
 // tabsPage 标签与外观设置页。
 func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
+	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
 			settingsCard(c, "标签", func() {
@@ -177,6 +213,27 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				[]string{"慢", "正常", "快", "更快"}).Changed() {
 				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
 				a.scheduleSave()
+			}
+		}).PaddingX(14)
+		cardDivider(c)
+		settingsRow(c, "顶栏动效", "关闭后切换标签瞬间完成，不再播放液态融合动画", func() {
+			motion := !a.cfg.TabMotionOff
+			if ui.Switch(c, &motion).Label("顶栏动效开关").Changed() {
+				a.cfg.TabMotionOff = !motion
+				a.scheduleSave()
+				a.withWindow(func() {})
+			}
+		}).PaddingX(14)
+		cardDivider(c)
+		settingsRow(c, "标签形状", "非当前标签的示意形状；当前标签始终是标题胶囊", func() {
+			displays := make([]string, 0, len(tabDotShapeOptions))
+			for _, o := range tabDotShapeOptions {
+				displays = append(displays, o.display)
+			}
+			if ui.Select(c, &a.settingsUI.tabDotShapeSel, displays).Changed() {
+				a.cfg.TabDotShape = tabDotShapeKey(a.settingsUI.tabDotShapeSel)
+				a.scheduleSave()
+				a.withWindow(func() {})
 			}
 		}).PaddingX(14)
 		cardDivider(c)

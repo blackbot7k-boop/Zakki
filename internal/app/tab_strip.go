@@ -213,7 +213,8 @@ func (a *app) syncTabMorph(now time.Time, reduceMotion bool, slots []tabSlotGeom
 		a.builtActiveID = activeID
 		a.lastBody = body
 	}()
-	if reduceMotion || !slices.Equal(a.lastIDs, ids) || a.builtActiveID == 0 {
+	// 减少动态效果（系统）或用户关闭顶栏动效时直接切换，不做液态补间。
+	if reduceMotion || a.cfg.TabMotionOff || !slices.Equal(a.lastIDs, ids) || a.builtActiveID == 0 {
 		a.morph = tabMorphState{}
 		return
 	}
@@ -300,6 +301,150 @@ func paintSolidDot(p *ui.Painter, cx, cy float32, ink ui.Color) {
 	p.FillPath(&path, ink)
 }
 
+// ---- 标签圆点形状 ----
+
+// 非当前标签的示意形状：圆点为默认，其余为可选形状。ID 存入数据文件
+// settings.tabDotShape，渲染未知值时一律回退圆点。
+const (
+	tabDotShapeDot      = "dot"      // 圆点（默认）
+	tabDotShapeRing     = "ring"     // 圆环（描边，不参与液态桥接）
+	tabDotShapeSquare   = "square"   // 方点
+	tabDotShapeRSquare  = "rsquare"  // 圆角方
+	tabDotShapePill     = "pill"     // 胶囊（短横条）
+	tabDotShapeDiamond  = "diamond"  // 菱形
+	tabDotShapeHexagon  = "hexagon"  // 六边形
+	tabDotShapeTriangle = "triangle" // 三角
+	tabDotShapeStar     = "star"     // 星形
+	tabDotShapeDrop     = "drop"     // 水滴
+	tabDotShapeLeaf     = "leaf"     // 叶片
+)
+
+func isValidTabDotShape(id string) bool {
+	switch id {
+	case "", tabDotShapeDot, tabDotShapeRing, tabDotShapeSquare, tabDotShapeRSquare,
+		tabDotShapePill, tabDotShapeDiamond, tabDotShapeHexagon, tabDotShapeTriangle,
+		tabDotShapeStar, tabDotShapeDrop, tabDotShapeLeaf:
+		return true
+	}
+	return false
+}
+
+// activeDotShape 当前生效的形状 ID（空串 = 默认圆点）。
+func (a *app) activeDotShape() string {
+	if isValidTabDotShape(a.cfg.TabDotShape) && a.cfg.TabDotShape != "" {
+		return a.cfg.TabDotShape
+	}
+	return tabDotShapeDot
+}
+
+// tabDotPath 构建以 (cx,cy) 为中心的形状路径；描边形状由 paintTabDot 处理。
+func tabDotPath(cx, cy float32, shape string) ui.Path {
+	var p ui.Path
+	const d = dotDiameter
+	switch shape {
+	case tabDotShapeSquare:
+		s := d * 0.84
+		p = roundedRectPath(cx-s/2, cy-s/2, s, s, 2)
+	case tabDotShapeRSquare:
+		s := d * 0.92
+		p = roundedRectPath(cx-s/2, cy-s/2, s, s, 3.5)
+	case tabDotShapePill:
+		w, h := d*1.55, d*0.6
+		p = capsulePath(cx-w/2, cy-h/2, w, h)
+	case tabDotShapeDiamond:
+		p.MoveTo(cx, cy-d*0.62)
+		p.LineTo(cx+d*0.5, cy)
+		p.LineTo(cx, cy+d*0.62)
+		p.LineTo(cx-d*0.5, cy)
+		p.Close()
+	case tabDotShapeHexagon:
+		r := d * 0.58
+		for i := 0; i < 6; i++ {
+			ang := float64(i)*math.Pi/3 - math.Pi/2
+			// 尖顶六边形：从正上方开始逆时针排点。
+			x, y := cx+r*float32(math.Cos(ang+math.Pi)), cy+r*float32(math.Sin(ang+math.Pi))
+			if i == 0 {
+				p.MoveTo(x, y)
+			} else {
+				p.LineTo(x, y)
+			}
+		}
+		p.Close()
+	case tabDotShapeTriangle:
+		r := d * 0.68
+		p.MoveTo(cx, cy-r)
+		p.LineTo(cx+r*0.95, cy+r*0.72)
+		p.LineTo(cx-r*0.95, cy+r*0.72)
+		p.Close()
+	case tabDotShapeStar:
+		outer, inner := d*0.68, d*0.29
+		for i := 0; i < 10; i++ {
+			rad := outer
+			if i%2 == 1 {
+				rad = inner
+			}
+			ang := float64(i)*math.Pi/5 - math.Pi/2
+			x, y := cx+rad*float32(math.Cos(ang)), cy+rad*float32(math.Sin(ang))
+			if i == 0 {
+				p.MoveTo(x, y)
+			} else {
+				p.LineTo(x, y)
+			}
+		}
+		p.Close()
+	case tabDotShapeDrop:
+		rb := d * 0.40
+		tipY := cy - d*0.60
+		botY := cy + d*0.42
+		p.MoveTo(cx, tipY)
+		p.CubeTo(cx+rb*1.05, tipY+(cy-tipY)*0.55, cx+rb, cy-rb*0.2, cx+rb, cy)
+		p.CubeTo(cx+rb, cy+rb*0.74, cx+rb*0.55, botY, cx, botY)
+		p.CubeTo(cx-rb*0.55, botY, cx-rb, cy+rb*0.74, cx-rb, cy)
+		p.CubeTo(cx-rb, cy-rb*0.2, cx-rb*1.05, tipY+(cy-tipY)*0.55, cx, tipY)
+		p.Close()
+	case tabDotShapeLeaf:
+		t, b, bulge := cy-d*0.58, cy+d*0.58, d*0.42
+		p.MoveTo(cx, t)
+		p.CubeTo(cx+bulge, t+(b-t)*0.25, cx+bulge, b-(b-t)*0.25, cx, b)
+		p.CubeTo(cx-bulge, b-(b-t)*0.25, cx-bulge, t+(b-t)*0.25, cx, t)
+		p.Close()
+	default: // 圆点与未知值
+		p.Circle(cx, cy, d/2)
+	}
+	return p
+}
+
+// roundedRectPath 构建圆角矩形路径。
+func roundedRectPath(x, y, w, h, r float32) ui.Path {
+	var p ui.Path
+	r = min(r, w/2, h/2)
+	const k = 0.5522847
+	kr := r * k
+	p.MoveTo(x+r, y)
+	p.LineTo(x+w-r, y)
+	p.CubeTo(x+w-r+kr, y, x+w, y+r-kr, x+w, y+r)
+	p.LineTo(x+w, y+h-r)
+	p.CubeTo(x+w, y+h-r+kr, x+w-r+kr, y+h, x+w-r, y+h)
+	p.LineTo(x+r, y+h)
+	p.CubeTo(x+r-kr, y+h, x, y+h-r+kr, x, y+h-r)
+	p.LineTo(x, y+r)
+	p.CubeTo(x, y+r-kr, x+r-kr, y, x+r, y)
+	p.Close()
+	return p
+}
+
+// paintTabDot 按形状绘制非当前标签的指示点；圆环描边，其余填充。
+func paintTabDot(p *ui.Painter, cx, cy float32, ink ui.Color, shape string) {
+	if shape == tabDotShapeRing {
+		var path ui.Path
+		path.Circle(cx, cy, dotDiameter/2-1.2)
+		p.StrokePath(&path, 2.4, ink)
+		return
+	}
+	path := tabDotPath(cx, cy, shape)
+	p.FillPath(&path, ink)
+}
+
 func paintBody(p *ui.Painter, body tabBody, cy float32) {
 	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
 	p.FillPath(&path, body.color)
@@ -324,10 +469,13 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		body = m.bodyAt(a.animClock(p))
 	}
 	body.cx += r.X
+	shape := a.activeDotShape()
 	if m.active {
-		for _, s := range slots {
-			if bridge, ok := liquidBridge(body, r.X+s.cx, cy); ok {
-				p.FillPath(&bridge, body.color)
+		if shape != tabDotShapeRing {
+			for _, s := range slots {
+				if bridge, ok := liquidBridge(body, r.X+s.cx, cy); ok {
+					p.FillPath(&bridge, body.color)
+				}
 			}
 		}
 	}
@@ -335,7 +483,7 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		if !m.active && ids[i] == a.builtActiveID {
 			continue
 		}
-		paintSolidDot(p, r.X+s.cx, cy, a.morphDotInk(ids[i], dark))
+		paintTabDot(p, r.X+s.cx, cy, a.morphDotInk(ids[i], dark), shape)
 	}
 	paintBody(p, body, cy)
 	if a.renaming != 0 {

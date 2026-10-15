@@ -32,6 +32,7 @@ type settingsUIState struct {
 	monoFontSel       string
 	markdownThemeSel  string
 	tabAnimSpeedSel   string
+	tabDotShapeSel    string
 
 	// 标签页：展开了调色板的标签 ID（0 = 无）。
 	expandedColor uint64

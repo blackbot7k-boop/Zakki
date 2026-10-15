@@ -117,9 +117,28 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 				a.win.Close()
 			}
 		})
-		a.tabStrip(c, dark)
+		// 只有一个标签（且不在重命名）时不渲染标签区：顶栏只剩关闭与置顶。
+		if a.tabStripHidden() {
+			a.resetTabStripLayout()
+		} else {
+			a.tabStrip(c, dark)
+		}
 		a.iconPin(c, t, dark)
 	})
+}
+
+// tabStripHidden 报告顶栏是否应隐藏标签区：只有一个标签（且不在重命名）
+// 时不需要圆点与胶囊指示器，顶栏只剩关闭与置顶。
+func (a *app) tabStripHidden() bool { return len(a.tabs) <= 1 && a.renaming == 0 }
+
+// resetTabStripLayout 清掉上一帧的标签几何与动画状态：隐藏期间不追踪布局，
+// 恢复多标签时从头排布，不会从旧几何补间。
+func (a *app) resetTabStripLayout() {
+	a.morph = tabMorphState{}
+	a.lastSlots = nil
+	a.lastIDs = nil
+	a.builtActiveID = 0
+	a.tabViewportWidth = 0
 }
 
 func (a *app) tabStrip(c *ui.Context, dark bool) {
