@@ -107,9 +107,10 @@
 
 ### 版本迁移
 
-- `currentDataVersion = 2`（`notes.CurrentDataVersion`）。磁盘 `version` 低于 2 且没有 `tabs` 时，
+- `currentDataVersion = 3`（`notes.CurrentDataVersion`）。磁盘 `version` 低于 2 且没有 `tabs` 时，
   `migrateSavedFile`（包装 `notes.Migrate`）把旧 `dots` 迁成标签：补齐缺省标签、收敛 `active`、
-  空 `themeSource` 按 `system`、旧字段 `preview` 并入 `source`。
+  空 `themeSource` 按 `system`、旧字段 `preview` 并入 `source`；
+  `version` 低于 3 时排版主题旧 ID 随载入映射为 `note`（字面量见 `notes` 包常量）。
 - `version` 高于当前支持：返回 `versionError`，**绝不覆盖原文件**（走损坏隔离流程，
   暂存 .pending 等用户确认）。
 
@@ -123,21 +124,23 @@
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "active": 0,
   "tabs": [{ "id": 1, "text": "…", "color": "#…" }],
   "settings": {
     "themeSource": "system",
     "alwaysOnTop": false,
     "hideOnEscape": true,
-    "source": false
+    "source": false,
+    "tabMotionOff": false,
+    "tabDotShape": "dot"
   }
 }
 ```
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `version` | int | 数据版本，当前 `currentDataVersion = 2`；0/1 视为固定 7 点格式；更高拒载不覆盖 |
+| `version` | int | 数据版本，当前 `currentDataVersion = 3`；0/1 视为固定 7 点格式；更高拒载不覆盖 |
 | `active` | int | 当前激活的标签下标（载入时按标签数 clamp） |
 | `tabs` | [{id,name,text,color}] | 动态标签（1–12 个）：稳定 ID、可选名称、markdown 纯文本、颜色（空/非法回退调色板）；v1 的 `dots` 字段仅为读取保留，新保存不写 |
 | `settings.themeSource` | string | `system` \| `light` \| `dark`，空串按 `system` |
