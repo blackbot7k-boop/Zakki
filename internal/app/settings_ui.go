@@ -291,7 +291,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, "正文字体")
-				ui.Text(c, "默认跟随 Markdown 排版主题").FontSize(11).TextColor(tMuted(c))
+				ui.Text(c, "默认霞鹜文楷；与排版主题无关").FontSize(11).TextColor(tMuted(c))
 			})
 			if ui.Select(c, &a.settingsUI.bodyFontSel, bodyOptions).Changed() {
 				a.settingsUI.draft.Appearance.BodyFont = keyOfDisplay(bodyKeys, bodyOptions, a.settingsUI.bodyFontSel)
@@ -302,7 +302,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, "代码字体")
-				ui.Text(c, "默认跟随 Markdown 排版主题").FontSize(11).TextColor(tMuted(c))
+				ui.Text(c, "默认 JetBrains Mono；与排版主题无关").FontSize(11).TextColor(tMuted(c))
 			})
 			if ui.Select(c, &a.settingsUI.monoFontSel, monoOptions).Changed() {
 				a.settingsUI.draft.Appearance.MonoFont = keyOfDisplay(monoKeys, monoOptions, a.settingsUI.monoFontSel)
