@@ -44,7 +44,7 @@ func (a *app) collapseDocSelection(toEnd bool) {
 		at = a.selDocEnd
 	}
 	a.clearDocSelection()
-	idx, off := blockOfRuneOffset(a.mdBlocks(), at)
+	idx, off := a.blockOfRuneOffset(at)
 	if idx == a.mdActive {
 		a.selSyncStart, a.selSyncEnd = at-off, at-off
 		return
@@ -107,7 +107,7 @@ func (a *app) docSelectionReplace(visible string, p liveProjection, caret int) {
 	raw, at := p.replaceSelection(typed, utf8.RuneCountInString(typed), 0, len(oldRs))
 	a.activeTab().Text = raw
 	a.clearDocSelection()
-	idx, off := blockOfRuneOffset(a.mdBlocks(), at)
+	idx, off := a.blockOfRuneOffset(at)
 	a.mdActive, a.mdDraft = idx, a.mdBlocks()[idx].raw
 	a.selSyncStart, a.selSyncEnd = at-off, at-off
 	a.liveFocus, a.scrollActive = 1, true
@@ -162,7 +162,7 @@ func (a *app) spliceDocSelection(text string) {
 		a.rememberLiveEdit(before, editCommand)
 		return
 	}
-	idx, off := blockOfRuneOffset(blocks, lo+after)
+	idx, off := a.blockOfRuneOffset(lo + after)
 	a.mdActive, a.mdDraft = idx, blocks[idx].raw
 	a.clearDocSelection()
 	a.selSyncStart, a.selSyncEnd = lo+after-off, lo+after-off

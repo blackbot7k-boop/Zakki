@@ -288,7 +288,7 @@ func (a *app) backspaceAtBlockStart() {
 		return
 	}
 	joined := joinBlockRaw(prev, cur)
-	newDoc := spliceDocLines(a.activeTab().Text, prev.start, cur.end, joined)
+	newDoc := a.spliceDoc(a.activeTab().Text, prev.start, cur.end, joined)
 	caret := joinCaret(prev, cur)
 	a.applyDocEditAt(newDoc, a.blockRuneOffset(prevIdx)+caret, true)
 }

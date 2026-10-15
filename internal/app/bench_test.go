@@ -128,3 +128,20 @@ func BenchmarkFindMatches(b *testing.B) {
 		_ = findMatches(doc, "待办")
 	}
 }
+
+// BenchmarkCommitSteady 稳态提交：同一长文档内连续单字提交（打字的真实路径）。
+// 与 BenchmarkCommitDraft 的逐次重建不同，这里隔离出增量重切本身的成本。
+func BenchmarkCommitSteady(b *testing.B) {
+	a := benchApp(b, benchDoc())
+	mid := len(a.mdBlocks()) / 2
+	a.mdActive = mid
+	a.mdDraft = a.mdBlocks()[mid].raw
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		a.mdDraft += "字"
+		a.commitDraft(utf8Len(a.mdDraft) - 1)
+		// 提交后光标块内容多了一字，草稿同步为新块原文，下一轮继续追加。
+		a.mdDraft = a.mdBlocks()[a.mdActive].raw
+	}
+}

@@ -316,12 +316,12 @@ func markdownLayoutNames() []string {
 const (
 	sonnetBodyFont = "JetBrains Mono, LXGW WenKai, 霞鹜文楷, LXGW WenKai Screen, Noto Serif SC, Georgia, serif"
 	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, monospace"
-	// 手写搭配：正文用霞鹜文楷（中西文同一套字形，长时间阅读不累）；
-	// 标题用手札体名点出手写感。栈里只保留已内置注册的家族名（见 font_hand.go），
-	// 否则未安装的家族在无头环境（CI）会阻塞在系统字体按需下载上。
+	// 手写搭配：正文与标题同用内置的霞鹜文楷 Lite（注册名字见 font_hand.go，
+	// 标题靠字号/装饰区分）。栈里除注册名外只允许列 Apple 之外的名字作回退：
+	// 未安装家族的字体匹配在无头环境（CI）会阻塞在系统按需字体下载上。
 	// 不用 Noteworthy 等西文手写体：与中文字宽、笔画粗细不匹配，混排发乱。
-	handBodyFont    = "LXGW WenKai, 霞鹜文楷, serif"
-	handHeadingFont = "Hannotate SC, LXGW WenKai, 霞鹜文楷, serif"
+	handBodyFont    = "LXGW WenKai Lite, LXGW WenKai, 霞鹜文楷, serif"
+	handHeadingFont = handBodyFont
 	// hannotateFont 全文手札体：中西文都用手札体，未安装时回退文楷。
 	hannotateFont = handHeadingFont
 )
@@ -336,8 +336,10 @@ func cjkFontStack(key string) string {
 	case "songti":
 		return "Songti SC, STSong, Georgia, Noto Serif SC, serif"
 	case "hand":
+		registerHandFont()
 		return handBodyFont
 	case "hannotate":
+		registerHandFont()
 		return hannotateFont
 	default:
 		return sonnetBodyFont
@@ -379,6 +381,7 @@ func bodyFontStack(cjkKey, latinKey string) string {
 func headingFontStack(cjkKey, latinKey string) string {
 	cjk := cjkFontStack(cjkKey)
 	if cjkKey == "hand" {
+		registerHandFont()
 		cjk = handHeadingFont
 	}
 	return composeFontStack(latinFontStack(latinKey), cjk)

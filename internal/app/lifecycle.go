@@ -22,8 +22,6 @@ func Run() {
 		return
 	}
 
-	// 在建任何窗口前注册内置手写字体，避免手账主题触发系统字体按需下载。
-	registerHandFont()
 	mygo.App.SetPath(mygo.PathUserData, dataDir())
 	mygo.Use(updatePlugin())
 
@@ -46,14 +44,16 @@ func Run() {
 
 	mygo.App.WhenReady(func() {
 		a.ready = true // 之后偏好变更可安全触达原生 API
+		// 手写字体用户在开窗前预热注册，避免首帧渲染时的一次性读盘卡顿；
+		// 其他用户不付这份内存，首次用到手写字体栈时才懒注册。
+		if key := a.prefs.Appearance.BodyFont; key == "hand" || key == "hannotate" {
+			registerHandFont()
+		}
 		if err := a.loadLastBackupTime(); err != nil {
 			slog.Warn("读取最近备份时间失败", "error", err)
 		}
 		if err := a.notes.LoadMirrorTime(); err != nil {
 			slog.Warn("读取外部备份状态失败", "error", err)
-		}
-		if err := a.backupOnLaunch(); err != nil {
-			slog.Warn("启动备份失败", "error", err)
 		}
 		applyTheme(a.cfg.ThemeSource)
 		a.buildMenu()
@@ -65,6 +65,18 @@ func Run() {
 		} else {
 			a.createWindow()
 		}
+		// 启动备份开窗后异步做：磁盘慢或镜像大时不拖慢首窗；
+		// 预取偏好值与窗口引用，避免与主线程的偏好变更/窗口重建产生数据竞争。
+		enabled, keep := a.prefs.Backup.OnLaunch, a.prefs.Backup.Keep
+		win := a.win
+		go func() {
+			if err := a.backupOnLaunchAsync(enabled, keep); err != nil {
+				slog.Warn("启动备份失败", "error", err)
+			}
+			if win != nil {
+				win.Update(func() {}) // 回主线程刷新状态栏的备份时间
+			}
+		}()
 		slog.Info("应用就绪", "data", a.notes.DataFile, "prefs", a.preferencesPath())
 	})
 

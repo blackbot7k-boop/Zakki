@@ -110,7 +110,7 @@ func (a *app) applyDocResult(res docResult) {
 		return
 	}
 	blocks := a.mdBlocks()
-	idx, off := blockOfRuneOffset(blocks, res.selStart)
+	idx, off := a.blockOfRuneOffset(res.selStart)
 	a.mdActive = idx
 	a.mdDraft = blocks[idx].raw
 	a.selSyncStart, a.selSyncEnd = res.selStart-off, res.selEnd-off

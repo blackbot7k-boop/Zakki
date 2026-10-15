@@ -350,8 +350,9 @@ func TestHeadingFontFollowsBody(t *testing.T) {
 			t.Fatalf("%q 标题字体应跟随正文", key)
 		}
 	}
-	if headingFontStack("hand", "") == bodyFontStack("hand", "") {
-		t.Fatal("手写搭配的标题应使用手札体")
+	// 手写搭配：标题与正文同用内置的霞鹜文楷 Lite（观感靠字号与装饰区分）。
+	if got := headingFontStack("hand", ""); !strings.Contains(got, "LXGW WenKai Lite") {
+		t.Fatalf("手写搭配的标题应使用内置手写字体: %q", got)
 	}
 	// 全文手札体：正文与标题同一字体栈。
 	if bodyFontStack("hannotate", "") != hannotateFont || headingFontStack("hannotate", "") != hannotateFont {
@@ -381,7 +382,7 @@ func TestLatinFontSeparateFromChinese(t *testing.T) {
 	if !strings.HasPrefix(got, "Noteworthy, ") || !strings.Contains(got, "Songti SC") {
 		t.Fatalf("西文应在前且保留中文栈: %q", got)
 	}
-	if got := headingFontStack("hand", "bradley"); !strings.HasPrefix(got, "Bradley Hand, Hannotate SC") {
+	if got := headingFontStack("hand", "bradley"); !strings.HasPrefix(got, "Bradley Hand, LXGW WenKai Lite") {
 		t.Fatalf("标题也应使用所选西文: %q", got)
 	}
 	for _, key := range latinFontKeys {

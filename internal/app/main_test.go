@@ -231,14 +231,22 @@ func TestEnterMovesOneLine(t *testing.T) {
 
 // TestSpliceBlocksConsistent 随机编辑序列下，增量拼接结果必须与全量解析一致。
 func TestSpliceBlocksConsistent(t *testing.T) {
-	rng := rand.New(rand.NewSource(42))
+	// 拼接逻辑极其易错（新旧行号坐标、接缝合并、坐标错位），历史上一系列缺陷
+	// 都由本测试抓出；多种子大量随机编辑是它唯一的正确性保障，勿缩减规模。
+	for _, seed := range []int64{42, 1, 2026} {
+		t.Run("", func(t *testing.T) { runSpliceFuzz(t, seed, 6000) })
+	}
+}
+
+func runSpliceFuzz(t *testing.T, seed int64, steps int) {
+	rng := rand.New(rand.NewSource(seed))
 	tokens := []string{
 		"# 标题", "正文一行", "", "- 列表", "- [ ] 待办", "> 引用", "```", "code", "---",
 		"**粗体** 与 `code`", "普通文字 ok", "1. 有序", "- ", "x", "中文内容测试",
 	}
 	oldDoc, oldBlocks, valid := "", []liveBlock(nil), false
 	prevDoc, prevLines := "", []string(nil)
-	for step := 0; step < 4000; step++ {
+	for step := 0; step < steps; step++ {
 		switch rng.Intn(4) {
 		case 0: // 末尾追加
 			doc := oldDoc + tokens[rng.Intn(len(tokens))]
@@ -267,7 +275,7 @@ func TestSpliceBlocksConsistent(t *testing.T) {
 		if !valid {
 			argOld, argBlocks, argLines = "", nil, nil
 		}
-		got, _ := spliceBlocks(argOld, argLines, argBlocks, oldDoc)
+		got, _, _ := spliceBlocks(argOld, argLines, argBlocks, oldDoc)
 		want := liveBlocks(oldDoc)
 		if !reflect.DeepEqual(got, want) {
 			for i := 0; i < len(got) || i < len(want); i++ {

@@ -79,13 +79,30 @@ type liveEditorState struct {
 	scrollActive     bool
 	liveClickHandled bool
 	// liveScroll 实时预览滚动位置：手账纸面画在视口上，按它对齐内容滚动。
-	liveScroll    ui.ScrollState
-	mdCacheValid  bool
-	mdCacheDoc    string
-	mdCacheBlocks []liveBlock
-	mdCacheLines  []string
-	lowerDoc      string
-	lowerCache    string
+	liveScroll     ui.ScrollState
+	mdCacheValid   bool
+	mdCacheDoc     string
+	mdCacheBlocks  []liveBlock
+	mdCacheLines   []string
+	mdCacheOffsets []int // 块首 rune 偏移（末位为全文宽度），见 rebuildRuneOffsets
+	mdCacheWidths  []int // 每块含换行的 rune 宽度
+	// 提交管线 hint：spliceDoc 刚拼好的新文档行切分，mdBlocks 直接复用免一次全文 Split。
+	spliceHintDoc   string
+	spliceHintLines []string
+	// 全文派生量的缓存：键是文档串（与可选的查询串），每帧重建视图时避免全文扫描。
+	statsCacheDoc     string
+	statsCacheLines   int
+	statsCacheWords   int
+	statsCacheChars   int
+	rangesCacheDoc    string
+	rangesCacheQuery  string
+	rangesCacheDark   bool
+	rangesCache       []ui.TextRange
+	matchesCacheDoc   string
+	matchesCacheQuery string
+	matchesCache      []ui.TextRange
+	lowerDoc          string
+	lowerCache        string
 }
 
 // formatState 格式命令意图与链接浮层（live_format.go）。

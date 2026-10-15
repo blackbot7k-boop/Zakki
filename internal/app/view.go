@@ -344,7 +344,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		AutoFocus().
 		HandleInput(func(ev ui.InputEvent) bool { return a.recordSourceKey(ev) })
 
-	ta.TextRanges(editorRanges(*text, a.query, t, accent)...)
+	ta.TextRanges(a.sourceRanges(*text, a.query, t, accent)...)
 
 	// 查找跳转：把选区移到当前命中处（编辑器会滚动到选区）。
 	if a.jumpPending {
@@ -395,8 +395,8 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 			dotInk = monoInk(dark)
 		}
 		ui.Box(c).Width(8).Height(8).Radius(999).Background(dotInk)
-		ui.Textf(c, "%d 行 · %d 词 · %d 字符",
-			countLines(a.activeTab().Text), countWords(a.activeTab().Text), countChars(a.activeTab().Text)).
+		lines, words, chars := a.docStats(a.activeTab().Text)
+		ui.Textf(c, "%d 行 · %d 词 · %d 字符", lines, words, chars).
 			FontSize(12).TextColor(fg)
 		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
 		ui.Text(c, a.backupLabel()).FontSize(12).TextColor(fg)
@@ -461,3 +461,14 @@ func (a *app) toggleSourceMode() {
 
 // onEdited 文本变化后统一入口。
 func (a *app) onEdited() { a.scheduleSave() }
+
+// sourceRanges 缓存源码模式高亮区间：视图每帧重建，避免长文档每帧全文重算。
+func (a *app) sourceRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRange {
+	dark := themeIsDark(t)
+	if a.rangesCacheDoc == text && a.rangesCacheQuery == query && a.rangesCacheDark == dark {
+		return a.rangesCache
+	}
+	rs := editorRanges(text, query, t, accent)
+	a.rangesCacheDoc, a.rangesCacheQuery, a.rangesCacheDark, a.rangesCache = text, query, dark, rs
+	return rs
+}

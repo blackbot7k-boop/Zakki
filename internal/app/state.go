@@ -301,8 +301,9 @@ func (a *app) maybeWritePeriodicBackup() error {
 }
 
 // backupOnLaunch 启用启动备份时做一份备份（当前数据文件存在时）。
-func (a *app) backupOnLaunch() error {
-	return a.notes.BackupOnLaunch(a.prefs.Backup.OnLaunch, a.prefs.Backup.Keep)
+// 参数由调用方从偏好预取，可在后台 goroutine 调用而不与主线程的偏好变更竞争。
+func (a *app) backupOnLaunchAsync(enabled bool, keep int) error {
+	return a.notes.BackupOnLaunch(enabled, keep)
 }
 
 // confirmWriteBack 用户确认后解除写保护，把当前状态写回数据文件
@@ -413,5 +414,11 @@ func (a *app) docMatches(doc, query string) []ui.TextRange {
 	if query == "" {
 		return nil
 	}
-	return matchLower(a.loweredDoc(doc), strings.ToLower(query))
+	// 查找条打开时每帧都会调用，按文档串与查询串缓存全文扫描结果。
+	if a.matchesCacheDoc == doc && a.matchesCacheQuery == query {
+		return a.matchesCache
+	}
+	ms := matchLower(a.loweredDoc(doc), strings.ToLower(query))
+	a.matchesCacheDoc, a.matchesCacheQuery, a.matchesCache = doc, query, ms
+	return ms
 }

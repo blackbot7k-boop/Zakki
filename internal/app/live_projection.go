@@ -413,7 +413,7 @@ func (a *app) undoLive(redo bool) {
 		return
 	}
 	blocks := a.mdBlocks()
-	idx, off := blockOfRuneOffset(blocks, want.start)
+	idx, off := a.blockOfRuneOffset(want.start)
 	a.mdActive, a.mdDraft = idx, blocks[idx].raw
 	a.selSyncStart, a.selSyncEnd = want.start-off, want.end-off
 	if want.end > off+utf8.RuneCountInString(blocks[idx].raw) {

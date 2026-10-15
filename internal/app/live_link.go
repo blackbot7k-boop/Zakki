@@ -129,7 +129,7 @@ func (a *app) applyLinkTool() {
 		a.srcSelSyncStart, a.srcSelSyncEnd = caret, caret
 	} else {
 		blocks := a.mdBlocks()
-		idx, off := blockOfRuneOffset(blocks, caret)
+		idx, off := a.blockOfRuneOffset(caret)
 		a.mdActive = idx
 		a.mdDraft = blocks[idx].raw
 		a.selSyncStart, a.selSyncEnd = caret-off, caret-off

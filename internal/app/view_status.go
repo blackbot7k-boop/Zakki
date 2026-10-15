@@ -92,3 +92,14 @@ func (a *app) mirrorLabel() (string, bool) {
 		return last.Format("01-02 15:04 镜像"), false
 	}
 }
+
+// docStats 返回状态栏的行数/词数/字符数。状态栏每帧重建，
+// 按文档串缓存，避免对长文档的每帧三次全文扫描。
+func (a *app) docStats(doc string) (lines, words, chars int) {
+	if a.statsCacheDoc == doc {
+		return a.statsCacheLines, a.statsCacheWords, a.statsCacheChars
+	}
+	lines, words, chars = countLines(doc), countWords(doc), countChars(doc)
+	a.statsCacheDoc, a.statsCacheLines, a.statsCacheWords, a.statsCacheChars = doc, lines, words, chars
+	return lines, words, chars
+}

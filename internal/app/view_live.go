@@ -23,7 +23,7 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 		if ms := a.docMatches(doc, a.query); len(ms) > 0 {
 			a.matchIdx = clamp(a.matchIdx, 0, len(ms)-1)
 			m := ms[a.matchIdx]
-			idx, off := blockOfRuneOffset(blocks, m.Start)
+			idx, off := a.blockOfRuneOffset(m.Start)
 			if idx != a.mdActive {
 				a.focusBlock(idx, m.Start-off, m.End-off)
 			} else {
