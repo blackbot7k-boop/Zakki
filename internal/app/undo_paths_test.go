@@ -58,9 +58,6 @@ func TestUndoAfterSelectAllBackspace(t *testing.T) {
 
 // 连续撤销走完整历史：全选替换 → 撤销 → 再撤销应回到更早的输入。
 func TestUndoWalksFullHistory(t *testing.T) {
-	// 已知问题：全选替换后的第二次 ⌘Z 不回退历史（撤销栈被清）。
-	// 修复后移除此 Skip 并恢复断言。
-	t.Skip("已知问题：全选替换后的连续撤销不回退历史")
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	a.tabs[0].Text = ""

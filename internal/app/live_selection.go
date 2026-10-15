@@ -9,10 +9,8 @@ import (
 // selectDocWide 进入文档级全选：选区覆盖活动标签的全部文本，
 // 跨块的高亮与复制/剪切/删除/输入由 app 层接管（见 docSelectionInput）。
 func (a *app) selectDocWide() {
-	a.selDoc = true
-	a.selDoc = true
+	// 表格单元格内：保持单元格原生全选语义。
 	if a.mdActive >= 0 && a.mdActive < len(a.mdBlocks()) && a.mdBlocks()[a.mdActive].kind == bkTable {
-		// 表格单元格内：保持单元格原生全选语义。
 		a.clearDocSelection()
 		a.selSyncStart, a.selSyncEnd = 0, utf8.RuneCountInString(a.mdVisible)
 		return
@@ -88,7 +86,6 @@ func (a *app) docSelectionInput(ev ui.InputEvent) bool {
 // docSelectionReplace 把控件对整块可见文字的替换升级为文档级替换：
 // 新文档就是控件新可见文字的源码映射，光标落在替换后的位置。
 func (a *app) docSelectionReplace(visible string, p liveProjection, caret int) {
-	before := liveSnapshot{doc: a.activeTab().Text, start: a.selDocStart, end: a.selDocEnd}
 	// 控件的新可见文本里，真正新增的部分才是用户输入；把它映射回源码。
 	oldRs, newRs := []rune(p.text), []rune(visible)
 	prefix := 0
@@ -108,8 +105,8 @@ func (a *app) docSelectionReplace(visible string, p liveProjection, caret int) {
 	a.mdActive, a.mdDraft = idx, a.mdBlocks()[idx].raw
 	a.selSyncStart, a.selSyncEnd = at-off, at-off
 	a.liveFocus, a.scrollActive = 1, true
+	a.pendingEditKind = editCommand
 	a.onEdited()
-	a.rememberLiveEdit(before, editCommand)
 }
 
 // captureClipboardService 在构建期缓存窗口服务，供事件回调写剪贴板。

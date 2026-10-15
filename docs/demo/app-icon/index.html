@@ -68,6 +68,8 @@ header h1{font-size:15px;margin:0 auto 0 0;font-weight:600}
 .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .acts button{font:inherit;font-size:11.5px;border:1px solid var(--hair);background:none;color:var(--text);border-radius:6px;padding:4px 8px;cursor:pointer}
 .acts button:hover{border-color:var(--accent);color:var(--accent)}
+.group{grid-column:1/-1;margin:18px 0 0;font-size:15px;font-weight:600}
+.group small{margin-left:8px;font-size:12px;font-weight:400;color:var(--muted)}
 footer{padding:0 24px 40px;font-size:12px;color:var(--muted);line-height:1.6}
 </style>
 </head>
@@ -75,6 +77,7 @@ footer{padding:0 24px 40px;font-size:12px;color:var(--muted);line-height:1.6}
 <header>
   <h1>Zakki 图标方案 · 共 <span id="count"></span> 套</h1>
   <div class="seg" id="seg-theme"><span>外观</span><button data-v="light" class="on">浅色</button><button data-v="dark">深色</button></div>
+  <div class="seg" id="seg-batch"><span>批次</span><button data-v="all" class="on">全部</button><button data-v="3">③ 风格主题</button><button data-v="2">② 第二批</button><button data-v="1">① 第一批</button></div>
   <div class="seg" id="seg-tray"><span>菜单栏图标</span><button data-v="template" class="on">模板（跟随系统）</button><button data-v="white">固定白色</button><button data-v="color">彩色点缀</button></div>
 </header>
 
@@ -104,10 +107,14 @@ footer{padding:0 24px 40px;font-size:12px;color:var(--muted);line-height:1.6}
 </footer>
 
 <script src="icons.js"></script>
+<script src="icons2.js"></script>
+<script src="icons3.js"></script>
+<script src="icons4.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 let uid = 0;
-const state = { theme: new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light', tray: 'template', sel: location.hash.slice(1) || OPTIONS[0].id };
+const state = { theme: new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light', tray: 'template', batch: 'all', sel: location.hash.slice(1) || OPTIONS.find((o) => o.batch === 3).id };
+const BATCHES = { 3: '③ 风格主题 · 同一品牌元素的不同视觉风格', 2: '② 第二批 · 更多概念', 1: '① 第一批 · 初始方案' };
 
 const appSVG = (o, size) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="${size}" height="${size}">${o.app('i' + (uid++) + '_')}</svg>`;
 // 菜单栏图标：fg 取决于模式与菜单栏底色。
@@ -132,7 +139,14 @@ function renderStage() {
 }
 
 function renderGrid() {
-  $('#grid').innerHTML = OPTIONS.map((o) => `
+  $('#grid').innerHTML = [3, 2, 1].filter((b) => state.batch === 'all' || +state.batch === b).map((b) => {
+    const list = OPTIONS.filter((o) => o.batch === b);
+    return `<h2 class="group">${BATCHES[b]}<small>${list.length} 套</small></h2>` + list.map(card).join('');
+  }).join('');
+}
+
+function card(o) {
+  return `
     <article class="card ${o.id === state.sel ? 'sel' : ''}" data-id="${o.id}">
       <div class="top">${appSVG(o, 96)}<div><h3>${o.name}<span class="tag">${o.tag}</span></h3><p>${o.desc}</p></div></div>
       <div class="sizes">${[64, 32, 16].map((s) => appSVG(o, s)).join('')}</div>
@@ -146,7 +160,7 @@ function renderGrid() {
         <button data-act="tray-white">菜单栏 PNG（白）</button>
         <button data-act="svg">复制 SVG</button>
       </div>
-    </article>`).join('');
+    </article>`;
 }
 
 function render() { renderStage(); renderGrid(); }
@@ -185,6 +199,7 @@ function bindSeg(id, key, after) {
 }
 bindSeg('#seg-theme', 'theme', () => document.body.classList.toggle('dark', state.theme === 'dark'));
 bindSeg('#seg-tray', 'tray');
+bindSeg('#seg-batch', 'batch');
 $('#tray').addEventListener('click', (e) => { e.stopPropagation(); $('#tray').classList.toggle('open'); });
 document.addEventListener('click', () => $('#tray').classList.remove('open'));
 
