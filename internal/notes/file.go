@@ -6,7 +6,16 @@ import (
 )
 
 // CurrentDataVersion 是当前程序读写的数据版本。
-const CurrentDataVersion = 2
+// 版本 3 起排版主题 ID 更名："tot" → "note"（应用更名去品牌化）；
+// 旧版本程序读到版本 3 会按「版本超前」拒绝并保留原文件。
+const CurrentDataVersion = 3
+
+// MarkdownThemeNote 是便签排版主题的当前 ID；legacyMarkdownThemeTot 是
+// 更名前旧文件里的写法，载入时映射到新 ID。
+const (
+	MarkdownThemeNote      = "note"
+	legacyMarkdownThemeTot = "tot"
+)
 
 // Settings 是数据文件中的 settings 节。
 type Settings struct {
@@ -34,7 +43,7 @@ type Tab struct {
 	Color string `json:"color,omitempty"`
 }
 
-// File 是 tot-md.json 的磁盘格式。
+// File 是 zakki.json 的磁盘格式。
 type File struct {
 	Version  int      `json:"version"`
 	Active   int      `json:"active"`
@@ -83,6 +92,9 @@ func Migrate(f File, opt MigrateOptions) (File, error) {
 			dots = padded
 		}
 		f.Tabs = tabsFromDots(dots, opt.PaletteColors, opt.DefaultTabCount)
+	}
+	if f.Version < 3 && f.Settings.MarkdownTheme == legacyMarkdownThemeTot {
+		f.Settings.MarkdownTheme = MarkdownThemeNote
 	}
 	f.Dots = nil
 	f.Tabs = normalizeTabs(f.Tabs, opt)

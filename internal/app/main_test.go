@@ -24,7 +24,7 @@ func newTestApp(tb testing.TB) *app {
 	a := newApp()
 	a.mdActive = 0 // 编辑机制测试默认从首个焦点块开始（生产环境启动是预览态 -1）
 	a.notes = newNotesStore(
-		filepath.Join(dir, "tot-md.json"),
+		filepath.Join(dir, "zakki.json"),
 		filepath.Join(dir, "backups"),
 		a.now,
 	)

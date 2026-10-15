@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"tot-md-mygo/internal/legacyconfig"
+	"zakki/internal/legacyconfig"
 )
 
 type fileConfig = legacyconfig.Config

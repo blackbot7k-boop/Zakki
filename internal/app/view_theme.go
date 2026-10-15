@@ -8,7 +8,7 @@ package app
 //     正文内边距以及引用/代码/表格的结构尺寸；不硬编码颜色。
 //
 // 最终样式 = 颜色主题 + 明暗模式 + Markdown 排版 + 用户排版覆盖。
-// Tot 颜色主题在主窗口继续随点配色；设置窗口使用 Tot 的中性灰变体。
+// 经典颜色主题在主窗口继续随点配色；设置窗口使用经典主题的中性灰变体。
 // 其余颜色主题使用固定背景，切点只改变导航圆点及当前点标识。
 
 import (
@@ -23,7 +23,7 @@ import (
 type colorPalette struct {
 	background     ui.Color // 内容区背景
 	header         ui.Color // 顶栏
-	status         ui.Color // 底栏（Tot 的 status_background）
+	status         ui.Color // 底栏
 	surface        ui.Color // 控件表面（输入框、代码底、浮层）
 	border         ui.Color // 控件边界
 	text           ui.Color // 正文文字
@@ -42,7 +42,7 @@ type colorThemeDef struct {
 	dark  colorPalette
 }
 
-// colorThemes 是全部颜色主题；tot 之外的浅/深色底色成对给出，
+// colorThemes 是全部颜色主题；classic 之外的浅/深色底色成对给出，
 // 正文/次级文字对实际背景 ≥ 4.5:1，必要边界 ≥ 3:1（有对比度测试保障）。
 var colorThemes = []colorThemeDef{
 	{
@@ -138,7 +138,7 @@ var colorThemes = []colorThemeDef{
 	},
 }
 
-// colorThemeByID 按 ID 找颜色主题；未知 ID 回退 Tot。
+// colorThemeByID 按 ID 找颜色主题；未知 ID 回退经典主题。
 func colorThemeByID(id string) (colorThemeDef, bool) {
 	for _, t := range colorThemes {
 		if t.id == id {
@@ -151,16 +151,16 @@ func colorThemeByID(id string) (colorThemeDef, bool) {
 // colorThemeNames 返回全部颜色主题的展示名（顺序即选择卡片顺序）。
 func colorThemeNames() []string {
 	names := make([]string, 0, len(colorThemes)+1)
-	names = append(names, "Tot")
+	names = append(names, "经典")
 	for _, t := range colorThemes {
 		names = append(names, t.name)
 	}
 	return names
 }
 
-// totNeutralPalette 是 Tot 颜色主题的中性灰变体：用于设置窗口等
+// classicNeutralPalette 是经典颜色主题的中性灰变体：用于设置窗口等
 // 没有点上下文的界面（主窗口仍随点配色）。
-func totNeutralPalette(dark bool) colorPalette {
+func classicNeutralPalette(dark bool) colorPalette {
 	if dark {
 		return colorPalette{
 			background: ui.Hex("#1e1e20"), header: ui.Hex("#2a2a2c"), status: ui.Hex("#2a2a2c"),
@@ -179,8 +179,8 @@ func totNeutralPalette(dark bool) colorPalette {
 	}
 }
 
-// dotPalette 把第 i 个点的既有配色适配成语义调色板（Tot 颜色主题的主窗口）。
-// 点配色逐字节来自 Tot 2.1.1 theme.json，保持原有七点底色体验。
+// dotPalette 把第 i 个点的既有配色适配成语义调色板（经典颜色主题的主窗口）。
+// 点配色沿用经典七点底色，保持原有体验。
 func dotPalette(i int, dark bool) colorPalette {
 	return colorPalette{
 		background:     dotBackground(i, dark),
@@ -208,7 +208,7 @@ func textOnBackground(i int, dark bool) ui.Color {
 	return ui.Hex("#26241f").Mix(bg, 0.04)
 }
 
-// selectionForDot 选区叠色：Tot 用点 accent 的低透明度版本，
+// selectionForDot 选区叠色：经典主题用点 accent 的低透明度版本，
 // 叠加后文字仍可读（accent 亮度向背景方向收敛）。
 func selectionForDot(i int, dark bool) ui.Color {
 	acc, bg := colorFloats(dotAccent(i, dark)), colorFloats(dotBackground(i, dark))
@@ -255,7 +255,7 @@ var markdownLayouts = []markdownLayout{
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 8, tablePadY: 6,
 	},
 	{
-		id: "tot", name: "Tot 便签",
+		id: "note", name: "便签",
 		bodySize: 15, lineHeight: 1.5, blockGap: 12,
 		padX: 24, padY: 24,
 		headingScale: [6]float32{1.75, 1.5, 1.25, 1.0625, 0.9375, 0.875},
@@ -426,14 +426,18 @@ type resolvedStyle struct {
 	sketch                  bool // 手账排版：引用/代码/分隔线/标题改为手绘装饰
 }
 
-// colorPaletteFor 解析颜色层：Tot 主题在 dot 上下文（主窗口）随点配色，
+// colorThemeClassic 是经典颜色主题（随点配色）的 ID，对应更名前旧文件里的
+// "tot"；未知 ID 一律回退到它。
+const colorThemeClassic = "classic"
+
+// colorPaletteFor 解析颜色层：经典主题在 dot 上下文（主窗口）随点配色，
 // 其余界面用中性灰变体；其他颜色主题用固定调色板。
 func colorPaletteFor(themeID string, dot int, dark bool) colorPalette {
-	if themeID == "tot" || themeID == "" {
+	if themeID == colorThemeClassic || themeID == "" {
 		if dot >= 0 {
 			return dotPalette(dot, dark)
 		}
-		return totNeutralPalette(dark)
+		return classicNeutralPalette(dark)
 	}
 	if def, ok := colorThemeByID(themeID); ok {
 		if dark {
@@ -441,7 +445,7 @@ func colorPaletteFor(themeID string, dot int, dark bool) colorPalette {
 		}
 		return def.light
 	}
-	return totNeutralPalette(dark)
+	return classicNeutralPalette(dark)
 }
 
 // resolveStyle 合并三层：颜色主题 + Markdown 排版 + 用户排版覆盖。
@@ -536,8 +540,8 @@ func contrastRatio(a, b ui.Color) float64 {
 	return (la + 0.05) / (lb + 0.05)
 }
 
-// dotTheme 是从本机安装的 Tot 2.1.1 应用包提取的每点主题
-// （/Applications/Tot.app/Contents/Resources/theme.json，成品工件证据）。
+// dotTheme 是经典七点配色的每点主题（早期版本采样自同类型便签应用的
+// 成品资源，数值保持不变）。
 type dotTheme struct {
 	dot  string // 点本身的颜色
 	accL string // 浅色模式 accent（高亮/链接）
@@ -555,7 +559,7 @@ var dotThemes = [DotCount]dotTheme{
 	{"#65c802", "#58752e", "#d3efac", "#f9fff0", "#1b2015", "#dee8cb", "#313724"}, // 4 绿
 	{"#0f75e9", "#3857a2", "#94bfff", "#e7eeff", "#191d26", "#cdd8f8", "#2c354e"}, // 5 蓝
 	{"#a40bd8", "#754993", "#dfb5fc", "#f8effe", "#1e1723", "#e3d3f1", "#372943"}, // 6 紫
-	{"#98989d", "#3a3a3c", "#d1d1d6", "#ffffff", "#0a0a0c", "#f2f2f4", "#0e0e10"}, // 7 灰（Tot 的 default 单色主题）
+	{"#98989d", "#3a3a3c", "#d1d1d6", "#ffffff", "#0a0a0c", "#f2f2f4", "#0e0e10"}, // 7 灰
 }
 
 // dotColor 返回第 i 个点的颜色。
@@ -577,8 +581,7 @@ func dotBackground(i int, dark bool) ui.Color {
 	return ui.Hex(dotThemes[i].bgL)
 }
 
-// dotStatusBackground 返回第 i 个点的底栏背景色（Tot 的 status_background，
-// 与 theme.json 逐字节核对过：teal 点 #D1E9EF 完全一致）。
+// dotStatusBackground 返回第 i 个点的底栏背景色。
 func dotStatusBackground(i int, dark bool) ui.Color {
 	if dark {
 		return ui.Hex(dotThemes[i].stD)
@@ -586,7 +589,7 @@ func dotStatusBackground(i int, dark bool) ui.Color {
 	return ui.Hex(dotThemes[i].stL)
 }
 
-// headerBackground 顶栏固定色：Tot 的顶栏不随点变，浅色 #F2F2F2（采样自真机截图）。
+// headerBackground 顶栏固定色：经典主题的顶栏不随点变，浅色 #F2F2F2。
 func headerBackground(dark bool) ui.Color {
 	if dark {
 		return ui.Hex("#2a2a2c")

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"tot-md-mygo/internal/atomicfile"
+	"zakki/internal/atomicfile"
 )
 
 // IssueKind 偏好文件异常状态（影响是否允许写盘）。

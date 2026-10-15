@@ -3,7 +3,7 @@
 // tray(fg, color)：返回高 18 的菜单栏图标内容；fg 是单色前景，color=true 时允许彩色点缀。
 // trayW：菜单栏图标宽度（viewBox 宽），默认 18。
 const P = { r: '#d4253a', o: '#f67500', y: '#ffd01c', g: '#65c802', b: '#0f75e9', p: '#a40bd8', gr: '#98989d', c: '#00a3b4', pk: '#f7429c', in: '#5856d6', sky: '#32ade6' };
-const TOT7 = [P.r, P.o, P.y, P.g, P.b, P.p, P.gr];
+const DOT7 = [P.r, P.o, P.y, P.g, P.b, P.p, P.gr];
 
 // 近似 macOS 图标的超椭圆底板（n=5），占 1024 画布中央 824。
 function squircle(cx = 512, cy = 512, a = 412, n = 5, steps = 256) {
@@ -47,28 +47,28 @@ const bar = (x, y, w, h, c, op = 1) => `<rect x="${x}" y="${y}" width="${w}" hei
 
 function sevenDots(dark) {
   return (u) => tile(u, dark ? ['#2c2c2e', '#161618'] : ['#ffffff', '#e9e9ee'],
-    TOT7.map((c, i) => { const [x, y] = polar(512, 512, 232, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="74" fill="${dark && c === P.gr ? '#6e6e73' : c}"/>`; }).join(''),
+    DOT7.map((c, i) => { const [x, y] = polar(512, 512, 232, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="74" fill="${dark && c === P.gr ? '#6e6e73' : c}"/>`; }).join(''),
     { light: !dark, gloss: dark ? 0.08 : 0.3 });
 }
 const sevenDotsTray = (fg, color) =>
-  TOT7.map((c, i) => { const [x, y] = polar(9, 9, 6.2, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="1.6" fill="${color ? c : fg}"/>`; }).join('');
+  DOT7.map((c, i) => { const [x, y] = polar(9, 9, 6.2, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="1.6" fill="${color ? c : fg}"/>`; }).join('');
 
 const OPTIONS = [
   {
-    id: 'seven-dots', name: '七点', tag: 'Tot 传承',
-    desc: '七个标签色围成一圈，直接对应 Tot 的 7 点导航。浅色纸感底板，辨识度来自色彩本身。',
+    id: 'seven-dots', name: '七点', tag: '经典配色',
+    desc: '七个标签色围成一圈，直接对应 经典 7 点导航。浅色纸感底板，辨识度来自色彩本身。',
     app: sevenDots(false), tray: sevenDotsTray,
   },
   {
-    id: 'seven-dots-night', name: '七点 · 夜', tag: 'Tot 传承',
+    id: 'seven-dots-night', name: '七点 · 夜', tag: '经典配色',
     desc: '同一套七点，换成深色底板，在 Dock 里更沉稳、颜色更跳。',
     app: sevenDots(true), tray: sevenDotsTray,
   },
   {
     id: 'spectrum-ring', name: '光谱环', tag: '抽象',
     desc: '圆环被切成 7 段标签色，延续现有「白环」托盘图标的轮廓，过渡最平滑。',
-    app: (u) => tile(u, ['#2c2c2e', '#111113'], TOT7.map((c, i) => arc(512, 512, 250, 92, -90 + i * 360 / 7, 360 / 7 - 7, c)).join(''), { gloss: 0.08 }),
-    tray: (fg, color) => TOT7.map((c, i) => arc(9, 9, 6.3, 2.2, -90 + i * 360 / 7, 360 / 7 - 12, color ? c : fg)).join(''),
+    app: (u) => tile(u, ['#2c2c2e', '#111113'], DOT7.map((c, i) => arc(512, 512, 250, 92, -90 + i * 360 / 7, 360 / 7 - 7, c)).join(''), { gloss: 0.08 }),
+    tray: (fg, color) => DOT7.map((c, i) => arc(9, 9, 6.3, 2.2, -90 + i * 360 / 7, 360 / 7 - 12, color ? c : fg)).join(''),
   },
   {
     id: 'ring-orbit', name: '轨道环', tag: '现有演进',
@@ -110,7 +110,7 @@ const OPTIONS = [
   },
   {
     id: 'dot-caret', name: '墨点光标', tag: '极简',
-    desc: '一颗 Tot 红点加一根输入光标：「点一下就开始写」。米色纸感，最安静的一款。',
+    desc: '一颗经典红点加一根输入光标：「点一下就开始写」。米色纸感，最安静的一款。',
     app: (u) => tile(u, ['#fbf8f1', '#ece5d6'], `<circle cx="459" cy="512" r="172" fill="${P.r}"/>${bar(690, 326, 48, 372, '#1d1d1f')}`, { light: true, gloss: 0.3 }),
     tray: (fg, color) => `<circle cx="7" cy="9" r="4.6" fill="${color ? P.r : fg}"/>${bar(13.4, 3.2, 2, 11.6, fg)}`,
   },

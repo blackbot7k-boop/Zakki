@@ -20,7 +20,7 @@ func newTestStore(t *testing.T, now func() time.Time) *Store {
 	if now == nil {
 		now = func() time.Time { return time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC) }
 	}
-	return NewStore(filepath.Join(dir, "tot-md.json"), filepath.Join(dir, "backups"), now, testMigrateOpt())
+	return NewStore(filepath.Join(dir, "zakki.json"), filepath.Join(dir, "backups"), now, testMigrateOpt())
 }
 
 type testClock struct {
@@ -119,7 +119,7 @@ func TestSaveNowAtomicAndNestedDir(t *testing.T) {
 
 	t.Run("目标目录不存在时自动创建", func(t *testing.T) {
 		s := newTestStore(t, nil)
-		s.DataFile = filepath.Join(filepath.Dir(s.DataFile), "nested", "deep", "tot-md.json")
+		s.DataFile = filepath.Join(filepath.Dir(s.DataFile), "nested", "deep", "zakki.json")
 		f := defaultTabs("新建目录也能存")
 		doc := File{Version: CurrentDataVersion, Tabs: f, Settings: Settings{HideOnEscape: true}}
 		if err := s.SaveNow(doc); err != nil {
@@ -133,7 +133,7 @@ func TestSaveNowAtomicAndNestedDir(t *testing.T) {
 
 func TestVersionTooNewLeavesOriginal(t *testing.T) {
 	s := newTestStore(t, nil)
-	const raw = `{"version":3,"active":0,"tabs":[{"text":"future"}]}`
+	const raw = `{"version":4,"active":0,"tabs":[{"text":"future"}]}`
 	writeRaw(t, s.DataFile, raw)
 	_, _, err := s.ParseRaw([]byte(raw))
 	if err == nil || !strings.Contains(err.Error(), "当前版本无法读取") {
@@ -285,13 +285,13 @@ func TestBackupPruneKeepsNewest(t *testing.T) {
 	}
 	for _, name := range kept {
 		for sec := 1; sec <= 5; sec++ {
-			old := fmt.Sprintf("tot-md-%s.json", time.Date(2024, 6, 1, 12, 0, sec, 0, time.UTC).Format("20060102-150405"))
+			old := fmt.Sprintf("zakki-%s.json", time.Date(2024, 6, 1, 12, 0, sec, 0, time.UTC).Format("20060102-150405"))
 			if name == old {
 				t.Fatalf("旧备份 %s 不应保留（%v）", name, kept)
 			}
 		}
 	}
-	newest := fmt.Sprintf("tot-md-%s.json", time.Date(2024, 6, 1, 12, 0, 25, 0, time.UTC).Format("20060102-150405"))
+	newest := fmt.Sprintf("zakki-%s.json", time.Date(2024, 6, 1, 12, 0, 25, 0, time.UTC).Format("20060102-150405"))
 	if kept[len(kept)-1] != newest {
 		t.Fatalf("最新备份 = %q, want %q（列表 %v）", kept[len(kept)-1], newest, kept)
 	}
@@ -414,7 +414,7 @@ func (g *gitLog) runner() GitRunner {
 			return "", err
 		}
 		if args[0] == "status" {
-			return "A  tot-md-x.json\n", nil // add 之后总有变更
+			return "A  zakki-x.json\n", nil // add 之后总有变更
 		}
 		return "", nil
 	}

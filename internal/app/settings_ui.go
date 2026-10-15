@@ -189,7 +189,7 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 		id, name string
 		pal      colorPalette
 	}
-	cards := []card{{id: "tot", name: "Tot", pal: totNeutralPalette(dark)}}
+	cards := []card{{id: colorThemeClassic, name: "经典", pal: classicNeutralPalette(dark)}}
 	for _, def := range colorThemes {
 		pal := def.light
 		if dark {
@@ -302,7 +302,7 @@ func layoutFontNote(id string) string {
 		return "衬线意象"
 	case "compact":
 		return "收紧间距"
-	case "tot":
+	case "note":
 		return "便签排版"
 	case "clear":
 		return "层级明确"
@@ -493,7 +493,7 @@ func (a *app) themePreview(c *ui.Context, dark bool) {
 		})
 		ui.Row(c).Gap(6).Children(func() {
 			quoteBar(c, style, 7)
-			ui.Text(c, "引用：灵感来自 Tot。").TextColor(style.textMuted)
+			ui.Text(c, "引用：一段安静的旁注。").TextColor(style.textMuted)
 		})
 		ui.Row(c).Gap(0).Children(func() {
 			ui.Box(c).Grow(1).Padding(style.tablePadY, style.tablePadX).Background(style.surface).BorderWidth(0, 0, 1, 1).BorderColor(style.border).Children(func() {

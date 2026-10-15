@@ -41,10 +41,10 @@ arch-check:
 		[ -d "$$dir" ] || continue; \
 		if go list -deps "$$dir" | grep -q '^github.com/egoist/mygo'; then \
 			echo "  internal/$$pkg 依赖了 MyGo"; fail=1; fi; \
-		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
-	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
 		case " markdown atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 

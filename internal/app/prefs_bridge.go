@@ -3,8 +3,8 @@ package app
 import (
 	"time"
 
-	"tot-md-mygo/internal/legacyconfig"
-	"tot-md-mygo/internal/prefs"
+	"zakki/internal/legacyconfig"
+	"zakki/internal/prefs"
 )
 
 type preferences = prefs.Preferences

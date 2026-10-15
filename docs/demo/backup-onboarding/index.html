@@ -248,7 +248,7 @@
     <ol>
       <li><b>备份目的地文件夹</b>（可选，可跳过）——选云盘文件夹（iCloud / 坚果云 / OneDrive）即得云备份；选 GitHub 仓库的本地 clone 即得版本化备份。应用只负责把备份镜像进去。</li>
       <li><b>Git 自动化</b>（可选，仅当所选文件夹是 Git 仓库时出现）：关闭 / 自动提交 / 提交并推送。不配置则完全不影响使用。</li>
-      <li><b>初始标签数量</b> 1–12（默认 7）——决定首次生成的 <code>tot-md.json</code> 里 <code>tabs</code> 的个数。</li>
+      <li><b>初始标签数量</b> 1–12（默认 7）——决定首次生成的 <code>zakki.json</code> 里 <code>tabs</code> 的个数。</li>
       <li><b>完成页</b>：配置汇总 +「打开备份文件夹」验证入口，完成后进入主窗口。</li>
     </ol>
   </div>
@@ -264,7 +264,7 @@
   <div class="panel">
     <h2>触发与降级 <span class="tag">关键行为</span></h2>
     <ul>
-      <li>向导仅在<b>全新安装</b>（<code>tot-md.json</code> 不存在）时出现；跳过 = 全默认直接进入。</li>
+      <li>向导仅在<b>全新安装</b>（<code>zakki.json</code> 不存在）时出现；跳过 = 全默认直接进入。</li>
       <li>老用户升级不出向导，从设置页「备份与数据」补配外部备份。</li>
       <li><b>「打开文件夹」降级</b>：未配置外部备份时，打开动作提示并引导先选择文件夹。</li>
       <li>每一步都可返回、可跳过；向导不阻塞、不写数据，确认时才落盘。</li>
@@ -359,7 +359,7 @@
           <button id="tabPlus">+</button>
         </div>
         <div class="dotstrip" id="tabStrip"></div>
-        <div class="wz-p" style="margin-top:12px;margin-bottom:0;font-size:11.5px;">默认 7 个沿用 Tot 便签的使用习惯；每个标签独立保存 Markdown 内容与颜色。</div>
+        <div class="wz-p" style="margin-top:12px;margin-bottom:0;font-size:11.5px;">默认 7 个沿用 便签的使用习惯；每个标签独立保存 Markdown 内容与颜色。</div>
       </div>
 
       <!-- 步骤 4：Git（可选） -->
@@ -451,7 +451,7 @@
             </div>
           </div>
           <div class="inline-err" id="sbErr">尚未配置外部备份，请先选择文件夹。</div>
-          <div class="cardfoot">镜像失败只警告、不阻塞本地备份；文件夹不能选应用数据目录本身。修剪只清理本应用写入的 tot-md-*.json，不碰目录里的其他文件。</div>
+          <div class="cardfoot">镜像失败只警告、不阻塞本地备份；文件夹不能选应用数据目录本身。修剪只清理本应用写入的 zakki-*.json，不碰目录里的其他文件。</div>
         </div>
 
         <!-- 现有：本地自动备份 -->
@@ -469,7 +469,7 @@
             <div class="lab"><div class="l1">启动时备份</div><div class="l2">应用启动且已有数据文件时先做一份备份</div></div>
             <button class="switch on" id="sbLaunch"></button>
           </div>
-          <div class="cardfoot">本地备份目录：<span style="font-family:'SF Mono',Menlo,monospace;">~/Library/Application Support/Tot MD/backups/</span></div>
+          <div class="cardfoot">本地备份目录：<span style="font-family:'SF Mono',Menlo,monospace;">~/Library/Application Support/Zakki/backups/</span></div>
         </div>
 
         <!-- 数据操作 -->
@@ -484,7 +484,7 @@
             <button class="sbtn">打开</button>
           </div>
           <div class="roww">
-            <div class="lab"><div class="l1">显示数据位置</div><div class="l2">在访达中定位 tot-md.json</div></div>
+            <div class="lab"><div class="l1">显示数据位置</div><div class="l2">在访达中定位 zakki.json</div></div>
             <button class="sbtn">显示</button>
           </div>
         </div>
@@ -522,8 +522,8 @@
     <h2>偏好与数据变化</h2>
     <ul>
       <li><code>preferences.json</code> <b>v2 → v3</b>：<code>backup</code> 增 <code>mirrorDir</code>（字符串，空 = 未配置）与 <code>gitMode</code>（<code>off / commit / commitPush</code>）。缺键一律按现状取值，<b>零行为变化</b>；旧版本程序读到 v3 按既有「版本超前」规则拒绝并保留原文件。</li>
-      <li><code>tot-md.json</code> <b>格式不变</b>：标签数量天然由 <code>tabs</code> 数组承载；首次启动按向导选择生成 N 个标签（第 1 个含欢迎文本，其余为空）。</li>
-      <li>本地与外部镜像共用「备份保留数量」；镜像目录里只修剪本应用写入的 <code>tot-md-*.json</code>，云盘冲突副本等外来文件不受影响。</li>
+      <li><code>zakki.json</code> <b>格式不变</b>：标签数量天然由 <code>tabs</code> 数组承载；首次启动按向导选择生成 N 个标签（第 1 个含欢迎文本，其余为空）。</li>
+      <li>本地与外部镜像共用「备份保留数量」；镜像目录里只修剪本应用写入的 <code>zakki-*.json</code>，云盘冲突副本等外来文件不受影响。</li>
     </ul>
   </div>
   <div class="panel">
@@ -540,7 +540,7 @@
     <ul>
       <li><b>目录校验</b>：拒绝选应用数据目录与其 <code>backups/</code>（自我嵌套）；选定后试写一个临时文件验证可写；<code>.git</code> 存在则判定为 Git 仓库。</li>
       <li><b>失败语义</b>：镜像 / git 失败只警告并如实上报（状态栏 + 日志），绝不阻塞本地备份与退出；push 默认关闭，失败不重试（下次备份自然重试）。</li>
-      <li><b>Git 细节</b>：仅 <code>add tot-md-*.json</code>；无变更则跳过 commit；提交信息 <code>backup: tot-md-&lt;时间戳&gt;</code>；缺 user.name/email 时 commit 失败并在设置页提示检测。</li>
+      <li><b>Git 细节</b>：仅 <code>add zakki-*.json</code>；无变更则跳过 commit；提交信息 <code>backup: zakki-&lt;时间戳&gt;</code>；缺 user.name/email 时 commit 失败并在设置页提示检测。</li>
       <li><b>向导不写盘</b>：所有选择先存草稿，确认时经 <code>updatePreferences</code> 统一落盘；跳过则只按默认值建数据文件。</li>
       <li><b>分阶段交付</b>：A = 偏好字段 + 设置页外部备份 + 镜像；B = 首启向导（含标签数初始化）；C = Git 自动提交 / 推送（可选项）。</li>
     </ul>
@@ -670,8 +670,8 @@ function renderGit() {
       ? "尚未选择备份文件夹（回到上一步选择）。Git 自动化是可选项：仅当备份文件夹是 Git 仓库时可用。"
       : "「" + state.folder.path + "」不是 Git 仓库，Git 自动化不可用；它仍可作为普通同步文件夹使用。想用 Git 备份请返回上一步换一个仓库目录。";
   } else {
-    let cmd = 'git -C ' + state.folder.path + ' add tot-md-*.json\n';
-    cmd += 'git commit -m "backup: tot-md-20250607-1432"';
+    let cmd = 'git -C ' + state.folder.path + ' add zakki-*.json\n';
+    cmd += 'git commit -m "backup: zakki-20250607-1432"';
     if (state.gitMode === "commitPush") cmd += '\ngit push';
     $("gitCmd").innerHTML = cmd.replace(/(add|commit|push)/g, '<span class="c">$1</span>');
   }

@@ -14,8 +14,11 @@ func TestZakkiIdentityKeepsExistingData(t *testing.T) {
 	if appName != "Zakki" || !strings.HasPrefix(welcomeText, "# Zakki\n") {
 		t.Fatal("应用名与欢迎文字应使用 Zakki")
 	}
-	if dataDirectoryName != "Tot MD" {
-		t.Fatal("改名不得更换旧数据目录")
+	if dataDirectoryName != "Zakki" || legacyDataDirectoryName != "Tot MD" {
+		t.Fatal("数据目录应更名并保留旧目录名供迁移")
+	}
+	if dataFileName != "zakki.json" || legacyDataFileName != "tot-md.json" {
+		t.Fatal("数据文件应更名并保留旧文件名供迁移")
 	}
 	raw, err := os.ReadFile("../../mygo.json")
 	if err != nil {
@@ -32,8 +35,8 @@ func TestZakkiIdentityKeepsExistingData(t *testing.T) {
 	if err := json.Unmarshal(raw, &config); err != nil {
 		t.Fatal(err)
 	}
-	if config.Name != appName || config.Identifier != "com.gomeen.totmd" {
-		t.Fatalf("安装包应改名但保留应用标识: %+v", config)
+	if config.Name != appName || config.Identifier != "com.gomeen.zakki" {
+		t.Fatalf("安装包应使用 Zakki 名称与标识: %+v", config)
 	}
 	if config.Updates.GitHub != "gomeen/Zakki" || config.Updates.PublicKey == "" {
 		t.Fatal("安装包必须订阅 Zakki 的签名更新")
@@ -92,7 +95,7 @@ func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
 			}
 			dataPath, prefsPath := a.notes.DataFile, a.prefsStore.Path
 			if failure == "notes" {
-				a.notes.DataFile = filepath.Join(blocker, "tot-md.json")
+				a.notes.DataFile = filepath.Join(blocker, "zakki.json")
 			} else {
 				a.prefsStore.Path = filepath.Join(blocker, "preferences.json")
 			}

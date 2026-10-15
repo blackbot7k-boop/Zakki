@@ -1,6 +1,6 @@
 {
   "name": "Zakki",
-  "identifier": "com.gomeen.totmd",
+  "identifier": "com.gomeen.zakki",
   "version": "0.1.0",
   "out": "build",
   "macos": {

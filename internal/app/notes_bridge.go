@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"tot-md-mygo/internal/notes"
+	"zakki/internal/notes"
 )
 
 type settings = notes.Settings

@@ -9,14 +9,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"tot-md-mygo/internal/legacyconfig"
+	"zakki/internal/legacyconfig"
 )
 
 // CurrentVersion 是当前程序读写的偏好版本。
 // 版本 2 起 appearance 分开记录中文字体（bodyFont）与西文字体（latinFont）。
 // 版本 3 起 backup 记录外部备份目的地（mirrorDir）与 Git 自动化模式（gitMode）；
 // 旧版本程序读到版本 3 会按「版本超前」拒绝并保留原文件。
-const CurrentVersion = 3
+// 版本 4 起主题 ID 更名：colorTheme "tot" → "classic"、markdownTheme "tot" → "note"。
+const CurrentVersion = 4
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -80,7 +81,7 @@ func Default(backupIntervalMinutes int) Preferences {
 		Version: CurrentVersion,
 		Appearance: Appearance{
 			AppearanceMode: "system",
-			ColorTheme:     "tot",
+			ColorTheme:     "classic",
 			MarkdownTheme:  "sonnet",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
@@ -111,8 +112,8 @@ func (p Preferences) Validate(v AccelValidator) error {
 		allowed     []string
 	}{
 		{"appearance.appearanceMode", p.Appearance.AppearanceMode, []string{"system", "light", "dark"}},
-		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"tot", "paper", "warmSand", "mistTeal", "graphite", "sketch"}},
-		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "tot", "clear", "book", "compact", "sketch"}},
+		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "sketch"}},
+		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact", "sketch"}},
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
 		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley"}},
 		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
@@ -230,14 +231,26 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 
 // migrate 把旧版本偏好升级到 CurrentVersion。版本 1 只有一个正文字体键，
 // 西文当时取自同一套字体栈，因此升级后 latinFont 留空（跟随中文字体），
-// 渲染结果与升级前完全一致。
+// 渲染结果与升级前完全一致。版本 4 把更名前的主题 ID（"tot"）映射到新 ID
+// （"classic" / "note"），主题取值不变、只换名字。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
 	}
+	if p.Version < 4 {
+		if p.Appearance.ColorTheme == legacyThemeTot {
+			p.Appearance.ColorTheme = "classic"
+		}
+		if p.Appearance.MarkdownTheme == legacyThemeTot {
+			p.Appearance.MarkdownTheme = "note"
+		}
+	}
 	p.Version = CurrentVersion
 	return p
 }
+
+// legacyThemeTot 是主题 ID 更名前旧文件里的写法；仅用于识别旧值并映射新 ID。
+const legacyThemeTot = "tot"
 
 func rejectJSONNull(value any, path string) error {
 	if value == nil {
@@ -267,8 +280,8 @@ func FromNotes(b legacyconfig.NotesBaseline, backupIntervalMinutes int) Preferen
 		p.Appearance.AppearanceMode = v
 	}
 	switch b.MarkdownTheme {
-	case "tot":
-		p.Appearance.MarkdownTheme = "tot"
+	case legacyThemeTot:
+		p.Appearance.MarkdownTheme = "note"
 	default:
 		p.Appearance.MarkdownTheme = "sonnet"
 	}
@@ -284,8 +297,8 @@ func MergeFileConfig(cfg legacyconfig.Config, base Preferences, cmdToggleWindow 
 	p := base
 	p.Appearance.AppearanceMode = cfg.Appearance.Theme
 	switch cfg.Appearance.MarkdownTheme {
-	case "tot":
-		p.Appearance.MarkdownTheme = "tot"
+	case legacyThemeTot:
+		p.Appearance.MarkdownTheme = "note"
 	case "":
 	default:
 		p.Appearance.MarkdownTheme = "sonnet"

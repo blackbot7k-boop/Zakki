@@ -86,8 +86,8 @@ OPTIONS.push(
   },
   {
     id: 'min-dot', name: '一点', tag: '简约 · 极简', batch: 7,
-    feature: 'Tot 式彩点',
-    desc: '浅灰底上一颗大红点，来自 Tot 的点式标签。最极端的简约，识别靠颜色。',
+    feature: '经典彩点',
+    desc: '浅灰底上一颗大红点，来自经典点式标签。最极端的简约，识别靠颜色。',
     app: u => minTile(u, ['#f8f8fa', '#e4e4e8'], `<circle cx="512" cy="512" r="176" fill="${P.r}"/>`, true),
     tray: (fg, color) => `<circle cx="9" cy="9" r="5.5" fill="${color ? P.r : fg}"/>`,
   },

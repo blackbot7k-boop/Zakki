@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"tot-md-mygo/internal/markdown"
+	"zakki/internal/markdown"
 )
 
 func lineByteOffset(doc string, line int) int { return markdown.LineByteOffset(doc, line) }

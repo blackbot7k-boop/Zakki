@@ -4,7 +4,7 @@
 const PALETTE = ['#d4253a', '#f67500', '#ffd01c', '#65c802', '#0f75e9', '#a40bd8', '#98989d',
   '#00a6a6', '#ff4f9a', '#6b5cff', '#8d6e63', '#2fb170'];
 const MAX_TABS = 12;
-const STORE = 'totmd-island-demo-v1';
+const STORE = 'zakki-island-demo-v1';
 
 const S = load() || {
   active: 0,

@@ -6,8 +6,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
-	"tot-md-mygo/internal/notes"
-	iprefs "tot-md-mygo/internal/prefs"
+	"zakki/internal/notes"
+	iprefs "zakki/internal/prefs"
 )
 
 // tabsState 标签数据与当前选中下标。

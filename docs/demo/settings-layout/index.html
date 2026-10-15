@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tot MD 设置页布局方案对比</title>
+<title>Zakki 设置页布局方案对比</title>
 <style>
   :root {
     --page-bg: #f5f5f7;
@@ -196,7 +196,7 @@
 
 <header class="page">
   <h1>设置页布局方案对比</h1>
-  <span class="sub">Tot MD · 基于 settings_ui.go 现状分析 · 窗口均为可交互 demo</span>
+  <span class="sub">Zakki · 基于 settings_ui.go 现状分析 · 窗口均为可交互 demo</span>
   <span class="spacer"></span>
   <label class="sysmode">模拟系统外观
     <select id="sysmode">
@@ -225,7 +225,7 @@
 <script>
 /* ================= 数据（与 themes.go / settings_ui.go 对齐） ================= */
 const PALETTES = {
-  tot:      { name:"Tot",  light:{bg:"#ffffff",header:"#f2f2f4",text:"#1d1d1f",muted:"#6e6e73",accent:"#3a3a3c",surface:"#f2f2f4",line:"#e0e0e3"},
+  classic:  { name:"经典",  light:{bg:"#ffffff",header:"#f2f2f4",text:"#1d1d1f",muted:"#6e6e73",accent:"#3a3a3c",surface:"#f2f2f4",line:"#e0e0e3"},
                           dark:{bg:"#1e1e20",header:"#2a2a2c",text:"#f2f2f4",muted:"#a8a8ad",accent:"#d1d1d6",surface:"#2c2c2e",line:"#3d3d40"} },
   paper:    { name:"纸白", light:{bg:"#fafaf8",header:"#f0f0ec",text:"#2a2c2e",muted:"#6b6e72",accent:"#3b6ea5",surface:"#ffffff",line:"#dededa"},
                           dark:{bg:"#202224",header:"#282a2d",text:"#e8e9ea",muted:"#a3a6a9",accent:"#7fb3e3",surface:"#2b2e31",line:"#3d4045"} },
@@ -238,7 +238,7 @@ const PALETTES = {
 };
 const MD_THEMES = [
   { id:"sonnet",  name:"Sonnet（Typora）", body:"'JetBrains Mono','LXGW WenKai',serif", size:16, lh:1.6, meta:"JetBrains Mono + 霞鹜文楷 · 16px / 1.6" },
-  { id:"tot",     name:"Tot 便签",        body:"-apple-system,'PingFang SC',sans-serif", size:15, lh:1.5, meta:"系统苹方 · 15px / 1.5 · 便签排版" },
+  { id:"note",     name:"便签",        body:"-apple-system,'PingFang SC',sans-serif", size:15, lh:1.5, meta:"系统苹方 · 15px / 1.5 · 便签排版" },
   { id:"clear",   name:"清晰",            body:"-apple-system,'PingFang SC',sans-serif", size:16, lh:1.65, meta:"苹方 · 16px / 1.65 · 层级明确" },
   { id:"book",    name:"书页",            body:"'Songti SC',serif", size:17, lh:1.8, meta:"宋体/衬线 · 17px / 1.8 · 中文长文" },
   { id:"compact", name:"紧凑",            body:"-apple-system,'PingFang SC',sans-serif", size:15, lh:1.5, meta:"无衬线 · 15px / 1.5 · 收紧间距" },
@@ -257,7 +257,7 @@ const KEYMAP = [
 /* ================= 状态 ================= */
 const S = {
   option: "A", page: "appearance", sysDark: false,
-  mode: "system", colorTheme: "tot", mdTheme: "sonnet",
+  mode: "system", colorTheme: "classic", mdTheme: "sonnet",
   bodyFont: "", monoFont: "", bodySize: 0, lineHeight: 0,
   alwaysOnTop: true, hideEsc: false, rememberBounds: true,
   backupInterval: 30, backupKeep: 100, backupOnLaunch: true,
@@ -283,7 +283,7 @@ function previewHTML(compact) {
     <div style="font-weight:700;font-size:${size*1.4}px">标题：写作与速记 Writing</div>
     <div>正文 <b>粗体</b> 与 <i>斜体</i>、<code style="font-family:${effMonoFont()};font-size:${size*.85}px;background:${p.surface};padding:0 4px;border-radius:3px">code</code> 与 <span style="color:${p.accent};text-decoration:underline">链接</span> 中英文混排 The quick brown fox.</div>
     <div class="pv-task"><span class="cb" style="background:${p.accent}">✓</span><span>任务：已完成的事项</span></div>
-    <div class="pv-quote"><i style="background:${p.muted}"></i><span style="color:${p.muted}">引用：灵感来自 Tot。</span></div>
+    <div class="pv-quote"><i style="background:${p.muted}"></i><span style="color:${p.muted}">引用：一段安静的旁注。</span></div>
     <div class="pv-table" style="border-color:${p.line};font-size:${size*.85}px">
       <div style="background:${p.surface};border-right:1px solid ${p.line};font-weight:600">表头</div>
       <div style="background:${p.surface};font-weight:600">Header</div>
@@ -342,8 +342,8 @@ function backupRowsHTML(showFeedback) {
   ].join("")) +
   card("手动操作", `
     <div class="roww"><div class="lab"><div class="l1">备份与数据位置</div>
-      <div class="l2 pathline">备份目录：~/Library/Application Support/tot-md/backups</div>
-      <div class="l2 pathline">数据文件：~/Library/Application Support/tot-md/notes.json</div></div></div>
+      <div class="l2 pathline">备份目录：~/Library/Application Support/Zakki/backups</div>
+      <div class="l2 pathline">数据文件：~/Library/Application Support/Zakki/zakki.json</div></div></div>
     <div class="roww"><div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" data-act="backupNow">立即备份</button>
       <button class="btn">打开备份目录</button>
@@ -375,7 +375,7 @@ function appearanceControlsHTML(opts) {
 function windowChrome(inner) {
   const p = pal();
   return `<div class="win" style="--w-bg:${p.bg};--w-text:${p.text};--w-muted:${p.muted};--w-header:${p.header};--w-line:${p.line};--w-card:${p.surface};--w-side:color-mix(in srgb, ${p.text} 4%, ${p.bg});--w-hover:color-mix(in srgb, ${p.text} 7%, transparent);--w-sel:color-mix(in srgb, #0a84ff 18%, transparent);--w-seg:color-mix(in srgb, ${p.text} 8%, transparent)">
-    <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><span class="t">设置 — Tot MD</span></div>
+    <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><span class="t">设置 — Zakki</span></div>
     ${inner}</div>`;
 }
 
@@ -449,7 +449,7 @@ const OPTIONS = [
     impl:"实现要点：外观页改为 Row{ Scroll(控制项).Grow, previewPane.Width(300) }；预览渲染改走 resolveStyle 时合并用户覆盖（草稿非空时用覆盖值），其它页基本复用现有卡片行。" },
   { id:"B", rank:"r2", rankText:"② 次选", name:"顶部分段 · 顶部预览条",
     desc:"去掉侧栏，顶部分段控件切换；预览横置在内容顶部常驻",
-    pros:["没有侧栏，内容宽度最大，四个页面一目了然","预览固定在顶部不随滚动，改主题即时可见","层级最浅，与 Tot 的极简气质契合"],
+    pros:["没有侧栏，内容宽度最大，四个页面一目了然","预览固定在顶部不随滚动，改主题即时可见","层级最浅，与 极简气质契合"],
     cons:["顶部分段控件不是 macOS 设置类应用的惯例，扩展性弱（页面变多会挤）","预览横条占纵向空间，小窗口下控制区更矮","与系统设置的心智模型偏离，老用户需要适应"],
     impl:"实现要点：Sidebar 换成顶部 Row(分段按钮)；外观页 = Column{ preview(固定).Height(~180), Scroll(控制项) }。改动集中在 settingsView，页面组件不动。" },
   { id:"C", rank:"r3", rankText:"③ 保守", name:"保留现状骨架 · 定点修复",
@@ -466,7 +466,7 @@ function renderVerdict() {
     <div class="cols">
       <div><h4>优点</h4><ul>${o.pros.map(p=>`<li>${p}</li>`).join("")}</ul></div>
       <div><h4>代价 / 风险</h4><ul>${o.cons.map(p=>`<li>${p}</li>`).join("")}</ul></div>
-      <div><h4>适合什么时候选</h4><ul><li>${o.id==="A"?"愿意一次性把设置页做到位，后续还会加设置项":o.id==="B"?"想让设置页更轻、更像 Tot 自身风格，且页面数量稳定":"近期不想动结构，先把最痛的几个点修掉"}</li></ul></div>
+      <div><h4>适合什么时候选</h4><ul><li>${o.id==="A"?"愿意一次性把设置页做到位，后续还会加设置项":o.id==="B"?"想让设置页更轻、更接近应用自身风格，且页面数量稳定":"近期不想动结构，先把最痛的几个点修掉"}</li></ul></div>
     </div>
     <div class="impl">${o.impl}</div>`;
 }

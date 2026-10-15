@@ -11,7 +11,7 @@ import (
 // 双层主题：颜色 × 明暗 × 排版组合的参数验证与 WCAG 对比度。
 
 func TestColorThemeContrast(t *testing.T) {
-	for _, def := range append([]colorThemeDef{{id: "totNeutral", light: totNeutralPalette(false), dark: totNeutralPalette(true)}}, colorThemes...) {
+	for _, def := range append([]colorThemeDef{{id: "totNeutral", light: classicNeutralPalette(false), dark: classicNeutralPalette(true)}}, colorThemes...) {
 		for _, dark := range []bool{false, true} {
 			pal := def.light
 			if dark {
@@ -95,7 +95,7 @@ func headingSizeOf(l markdownLayout, i int) float32 {
 func TestResolveStyleIndependentLayers(t *testing.T) {
 	a := newTestApp(t)
 	// 默认：Tot 颜色 + Sonnet 排版。
-	a.prefs.Appearance.ColorTheme = "tot"
+	a.prefs.Appearance.ColorTheme = "classic"
 	a.prefs.Appearance.MarkdownTheme = "sonnet"
 	tot := a.resolveStyle(0, false, true) // 点 0（主窗口上下文）
 	if tot.background != dotBackground(0, false) {
@@ -119,9 +119,9 @@ func TestResolveStyleIndependentLayers(t *testing.T) {
 		t.Fatalf("书页排版应生效且字体不随主题: %+v", b)
 	}
 	// 设置窗口（dot=-1）用 Tot 中性灰变体。
-	a.prefs.Appearance.ColorTheme = "tot"
+	a.prefs.Appearance.ColorTheme = "classic"
 	neutral := a.resolveStyle(-1, false, true)
-	if neutral.background != totNeutralPalette(false).background {
+	if neutral.background != classicNeutralPalette(false).background {
 		t.Fatal("设置窗口应用 Tot 中性灰变体")
 	}
 }

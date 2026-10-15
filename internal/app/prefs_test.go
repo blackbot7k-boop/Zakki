@@ -110,7 +110,7 @@ func TestPrefsMigrateFromLegacyJSON(t *testing.T) {
 	if a.prefs.Appearance.AppearanceMode != "dark" || a.prefs.Appearance.BodySize != 24 {
 		t.Fatalf("显式值应迁移: %+v", a.prefs.Appearance)
 	}
-	if a.prefs.Appearance.MarkdownTheme != "tot" {
+	if a.prefs.Appearance.MarkdownTheme != "note" {
 		t.Fatalf("Sonnet/Tot 应映射为同名排版主题: %+v", a.prefs.Appearance)
 	}
 	if a.prefs.Window.HideOnEscape || a.prefs.Window.RememberBounds {
@@ -153,7 +153,7 @@ func TestPrefsNotesSettingsUsedWhenNoConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if a.prefs.Appearance.AppearanceMode != "dark" || a.prefs.Appearance.BodySize != 21 ||
-		a.prefs.Appearance.MarkdownTheme != "tot" || a.prefs.Appearance.BodyFont != "songti" {
+		a.prefs.Appearance.MarkdownTheme != "note" || a.prefs.Appearance.BodyFont != "songti" {
 		t.Fatalf("笔记内旧设置应成为迁移基线: %+v", a.prefs.Appearance)
 	}
 	// 全新安装（无笔记设置、无旧配置）用默认值。
@@ -227,13 +227,13 @@ func TestPrefsVersionTooNewBlocked(t *testing.T) {
 	}
 	// 不退回旧 TOML：即使存在 config.toml 也不读。
 	persistWriteRaw(t, filepath.Join(filepath.Dir(a.notes.DataFile), "config.toml"), "[appearance]\ncolorTheme = \"paper\"\n")
-	if a.prefs.Appearance.ColorTheme != "tot" {
+	if a.prefs.Appearance.ColorTheme != "classic" {
 		t.Fatal("超前版本不得退回旧 TOML")
 	}
 	if err := a.confirmRecoverPreferences(); err != nil {
 		t.Fatal(err)
 	}
-	if a.prefs.Appearance.ColorTheme != "tot" {
+	if a.prefs.Appearance.ColorTheme != "classic" {
 		t.Fatalf("恢复默认不读旧配置: %+v", a.prefs.Appearance)
 	}
 }

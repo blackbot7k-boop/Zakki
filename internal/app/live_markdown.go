@@ -1,7 +1,7 @@
 package app
 
 import (
-	"tot-md-mygo/internal/markdown"
+	"zakki/internal/markdown"
 )
 
 // 格式变换桥接：main 保留原有 docResult 与函数名，实现委托给 internal/markdown。

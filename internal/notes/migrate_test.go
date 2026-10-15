@@ -169,3 +169,35 @@ func paddedDots(items ...string) []string {
 	copy(d, items)
 	return d
 }
+
+// TestMigrateThemeRenaming 版本 3 起排版主题 ID 更名（"tot" → "note"）：
+// 旧版本数据文件载入时映射到新 ID，其余设置原样保留。
+func TestMigrateThemeRenaming(t *testing.T) {
+	f := File{Version: 2, Active: 0,
+		Tabs:     []Tab{{ID: 1, Text: "内容"}},
+		Settings: Settings{ThemeSource: "system", MarkdownTheme: "tot", HideOnEscape: true}}
+	got, err := Migrate(f, testMigrateOpt())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != CurrentDataVersion {
+		t.Fatalf("版本应升到 %d，当前 %d", CurrentDataVersion, got.Version)
+	}
+	if got.Settings.MarkdownTheme != MarkdownThemeNote {
+		t.Fatalf("排版主题应映射到 %q，当前 %q", MarkdownThemeNote, got.Settings.MarkdownTheme)
+	}
+	if got.Settings.ThemeSource != "system" || got.Settings.HideOnEscape != true {
+		t.Fatalf("迁移不得改动其余设置: %+v", got.Settings)
+	}
+	// 版本 3 文件里的旧 ID 不再出现；非旧值原样保留。
+	keep := File{Version: 3, Active: 0,
+		Tabs:     []Tab{{ID: 1, Text: ""}},
+		Settings: Settings{ThemeSource: "dark", MarkdownTheme: "book"}}
+	gotKeep, err := Migrate(keep, testMigrateOpt())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotKeep.Settings.MarkdownTheme != "book" {
+		t.Fatalf("版本 3 的其他主题不应被改动: %+v", gotKeep.Settings)
+	}
+}

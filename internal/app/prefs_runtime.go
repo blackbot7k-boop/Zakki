@@ -3,7 +3,7 @@ package app
 // 用户偏好的单一来源：数据目录中的 preferences.json。
 //
 // 设计要点（对应“单一设置来源与迁移”）：
-//   - 偏好只由 preferences.json 管理；笔记文件（tot-md.json）保留笔记内容、
+//   - 偏好只由 preferences.json 管理；笔记文件（zakki.json）保留笔记内容、
 //     活动点与编辑会话状态，旧 settings 字段仅在首次迁移时读取一次。
 //   - 一次迁移：默认值 → 笔记内旧设置 → 旧配置（config.toml 优先，仅当
 //     TOML 不存在时读 config.json）显式值。迁移成功以 preferences.json
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"tot-md-mygo/internal/prefs"
+	"zakki/internal/prefs"
 )
 
 const currentPreferencesVersion = prefs.CurrentVersion

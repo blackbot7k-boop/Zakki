@@ -20,7 +20,7 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 	if err := p.Validate(testAccel); err != nil {
 		t.Fatalf("默认偏好必须合法: %v", err)
 	}
-	if p.Appearance.ColorTheme != "tot" || p.Appearance.MarkdownTheme != "sonnet" || p.Appearance.AppearanceMode != "system" {
+	if p.Appearance.ColorTheme != "classic" || p.Appearance.MarkdownTheme != "sonnet" || p.Appearance.AppearanceMode != "system" {
 		t.Fatalf("全新安装默认：Tot 颜色 + Sonnet 排版 + 跟随系统: %+v", p.Appearance)
 	}
 	if !p.Window.HideOnEscape || !p.Window.RememberBounds {
@@ -102,7 +102,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 3 {
+	if got.Version != CurrentVersion || CurrentVersion != 4 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -149,7 +149,34 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 		t.Fatalf("版本 3 应读回外部备份配置: %+v", v3.Backup)
 	}
 	// 保存的是版本 3。
-	if d := Default(5); d.Version != 3 || d.Appearance.LatinFont != "" {
+	if d := Default(5); d.Version != 4 || d.Appearance.LatinFont != "" {
 		t.Fatalf("默认偏好应为版本 3 且西文跟随中文: %+v", d)
+	}
+}
+
+// TestPreferencesMigrateThemeRenaming 版本 4 把更名前的主题 ID（"tot"）
+// 映射到新 ID（"classic" / "note"），主题取值本身不变。
+func TestPreferencesMigrateThemeRenaming(t *testing.T) {
+	v3 := `{"version":3,"appearance":{"colorTheme":"tot","markdownTheme":"tot","bodyFont":"kai"},"backup":{"keep":7}}`
+	got, err := Decode([]byte(v3), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != CurrentVersion {
+		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
+	}
+	if got.Appearance.ColorTheme != "classic" || got.Appearance.MarkdownTheme != "note" {
+		t.Fatalf("主题 ID 应映射到新 ID: %+v", got.Appearance)
+	}
+	if got.Appearance.BodyFont != "kai" || got.Backup.Keep != 7 {
+		t.Fatalf("迁移不得改动其余偏好: %+v", got)
+	}
+	// 新 ID 原样通过；缺 colorTheme 键的新文件直接用新默认。
+	fresh, err := Decode([]byte(`{"version":4}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.Appearance.ColorTheme != "classic" || fresh.Appearance.MarkdownTheme != "sonnet" {
+		t.Fatalf("新文件默认值: %+v", fresh.Appearance)
 	}
 }

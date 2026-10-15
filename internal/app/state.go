@@ -15,14 +15,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
 const appName = "Zakki"
-
-// 改名不迁移笔记、偏好与备份，避免旧版用户看不到已有数据。
-const dataDirectoryName = "Tot MD"
 
 // snapshotFile 在主线程把当前状态拍成磁盘格式（后台只写该快照）。
 func (a *app) snapshotFile() savedFile {
@@ -65,8 +61,8 @@ func newApp() *app {
 		mdActive: -1, // 启动即全预览态：光标不会让任何一行变成源码
 		now:      now,
 		notes: newNotesStore(
-			filepath.Join(dir, "tot-md.json"),
-			filepath.Join(dir, "backups"),
+			filepath.Join(dir, dataFileName),
+			filepath.Join(dir, backupDirName),
 			now,
 		),
 		prefsStore: newPrefsStore(filepath.Join(dir, "preferences.json")),
@@ -85,15 +81,6 @@ func (a *app) resetSelectionSync() {
 }
 
 // ---- 数据目录与文件 ----
-
-func dataDir() string {
-	base, err := mygo.App.Path(mygo.PathAppData)
-	if err != nil || base == "" {
-		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, "Library", "Application Support")
-	}
-	return filepath.Join(base, dataDirectoryName)
-}
 
 // pendingPath 写保护期间新改动的暂存文件，绝不碰原路径。
 func (a *app) pendingPath() string { return a.notes.PendingPath() }

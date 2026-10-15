@@ -65,10 +65,10 @@ OPTIONS.push(
     id: 'hd-pencil', name: '彩铅七点', tag: '彩铅', batch: 4,
     desc: '七个标签色用彩色铅笔来回涂满，留着笔触和纸面颗粒，像小朋友认真涂的色卡。',
     app: (u) => tile(u, ['#ffffff', '#f1eee7'], `<defs>${grainF(u + 'g', 0.02, 8, 0.6, 5, -0.7)}</defs>${paper(u, 0.1)}
-      <g filter="url(#${u}g)">${TOT7.map((c, i) => { const [x, y] = polar(512, 512, 236, -90 + i * 360 / 7); return hatchDot(x, y, 78, c, 30 + i * 23); }).join('')}</g>`,
+      <g filter="url(#${u}g)">${DOT7.map((c, i) => { const [x, y] = polar(512, 512, 236, -90 + i * 360 / 7); return hatchDot(x, y, 78, c, 30 + i * 23); }).join('')}</g>`,
       { light: true, gloss: 0.2 }),
     tray: (fg, color) => `${trayRough('trPc')}<g filter="url(#trPc)">` +
-      TOT7.map((c, i) => { const [x, y] = polar(9, 9, 6.3, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="1.6" fill="${color ? c : fg}"/>`; }).join('') + '</g>',
+      DOT7.map((c, i) => { const [x, y] = polar(9, 9, 6.3, -90 + i * 360 / 7); return `<circle cx="${x}" cy="${y}" r="1.6" fill="${color ? c : fg}"/>`; }).join('') + '</g>',
   },
   {
     id: 'hd-watercolor', name: '水彩淡彩', tag: '水彩', batch: 4,

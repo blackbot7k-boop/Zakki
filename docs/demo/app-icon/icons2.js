@@ -20,11 +20,11 @@ OPTIONS.push(
     tray: (fg, color) => `<path d="M10.2 1.8L4.4 10H8.6L7.6 16.2L13.6 7.6H9.4Z" fill="${color ? P.o : fg}" stroke="${color ? P.o : fg}" stroke-width="1" stroke-linejoin="round"/>`,
   },
   {
-    id: 'ribbons', name: '书签色带', tag: 'Tot 传承', batch: 2,
+    id: 'ribbons', name: '书签色带', tag: '经典配色', batch: 2,
     desc: '七条标签色书签从顶部垂下，长短不一，像夹在本子里的多个标签页。',
     app: (u) => tile(u, ['#fbfbfd', '#e4e4ea'],
       `<defs>${shadow(u + 'rs', 8, 10, '#000', 0.18)}</defs><g filter="url(#${u}rs)">` +
-      TOT7.map((c, i) => ribbon(266 + i * 72, 60, [620, 540, 700, 480, 660, 570, 510][i], 34, c)).join('') + '</g>',
+      DOT7.map((c, i) => ribbon(266 + i * 72, 60, [620, 540, 700, 480, 660, 570, 510][i], 34, c)).join('') + '</g>',
       { light: true, gloss: 0.3 }),
     tray: (fg, color) => [[2.6, 13, P.r], [7.4, 16, P.y], [12.2, 11, P.b]]
       .map(([x, end, c]) => `<path d="M${x} 1.5H${x + 3.4}V${end}L${x + 1.7} ${end - 1.8}L${x} ${end}Z" fill="${color ? c : fg}"/>`).join(''),

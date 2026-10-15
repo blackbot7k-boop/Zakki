@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"tot-md-mygo/internal/atomicfile"
+	"zakki/internal/atomicfile"
 )
 
 // Store 负责笔记数据文件的读写、防抖保存、滚动备份与写保护协调。
@@ -395,9 +395,10 @@ func (s *Store) kickGitLocked() {
 }
 
 // runGitJob 在镜像目录执行 Git 提交（可选推送）。无变更时静默跳过。
-// 只 add 本应用的备份文件，不碰目录里的其他内容。
+// 只 add 本应用的备份文件（含更名前的旧前缀，使旧文件改名/淘汰进入历史），
+// 不碰目录里的其他内容。
 func runGitJob(runner GitRunner, dir, mode, stamp string) error {
-	if _, err := runner(dir, "add", "--", "tot-md-*.json"); err != nil {
+	if _, err := runner(dir, "add", "--", "zakki-*.json", "tot-md-*.json"); err != nil {
 		return err
 	}
 	out, err := runner(dir, "status", "--porcelain")
@@ -407,7 +408,7 @@ func runGitJob(runner GitRunner, dir, mode, stamp string) error {
 	if strings.TrimSpace(out) == "" {
 		return nil // 没有变更：跳过提交
 	}
-	if _, err := runner(dir, "commit", "-m", "backup: tot-md-"+stamp); err != nil {
+	if _, err := runner(dir, "commit", "-m", "backup: zakki-"+stamp); err != nil {
 		return err
 	}
 	if mode == "commitPush" {
@@ -416,6 +417,22 @@ func runGitJob(runner GitRunner, dir, mode, stamp string) error {
 		}
 	}
 	return nil
+}
+
+// backupFilePrefix 是当前备份与镜像文件的命名前缀；legacyBackupFilePrefix
+// 是应用更名前旧版本写入的前缀。识别、修剪与 Git 路径规范继续匹配旧前缀，
+// 让外部目录里遗留的旧命名文件随保留策略自然淘汰，不额外改写用户目录。
+const (
+	backupFilePrefix       = "zakki-"
+	legacyBackupFilePrefix = "tot-md-"
+)
+
+// isBackupFileName 报告 name 是否本应用的备份文件（新旧前缀都认）。
+func isBackupFileName(name string) bool {
+	if !strings.HasSuffix(name, ".json") {
+		return false
+	}
+	return strings.HasPrefix(name, backupFilePrefix) || strings.HasPrefix(name, legacyBackupFilePrefix)
 }
 
 // DefaultGitRunner 返回调用本机 git CLI 的 runner。
@@ -472,7 +489,7 @@ func (s *Store) LoadMirrorTime() error {
 	}
 	var newest time.Time
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasPrefix(e.Name(), "tot-md-") || !strings.HasSuffix(e.Name(), ".json") {
+		if e.IsDir() || !isBackupFileName(e.Name()) {
 			continue
 		}
 		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
@@ -486,7 +503,7 @@ func (s *Store) LoadMirrorTime() error {
 }
 
 func (s *Store) uniqueBackupNameLocked() string {
-	base := "tot-md-" + s.Now().Format("20060102-150405")
+	base := backupFilePrefix + s.Now().Format("20060102-150405")
 	name := base + ".json"
 	for i := 2; ; i++ {
 		_, err := os.Stat(filepath.Join(s.BackupDir, name))
@@ -522,8 +539,9 @@ func (s *Store) pruneBackupsLocked(keep int) error {
 	return s.pruneJSONLocked(s.BackupDir, keep)
 }
 
-// pruneJSONLocked 按文件名降序只保留目录里最新 keep 份 tot-md-*.json；
-// 只动本应用的备份命名空间，不碰目录里的其他文件。
+// pruneJSONLocked 按文件名降序只保留目录里最新 keep 份备份文件
+// （zakki-*.json 与旧前缀 tot-md-*.json 一起排序）；只动本应用的备份命名
+// 空间，不碰目录里的其他文件。
 func (s *Store) pruneJSONLocked(dir string, keep int) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -531,7 +549,7 @@ func (s *Store) pruneJSONLocked(dir string, keep int) error {
 	}
 	var files []os.DirEntry
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasPrefix(e.Name(), "tot-md-") && strings.HasSuffix(e.Name(), ".json") {
+		if !e.IsDir() && isBackupFileName(e.Name()) {
 			files = append(files, e)
 		}
 	}
