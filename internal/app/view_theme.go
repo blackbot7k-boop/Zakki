@@ -317,10 +317,11 @@ const (
 	sonnetBodyFont = "JetBrains Mono, LXGW WenKai, 霞鹜文楷, LXGW WenKai Screen, Noto Serif SC, Georgia, serif"
 	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, monospace"
 	// 手写搭配：正文用霞鹜文楷（中西文同一套字形，长时间阅读不累）；
-	// 标题用手札体（系统可下载字体）点出手写感，未安装时回退文楷。
+	// 标题用手札体名点出手写感。栈里只保留已内置注册的家族名（见 font_hand.go），
+	// 否则未安装的家族在无头环境（CI）会阻塞在系统字体按需下载上。
 	// 不用 Noteworthy 等西文手写体：与中文字宽、笔画粗细不匹配，混排发乱。
-	handBodyFont    = "LXGW WenKai, 霞鹜文楷, Klee, Kaiti SC, serif"
-	handHeadingFont = "Hannotate SC, LXGW WenKai, 霞鹜文楷, Kaiti SC, serif"
+	handBodyFont    = "LXGW WenKai, 霞鹜文楷, serif"
+	handHeadingFont = "Hannotate SC, LXGW WenKai, 霞鹜文楷, serif"
 	// hannotateFont 全文手札体：中西文都用手札体，未安装时回退文楷。
 	hannotateFont = handHeadingFont
 )

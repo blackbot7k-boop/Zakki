@@ -6,3 +6,4 @@
 - 接入原生「检查更新」窗口，支持 GitHub Releases 签名更新、下载进度和安装后重启。
 - 提供 Intel 与 Apple Silicon 通用安装包；当前为 ad-hoc 签名，尚无 Apple Developer ID 签名与公证。
 - 补充 Windows x64 按用户安装器和独立签名更新渠道；两个平台构建完成后统一上传草稿 Release，Windows 安装包尚无 Authenticode 代码签名。
+- 手账排版内置开源手写字体霞鹜文楷 Lite（OFL 许可），正文与标题手写风格开箱即用，不再依赖系统字体安装或下载。

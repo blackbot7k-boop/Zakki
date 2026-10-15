@@ -18,6 +18,8 @@ import (
 // 路径与时钟都经接缝注入（见 app.notes / app.now），没有全局开关。
 func newTestApp(tb testing.TB) *app {
 	tb.Helper()
+	// 手账字体栈先本地注册，文本布局永不触达系统按需字体下载。
+	registerHandFont()
 	dir := tb.TempDir()
 	a := newApp()
 	a.mdActive = 0 // 编辑机制测试默认从首个焦点块开始（生产环境启动是预览态 -1）

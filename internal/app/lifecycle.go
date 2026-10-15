@@ -22,6 +22,8 @@ func Run() {
 		return
 	}
 
+	// 在建任何窗口前注册内置手写字体，避免手账主题触发系统字体按需下载。
+	registerHandFont()
 	mygo.App.SetPath(mygo.PathUserData, dataDir())
 	mygo.Use(updatePlugin())
 
