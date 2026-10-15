@@ -66,7 +66,12 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 	blk := a.mdBlocks()[a.mdActive]
 	md := a.resolveStyle(-1, themeIsDark(t), true)
-	ui.Row(c.Key("blk-" + strconv.Itoa(a.mdActive))).Gap(8).FillWidth().Children(func() {
+	row := ui.Row(c.Key("blk-" + strconv.Itoa(a.mdActive))).Gap(8).FillWidth()
+	// 文档级全选：焦点块与其余块呈现一致的选区底色。
+	if a.selDoc {
+		row.Background(t.Selection)
+	}
+	row.Children(func() {
 		switch blk.kind {
 		case bkTable:
 			a.editTable(c, t, blk)
@@ -111,8 +116,12 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	}
 
 	a.captureClipboardService(c)
-	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).
-		Label("内容").
+	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).Label("内容")
+	if a.selDoc {
+		// 文档级全选：焦点块的输入框铺选区底色，避免自绘背景盖住色带。
+		ta = ta.Background(t.Selection)
+	}
+	ta = ta.
 		Lines(1, 4096).
 		FillWidth().Grow(1).MinWidth(0).
 		Font(md.bodyFont).FontSize(md.bodySize).LineHeight(md.lineHeight).
