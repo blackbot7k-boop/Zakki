@@ -92,24 +92,19 @@ func newDataExists(dir string) bool {
 	return false
 }
 
-// moveLegacyFiles 把旧目录中的数据文件、偏好与备份搬进新目录并改用新命名。
-// 单个文件失败只记日志，继续处理其余文件；旧目录保留（用户可自行删除）。
-func moveLegacyFiles(oldDir, newDir string) {
-	for _, pair := range [][2]string{
+// legacyFilePairs 旧→新命名的顶层文件对（迁移到新目录时另有 preferences.json）。
+func legacyFilePairs() [][2]string {
+	return [][2]string{
 		{legacyDataFileName, dataFileName},
 		{legacyDataFileName + legacyDataPendingSuffix, dataFileName + legacyDataPendingSuffix},
-		{"preferences.json", "preferences.json"},
-	} {
-		renameOrLog(filepath.Join(oldDir, pair[0]), filepath.Join(newDir, pair[1]))
 	}
-	oldBackups := filepath.Join(oldDir, backupDirName)
+}
+
+// renameLegacyBackups 把旧备份目录里旧前缀的备份改成新命名放进 newBackups
+// （同一路径即目录内改名）。
+func renameLegacyBackups(oldBackups, newBackups string) {
 	entries, err := os.ReadDir(oldBackups)
 	if err != nil {
-		return
-	}
-	newBackups := filepath.Join(newDir, backupDirName)
-	if err := os.MkdirAll(newBackups, 0o755); err != nil {
-		slog.Warn("迁移备份目录失败", "dir", newBackups, "error", err)
 		return
 	}
 	for _, e := range entries {
@@ -122,27 +117,27 @@ func moveLegacyFiles(oldDir, newDir string) {
 	}
 }
 
-// renameDataFilesIn 把已整体改名的目录内部文件改成新命名。
-func renameDataFilesIn(dir string) {
-	for _, pair := range [][2]string{
-		{legacyDataFileName, dataFileName},
-		{legacyDataFileName + legacyDataPendingSuffix, dataFileName + legacyDataPendingSuffix},
-	} {
-		renameOrLog(filepath.Join(dir, pair[0]), filepath.Join(dir, pair[1]))
+// moveLegacyFiles 把旧目录中的数据文件、偏好与备份搬进新目录并改用新命名。
+// 单个文件失败只记日志，继续处理其余文件；旧目录保留（用户可自行删除）。
+func moveLegacyFiles(oldDir, newDir string) {
+	for _, pair := range legacyFilePairs() {
+		renameOrLog(filepath.Join(oldDir, pair[0]), filepath.Join(newDir, pair[1]))
 	}
-	backups := filepath.Join(dir, backupDirName)
-	entries, err := os.ReadDir(backups)
-	if err != nil {
+	renameOrLog(filepath.Join(oldDir, "preferences.json"), filepath.Join(newDir, "preferences.json"))
+	newBackups := filepath.Join(newDir, backupDirName)
+	if err := os.MkdirAll(newBackups, 0o755); err != nil {
+		slog.Warn("迁移备份目录失败", "dir", newBackups, "error", err)
 		return
 	}
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasPrefix(name, legacyBackupFilePrefix) || !strings.HasSuffix(name, ".json") {
-			continue
-		}
-		renameOrLog(filepath.Join(backups, name),
-			filepath.Join(backups, backupFilePrefix+strings.TrimPrefix(name, legacyBackupFilePrefix)))
+	renameLegacyBackups(filepath.Join(oldDir, backupDirName), newBackups)
+}
+
+// renameDataFilesIn 把已整体改名的目录内部文件改成新命名。
+func renameDataFilesIn(dir string) {
+	for _, pair := range legacyFilePairs() {
+		renameOrLog(filepath.Join(dir, pair[0]), filepath.Join(dir, pair[1]))
 	}
+	renameLegacyBackups(filepath.Join(dir, backupDirName), filepath.Join(dir, backupDirName))
 }
 
 func renameOrLog(from, to string) {
