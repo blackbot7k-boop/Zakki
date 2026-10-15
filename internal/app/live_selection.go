@@ -9,6 +9,7 @@ import (
 // selectDocWide 进入文档级全选：选区覆盖活动标签的全部文本，
 // 跨块的高亮与复制/剪切/删除/输入由 app 层接管（见 docSelectionInput）。
 func (a *app) selectDocWide() {
+	a.selDoc = true
 	if a.mdActive >= 0 && a.mdActive < len(a.mdBlocks()) && a.mdBlocks()[a.mdActive].kind == bkTable {
 		// 表格单元格内：保持单元格原生全选语义。
 		a.clearDocSelection()
