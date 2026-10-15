@@ -211,7 +211,7 @@ func (a *app) tabInk(i int, dark bool) ui.Color {
 func (a *app) handleTabShortcuts(c *ui.Context) {
 	for k := ui.Key1; k <= ui.Key9; k++ {
 		n := int(k - ui.Key1)
-		if n < len(a.tabs) && c.Shortcut(ui.Super, k) {
+		if n < len(a.tabs) && c.Shortcut(ui.Ctrl, k) {
 			a.switchTab(n)
 			return
 		}

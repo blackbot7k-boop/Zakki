@@ -22,6 +22,9 @@ func Run() {
 		return
 	}
 
+	mygo.App.SetPath(mygo.PathUserData, dataDir())
+	mygo.Use(updatePlugin())
+
 	a := newApp()
 	if err := a.load(); err != nil {
 		slog.Error("数据载入异常（已隔离原件并采用可用数据，未覆盖原文件）", "error", err)
@@ -37,7 +40,7 @@ func Run() {
 	mygo.App.OnWindowAllClosed(func() {})
 	// OnWillQuit 在所有窗口关闭后、事件循环停止前调用：取消防抖定时器、
 	// 最终保存数据与偏好并等它完成，之后忽略新的保存请求。
-	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { a.shutdown() })
+	mygo.App.OnWillQuit(a.finishQuit)
 
 	mygo.App.WhenReady(func() {
 		a.ready = true // 之后偏好变更可安全触达原生 API
@@ -70,7 +73,7 @@ func setupLogging() {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, opts)))
 		return
 	}
-	f, err := os.OpenFile(filepath.Join(dir, "tot-md.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filepath.Join(dir, "zakki.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, opts)))
 		return
@@ -171,7 +174,7 @@ func formatContextNote(id string) string {
 // 标签列表用稳定 ID 构造，设置窗口统一从应用菜单的「设置…」进入；
 // 只为前 9 个标签注册数字快捷键，10–12 用顶栏或设置页访问。
 func (a *app) createMenu() *mygo.Menu {
-	// 标签 1..N，⌘1..⌘9（10–12 不注册数字键）。
+	// 标签 1..N，⌃1..⌃9（10–12 不注册数字键）。
 	tabItems := make([]*mygo.MenuItem, 0, len(a.tabs))
 	for i := range a.tabs {
 		i := i
@@ -183,7 +186,7 @@ func (a *app) createMenu() *mygo.Menu {
 			},
 		}
 		if i < 9 {
-			item.Accelerator = fmt.Sprintf("CmdOrCtrl+%d", i+1)
+			item.Accelerator = fmt.Sprintf("Ctrl+%d", i+1)
 		}
 		tabItems = append(tabItems, item)
 	}
@@ -284,6 +287,7 @@ func (a *app) createMenu() *mygo.Menu {
 		// 自定义应用菜单时显式保留 MyGo 默认的关于、服务、隐藏与退出项。
 		{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
 			{Role: mygo.RoleAbout},
+			updateMenuItem(),
 			mygo.Separator(),
 			{ID: "app-settings", Label: "设置…", Accelerator: "CmdOrCtrl+,",
 				Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings(pageGeneral) }},
@@ -356,6 +360,7 @@ func (a *app) setupTray() {
 		menu := mygo.NewMenu([]*mygo.MenuItem{
 			{Label: "显示 / 隐藏", Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleWindow() }},
 			{Label: "设置…", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings(pageGeneral) }},
+			updateMenuItem(),
 			mygo.Separator(),
 			{Role: mygo.RoleQuit},
 		})
