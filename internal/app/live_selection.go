@@ -18,8 +18,8 @@ func (a *app) selectDocWide() {
 	a.selDoc = true
 	a.selDocStart = 0
 	a.selDocEnd = utf8.RuneCountInString(a.activeTab().Text)
-	// 焦点块的原生选区铺满本块（selSync 是块内坐标）；其余块由 liveBlockRow 画选区底色。
-	a.selSyncStart, a.selSyncEnd = 0, utf8.RuneCountInString(a.mdDraft)
+	// 全部块统一用选区底色呈现（liveBlockRow/activeBlock 画色带）；
+	// 焦点块只落光标，不再叠加原生蓝色选区，避免两种选中样式混排。
 }
 
 // menuSelectAll 菜单「全选」入口：预览态先聚焦末块，再进文档级选区。
@@ -90,7 +90,19 @@ func (a *app) docSelectionInput(ev ui.InputEvent) bool {
 // 新文档就是控件新可见文字的源码映射，光标落在替换后的位置。
 func (a *app) docSelectionReplace(visible string, p liveProjection, caret int) {
 	before := liveSnapshot{doc: a.activeTab().Text, start: a.selDocStart, end: a.selDocEnd}
-	raw, at := p.replaceSelection(visible, caret, 0, utf8.RuneCountInString(p.text))
+	// 控件的新可见文本里，真正新增的部分才是用户输入；把它映射回源码。
+	oldRs, newRs := []rune(p.text), []rune(visible)
+	prefix := 0
+	for prefix < len(oldRs) && prefix < len(newRs) && oldRs[prefix] == newRs[prefix] {
+		prefix++
+	}
+	suffix := 0
+	for suffix < len(oldRs)-prefix && suffix < len(newRs)-caret &&
+		oldRs[len(oldRs)-1-suffix] == newRs[len(newRs)-1-suffix] {
+		suffix++
+	}
+	typed := string(newRs[prefix : len(newRs)-suffix])
+	raw, at := p.replaceSelection(typed, utf8.RuneCountInString(typed), 0, len(oldRs))
 	a.activeTab().Text = raw
 	a.clearDocSelection()
 	idx, off := blockOfRuneOffset(a.mdBlocks(), at)

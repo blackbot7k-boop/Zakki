@@ -27,8 +27,8 @@ func TestLiveSelectAllByKey(t *testing.T) {
 	for range 3 {
 		tt.Frame()
 	}
-	if a.mdSelEnd-a.mdCaret != n {
-		t.Fatalf("Cmd+A 后文档选区=%d，want %d (caret=%d selEnd=%d)", a.mdSelEnd-a.mdCaret, n, a.mdCaret, a.mdSelEnd)
+	if !a.selDoc || a.selDocStart != 0 || a.selDocEnd != n {
+		t.Fatalf("Cmd+A 后文档选区=%v %d..%d, want 0..%d", a.selDoc, a.selDocStart, a.selDocEnd, n)
 	}
 	tt.Type("X")
 	if got, want := a.tabs[0].Text, "X"; got != want {
