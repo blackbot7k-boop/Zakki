@@ -1,54 +1,163 @@
-# Tot MD 发布清单
+# Zakki 发布与更新
 
-## 版本号
+## 当前方案
 
-- **唯一来源**：`mygo.json` 的 `version` 字段（当前 `0.1.0`）。
-  打包产物的 dmg 名（`Tot MD <version> <arch>.dmg`）从这里取，不手写第二处版本号。
-- **git tag 对齐**：发布时打同号 tag（如 `v0.1.0`），tag 与 `mygo.json` 必须一致。
+- 仓库与更新分发：公开仓库 `gomeen/Zakki` 的 GitHub Releases，无需额外服务器。
+- 应用名与安装包：macOS 为 `Zakki.app` / DMG，Windows 为 `Zakki.exe` / Setup EXE。
+  保留 `com.gomeen.totmd` 标识、Go module 名和原 `Tot MD` 数据目录（macOS 为
+  `~/Library/Application Support/Tot MD/`，Windows 为 `%APPDATA%\Tot MD\`），不改变 JSON 格式。
+- 更新器：MyGo v0.4.8 的 `plugins/updater/native`，全原生 UI，无 webview；应用菜单与托盘
+  均提供「检查更新…」，默认只手动检查。用户可查看版本说明、下载安装、跳过或稍后重启。
+- 发布目标固定为 **darwin/universal**（Intel 与 Apple Silicon）和 **windows/amd64**（Windows 10/11 x64）。
+  同一个 Release 分别提供 `update-darwin-universal.json` 与 `update-windows-amd64.json`，两种系统不会混用更新。
+  每种架构独立订阅清单，后续不要随意切换目标，否则已有版本会收不到更新；目前不发布 Windows ARM64 原生包。
+- **没有 Apple 开发者账号**：`macos.signingIdentity` 为 `-`，仅 ad-hoc 签名，不做公证。
+  Windows 尚无 Authenticode 代码签名，SmartScreen 可能显示未知发布者。
+  两个平台共用 Ed25519 更新签名密钥；它验证更新包来源，不代替 Apple 或 Windows 的系统代码签名。
 
-## 发布前检查
+`.github/workflows/ci.yml` 检查分支与 PR；`release.yml` 在推送 `vX.Y.Z` tag 后检查、打包，
+先全量检查，再分别在 macOS 与 Ubuntu runner 构建两个平台；**两个平台都成功**后，统一上传到
+**草稿 Release**，不自动公开。任一平台失败时不执行上传 job，另一个成功平台的 Actions 附件仍可用于排查。
+配置到位不代表已经发布：仍需设置 Secret、推送版本并公开草稿。
 
-1. 全量测试为准，不做测试排除：`make check` 必须全绿
-   （`fmt-check` → `vet`（含 `go tool mygo vet .`）→ `test` → `race`）。
-2. `go mod verify` 通过（CI 同样跑）。
-3. 更新 README 需要同步的段落（见下）。
+## 首次配置（只需一次）
 
-## 打包
+### 1. 更新签名密钥
 
-```sh
-go tool mygo build    # 打包 .app / .dmg 到 build/
+本项目的公钥已写入 `mygo.json`。对应私钥在配置时生成，保存在仓库外：
+
+```text
+~/Library/Application Support/mygo/update-keys/zakki/mygo-update.key
+~/Library/Application Support/mygo/update-keys/zakki/mygo-update.pub
 ```
 
-- 产物按平台-架构分目录：`build/darwin-amd64/`、`build/darwin-arm64/`，
-  内含 `Tot MD.app` 与 `Tot MD <version> <arch>.dmg`。
-- **darwin/amd64 与 arm64**：MyGo 无 cgo，任一平台可交叉编译另一架构；
-  需要双架构时分别构建，或用 `darwin/universal` 合并（此时 dmg 不带架构名）。
-  当前开发机（x86_64）默认产出 `build/darwin-amd64/`。
+私钥权限为 `0600`。将私钥备份到密码管理器或其他安全位置；不要贴到聊天、提交到 Git、
+上传到 Release，也不要在日志中输出。丢失私钥后不能给已安装版本发布可信更新；泄露则可能被用来伪造更新。
+不要重新运行 keygen 替换现有密钥。
 
-## 代码签名 / 公证（未配置）
-
-- **当前未配置**：`mygo.json` 尚无 `macos.signingIdentity` / `macos.notarize`，
-  产物是未做 Developer ID 签名与公证的本地构建。
-- 待办（发布对外版本前完成）：
-  - [ ] 在 `mygo.json` 配置 `macos.signingIdentity`（Developer ID），或 `go tool mygo build -sign …`
-  - [ ] 配置 `macos.notarize` 公证 dmg
-  - [ ] 在干净账户上验证 Gatekeeper 打开无告警
-
-## 产物 checksum
-
-对每个 dmg 出校验和，随发布附上：
+在完成 GitHub CLI 登录后，将**私钥文件内容**写入仓库 Actions Secret（不是文件路径）：
 
 ```sh
-shasum -a 256 "build/darwin-amd64/Tot MD 0.1.0 amd64.dmg"
+gh auth login
+gh secret set MYGO_UPDATER_PRIVATE_KEY --repo gomeen/Zakki \
+  < "$HOME/Library/Application Support/mygo/update-keys/zakki/mygo-update.key"
 ```
 
-## README 更新点
+本地配置阶段不执行上述 GitHub 写入。发布工作流使用 GitHub 自带的 `github.token` 上传，
+不需要额外 PAT，更不能把 Token 内置进应用。确认仓库允许 Actions 使用工作流声明的 `contents: write` 权限。
+如果源码仓库改为私有，应另外提供公开发布仓库并同步 `updates.github`；当前更新器不携带私有仓库凭证。
 
-每次发布检查 README 与现状一致：
+### 2. 首次提交与远程
 
-- 功能表：新增/变更的功能行（含备份行为、顶栏/窗口行为）。
-- 「开发」一节：命令列表（`make check` / `go test` / `go tool mygo …`）与实际 Makefile 一致。
-- 「数据」一节：数据目录（macOS `~/Library/Application Support/Tot MD/`，
-  其他平台遵循系统用户配置目录）与备份策略（启动备份、5 分钟滚动备份、
-  手动立即备份无条件创建、清空当前点前强制备份、保留 20 份）。
-- 版本号不写死在 README（以 `mygo.json` 为准）。
+远程应为 `git@github.com:gomeen/Zakki.git`，分支为 `main`。
+配置工作不会自动提交、打 tag 或推送；审核改动并确认工作区中的其他修改后，再自行提交推送。
+
+## 每次发布
+
+1. 修改 **`mygo.json` 的 `version`**（唯一版本来源），并为 `CHANGELOG.md` 增加 `## X.Y.Z` 章节。
+   应用内更新说明来自该章节；文件存在但章节缺失时构建会失败。
+2. 执行 `make check` 和 `go mod verify`，同步 README 与行为变化说明。
+3. 提交代码，确认待发布提交无遗漏，然后打同号 tag。以下命令属于主动发布操作，配置阶段不要执行：
+
+   ```sh
+   version="$(jq -r .version mygo.json)"
+   git push origin main
+   git tag "v$version"
+   git push origin "v$version"
+   ```
+
+4. 查看 Actions 的 `release` 工作流。它会：
+   - 核对 tag、版本、仓库与私钥 Secret；缺私钥直接失败，不生成不完整的发行包。
+   - 执行 `go mod verify`、完整 `make check`；macOS runner 构建 universal 包，Ubuntu runner 安装 NSIS 并交叉构建 Windows x64 安装器。
+   - 检查安装器、清单版本/URL、归档大小；额外核对 macOS 双架构与 ad-hoc 签名、Windows PE x64 可执行文件。
+   - 各平台分别生成 `SHA256SUMS-darwin-universal`、`SHA256SUMS-windows-amd64`，避免汇总时同名覆盖。
+   - 保留两个平台的 Actions 附件；全部成功后汇总、再次校验，再上传至草稿 Release，两个更新清单最后上传。
+   - 拒绝覆盖已公开的同号 Release；修复已公开版本必须递增版本号。
+5. 从草稿下载测试，在另一台 Mac/干净账户与真实 Windows 10/11 x64 上检查安装、托盘、全局快捷键、中文输入法、备份、保存与重启。
+   交叉编译不等于完成 Windows 运行验收。首次接入更新器的版本需要手动安装；之后两个平台各做一次“已安装旧版 → 新版”的真实更新回归。
+6. 确认草稿包含下列全部文件，在 GitHub 点击 **Publish release**，确保设为 **Latest**，不要设成 prerelease。
+   公开后，用户的「检查更新」才会看到该版本。Release 网页说明可在草稿中编辑，应用内说明来自 CHANGELOG。
+
+## 构建与产物
+
+普通本地构建（不上传）：
+
+```sh
+make build            # macOS universal
+make build-windows    # Windows x64
+```
+
+macOS 生成 Windows 安装器需先安装 NSIS（`brew install nsis`），Linux 为 `sudo apt-get install nsis`；
+在 Windows 上运行 MyGo CLI，缺 NSIS 时会下载并校验其工具链。只需要原生 UI，无需 WebView2。
+本地没有 NSIS 时 MyGo 会警告并跳过安装器，但仍可交叉生成 EXE 与签名更新文件；发布工作流强制要求安装器存在。
+
+带更新签名的本地构建（同样不上传，Windows 将最后一行换成 `make build-windows`）：
+
+```sh
+MYGO_UPDATER_PRIVATE_KEY="$(< "$HOME/Library/Application Support/mygo/update-keys/zakki/mygo-update.key")" \
+  make build
+```
+
+`build/darwin-universal/` 中的文件：
+
+| 文件 | 用途 |
+|---|---|
+| `Zakki.app` | 本地运行的应用包，不直接上传 Release |
+| `Zakki <version>.dmg` | 用户首次安装或手动更新 |
+| `zakki-<version>-darwin-universal.tar.gz` | 应用内更新所下载的签名归档 |
+| `update-darwin-universal.json` | 版本、说明、URL、大小、签名等更新清单 |
+| `*.delta`（有可用旧版本时） | 更小的增量更新，失败自动回退完整归档 |
+| `SHA256SUMS-darwin-universal`（工作流生成） | macOS 发布附件的 SHA-256 校验和 |
+
+`build/windows-amd64/` 中的文件：
+
+| 文件 | 用途 |
+|---|---|
+| `Zakki.exe` 与资源文件 | 本地运行，Release 以安装器分发，不单独上传裸 EXE |
+| `Zakki Setup <version> amd64.exe` | 按用户安装器；默认安装到 `%LOCALAPPDATA%\Programs\Zakki`，无需管理员权限 |
+| `zakki-<version>-windows-amd64.tar.gz` | Windows 应用内更新的签名归档，不含 Setup 与卸载器 |
+| `update-windows-amd64.json` | Windows x64 的版本、说明、下载信息与签名 |
+| `*.delta`（有可用旧版本时） | Windows 增量更新 |
+| `SHA256SUMS-windows-amd64`（工作流生成） | Windows 发布附件的 SHA-256 校验和 |
+
+MyGo 缺私钥时只警告并跳过 macOS/Windows 更新文件，所以本地普通构建仍可用，但不能拿其安装包当作完整的更新发布。
+工作流会检查私钥与产物，公私钥不匹配时构建失败。生成 DMG 需要 macOS；Windows 可从 macOS/Linux 交叉构建，安装器需要 NSIS。
+
+更新清单入口：
+
+```text
+https://github.com/gomeen/Zakki/releases/latest/download/update-darwin-universal.json
+https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.json
+```
+
+只上传源码或打 tag、只有 DMG、草稿未公开、未设 Latest，均不能形成可用的正式更新。
+当前配置不会检查 prerelease，也不要用正式渠道的 tag 测试预发布版本。
+
+## 用户安装与更新
+
+- **macOS 首次安装**：下载 DMG，把 `Zakki.app` 拖到 `/Applications` 或自己的 `~/Applications`。
+  不能直接在只读 DMG 内自更新；安装目录必须可写。开发模式也不能自更新。
+- **Windows 首次安装**：下载 `Zakki Setup <version> amd64.exe`，按用户安装到默认目录。
+  自定义目录也必须可写，不建议装入需要管理员权限的 Program Files。
+  数据位于 `%APPDATA%\Tot MD\`，不随应用更新替换；不要把数据目录选成程序安装目录（卸载器会删除安装目录）。
+- **旧 Tot MD 用户**：先 ⌘S 备份，再 ⌘Q 完整退出（关窗和 Esc 不等于退出），手动安装一次 Zakki。
+  移除旧 `Tot MD.app`，不要同时启动两版写同一份数据；不删除 `Tot MD` 数据目录。
+- **以后更新**：Zakki → 检查更新… → 查看说明 → 下载并安装 → 重启。
+  更新替换应用包，不删除笔记、偏好和备份；重启经过退出最终保存，保存失败会取消退出并显示错误。
+- **Windows 安全提示**：当前未配置 Authenticode，可能出现 SmartScreen/未知发布者提示；确认下载来源后再决定是否运行。
+  以后可另行配置 Windows 代码签名证书，与 Apple 开发者账号及现有更新密钥独立。
+- **网络或权限问题**：更新窗口显示失败或不可用；排查 GitHub 访问、安装目录写权限，必要时完整退出后重新运行新版安装器或覆盖应用。
+- **macOS 安全提示**：当前未获 Developer ID 信任与公证，首次打开可能被 Gatekeeper 阻止。
+  确认来源后通过系统「隐私与安全性」允许打开；不要全局关闭 Gatekeeper。
+  更新签名不保证消除系统拦截，正式对外发布前仍建议办理开发者账号并补齐签名、公证。
+
+## 发布验收
+
+- [ ] `mygo.json` 与 tag 同号，CHANGELOG 有对应章节，`make check` 与 `go mod verify` 通过。
+- [ ] Secret 对应当前公钥，私钥有独立安全备份，Git 与附件中均无私钥。
+- [ ] macOS 与 Windows 构建 job 均成功，草稿包含 DMG、Setup EXE、两份签名归档、两份更新清单与两个平台的 SHA256SUMS。
+- [ ] Intel / Apple Silicon 安装可启动；对真实下载文件验证 Gatekeeper 行为，不以本机无隔离标记的包代替。
+- [ ] Windows 10/11 x64 按用户安装、启动、中文输入法、托盘、快捷键与退出通过实机验收，确认 SmartScreen 提示；不能仅凭交叉编译宣布已验证。
+- [ ] 旧版检查更新可下载安装并重启；取消、失败、无写权限时提示准确。
+- [ ] 更新前后笔记/偏好/备份保留；保存失败不静默重启。
+- [ ] 公开 Release 并设为 Latest 后，清单和归档均可匿名下载。

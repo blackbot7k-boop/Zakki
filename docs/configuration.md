@@ -1,6 +1,6 @@
 # 偏好与设置（preferences.json 与数据快照）
 
-Tot MD 的偏好分两层，都由应用内原生设置窗口管理，正常使用不需要编辑任何配置文件：
+Zakki（原 Tot MD）的偏好分两层，都由应用内原生设置窗口管理，正常使用不需要编辑任何配置文件：
 
 - **preferences.json**（数据目录）：明暗模式、颜色/排版主题、字体、备份策略、
   快捷键、窗口参数。
@@ -15,7 +15,11 @@ macOS 路径：
 ~/Library/Application Support/Tot MD/tot-md.json
 ```
 
-其他平台两个文件位于同一数据目录（os.UserConfigDir）。
+Windows 的对应目录为 `%APPDATA%\Tot MD\`，与默认程序安装目录 `%LOCALAPPDATA%\Programs\Zakki` 分离。
+改名后仍保留 `Tot MD` 目录与原文件名，不迁移、不清空；其他平台两个文件位于同一数据目录（os.UserConfigDir）。
+MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助状态不会另建 `Zakki` 数据目录。
+`updater.json` 由 MyGo 原生更新器管理检查时间、跳过版本和自动下载选择，不改动 `preferences.json` 的结构。
+默认只手动检查；更新入口及发布要求见 [发布与更新](release.md)。
 
 ## 设置窗口
 
@@ -45,7 +49,8 @@ macOS 路径：
 
 | 设置 | 行为 |
 |---|---|
-| 记忆主窗口位置与尺寸 | 即时生效 |
+| 窗口置顶 | 即时生效（与 ⌥⌘T、工具栏置顶按钮同源） |
+| 按 Esc 隐藏窗口 | 即时生效 |
 | 记忆主窗口位置与尺寸 | 从**下次创建主窗口**起生效（关闭窗口后重新打开即应用），无需重启应用 |
 
 页内同时显示一次性迁移结果，以及偏好文件/旧配置异常时的恢复入口。
@@ -62,7 +67,7 @@ macOS 路径：
   「标签与外观」页调整，功能不受影响。
 - **Markdown 排版主题**：Sonnet（Typora）、Tot 便签、清晰（16px/1.65）、
   书页（宋体 17px/1.8）、紧凑（15px/1.5）；标题字号 = 正文基准 × 主题比例。
-- **排版微调**：正文字体（霞鹜文楷 / 系统苹方 / 宋体，与排版主题解耦）、代码字体
+- **排版微调**：正文字体（Sonnet 同款 / 系统苹方 / 宋体）、代码字体
   （JetBrains Mono / SF Mono / Menlo）、字号（10–40）、行高（1–3）；
   清空表示「跟随 Markdown 排版主题」。主题切换不重置显式覆盖。
 - **预览**：只读示例（中英文、标题、链接、代码、引用、任务、表格），
@@ -151,7 +156,7 @@ macOS 路径：
 }
 ```
 
-- `appearance.bodyFont` / `monoFont` 与排版主题解耦：空串 = 默认字体栈（霞鹜文楷 / JetBrains Mono），换主题不换字体；旧值 `sonnet` 按默认栈解析。`bodySize` / `lineHeight` 0 = 跟随主题。
+- `appearance.bodyFont` / `monoFont` 空串 = 跟随排版主题；`bodySize` / `lineHeight` 0 = 跟随。
 - `keymap.overrides` 缺项用默认绑定；显式空串表示解除绑定；值为规范化 accelerator。
 - `advanced` 是兼容参数（自动保存防抖毫秒、主窗口初始宽高），不在设置页展示，
   仅在旧配置携带有效值时迁移保留。

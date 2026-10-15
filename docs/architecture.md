@@ -1,4 +1,4 @@
-# Tot MD 架构说明
+# Zakki 架构说明
 
 面向后续维护者与 agent：先读本文再改代码。本文只描述稳定事实，具体行为以源码为准
 （关键处标注了文件与函数）。项目是 [MyGo](https://github.com/egoist/mygo) 原生 Go UI
@@ -11,7 +11,8 @@
 
 | 文件 | 职责 |
 |---|---|
-| `main.go` / `internal/app/lifecycle.go` | 入口 `main()` 只调 `app.Run()`；生命周期：单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「编辑 → Markdown」子菜单收纳格式命令并展示当前绑定；「显示」保留搜索/源码/置顶与「切换标签」子菜单；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `shutdown`）。装配在 `internal/app`；窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）。 |
+| `main.go` / `internal/app/lifecycle.go` | 入口 `main()` 只调 `app.Run()`；生命周期：单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「编辑 → Markdown」子菜单收纳格式命令并展示当前绑定；「显示」保留搜索/源码/置顶与「切换标签」子菜单；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `finishQuit` → `shutdownForQuit`；保存失败阻止退出/更新重启并重开主窗口）。装配在 `internal/app`；窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）。 |
+| `internal/app/updates.go` | 注册 MyGo `plugins/updater/native` 原生更新窗口（中文、默认手动检查）；应用菜单与托盘提供「检查更新…」。`finishQuit` 让更新重启也经过最终保存，失败则取消退出。更新公钥与 `gomeen/Zakki` 分发地址在 `mygo.json`；tag 经全量检查后分别构建 macOS universal 与 Windows x64，双平台均成功再汇总到草稿 Release；流程在 `.github/workflows/release.yml`，操作见 [release.md](release.md)。 |
 | `internal/app/prefs_runtime.go` / `internal/app/prefs_bridge.go` | 偏好运行时集成：`loadPreferences`/`updatePreferences`；写盘委托 `prefs.Store`。类型别名在 `prefs_bridge.go`。 |
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`。 |
@@ -58,8 +59,9 @@
   （`*mygo.Window`、`*mygo.Menu`、`*mygo.MenuItem`），普通跨帧状态一律存普通字段。
 - **跨线程刷新用 `Window.Update`**。`scheduleSave` 把 `win.Update(func(){})` 放进写完后的 `after` 回调，
   回主线程刷新状态栏（备份时间/错误提示）；窗口失效时 Update 自然空转。
-- 退出流程（`shutdown`，主线程）：停防抖定时器 → 置 `stopped` → 最终快照保存并等它完成，
-  此后忽略新的保存请求，不会与定时保存并发写两份。
+- 退出流程（`finishQuit` → `shutdownForQuit`，主线程）：停防抖定时器 → 置 `stopped` → 最终快照保存并等它完成。
+  笔记与偏好均成功后才退出（更新器的重启也经过此流程）；任一保存失败则取消退出、恢复笔记 Store 接收保存，
+  重开主窗口显示错误，允许继续编辑与重试。
 
 ## 持久化生命周期
 
@@ -149,14 +151,17 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-退出流程（`shutdown`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`）并报告失败。
-完整契约见 [偏好与设置](configuration.md)。
+退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
+失败返回 `finishQuit`，阻止退出或更新重启。
+完整契约见 [偏好与设置](configuration.md)。MyGo 更新器另外管理 `updater.json`（检查时间、跳过版本、自动下载选择），
+不改变应用偏好的 JSON 契约。
 
 ## 测试接缝
 
 - **路径注入**：`notes.Store` 的 `DataFile` / `BackupDir`。生产由 `newApp` 用 `dataDir()`
-  （`mygo.App.Path(PathAppData)`，macOS 为 `~/Library/Application Support/Tot MD/`，
-  失败回退 `os.UserHomeDir` + `Library/Application Support`）拼出 `tot-md.json` 与 `backups/`。
+  （`mygo.App.Path(PathAppData)` + `dataDirectoryName`，macOS 为 `~/Library/Application Support/Tot MD/`，Windows 为 `%APPDATA%\Tot MD\`，
+  失败回退 `os.UserHomeDir` + `Library/Application Support`）。改名 Zakki 后保留旧数据目录、文件名与 bundle identifier；
+  启动时 `PathUserData` 也指向旧目录，MyGo 窗口状态与 `updater.json` 更新辅助状态仍在这里。由此拼出 `tot-md.json` 与 `backups/`。
 - **时钟注入**：`app.now func() time.Time`，生产 `time.Now`，测试给假时钟。
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），

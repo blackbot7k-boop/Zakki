@@ -137,10 +137,12 @@ func (a *app) confirmRecoverPreferences() error {
 }
 
 // shutdownPreferences 退出流程：等待最终偏好保存并报告失败。
-func (a *app) shutdownPreferences() {
+func (a *app) shutdownPreferences() error {
 	if err := a.prefsStore.Shutdown(a.prefs); err != nil {
 		slog.Error("退出前偏好最终保存失败", "error", err)
+		return err
 	}
+	return nil
 }
 
 // updatePreferences 统一变更入口：校验 → 应用运行时 → 同步菜单/窗口/热键 → 保存。

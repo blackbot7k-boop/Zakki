@@ -1,4 +1,4 @@
-# Tot MD 工程与架构标准
+# Zakki 工程与架构标准
 
 本文是本仓库的工程约束与目标架构。任何人或 agent 改代码前先读 [AGENTS.md](../AGENTS.md)，
 动结构前读本文，动具体模块前读 [architecture.md](architecture.md)。

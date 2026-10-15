@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Tot MD：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS Markdown 便签应用，纯 Go 单二进制。
+Zakki（原 Tot MD）：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS Markdown 便签应用，纯 Go 单二进制。
 
 ## 必读
 
@@ -8,6 +8,7 @@ Tot MD：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS Markd
 2. [docs/architecture.md](docs/architecture.md)：各模块职责、线程模型、持久化生命周期。
 3. [.agents/skills/mygo-maintenance/SKILL.md](.agents/skills/mygo-maintenance/SKILL.md)：改 UI 前必读。
 4. [docs/configuration.md](docs/configuration.md)：改偏好/设置相关代码前必读。
+5. [docs/release.md](docs/release.md)：改命名、发布或更新流程前必读。
 
 ## 布局
 
@@ -45,4 +46,4 @@ go list -m -f '{{.Dir}}' github.com/egoist/mygo   # 查看 MyGo 源码与示例�
 
 - 中文 commitlint：`git commit -m "<type>: <描述>"`，type 取 `feat` / `fix` / `refactor` / `style` / `docs` / `chore` / `test` / `perf`。
 - 一次提交只做一件事；纯结构迁移用 `refactor:`。
-- 禁止提交 `build/`、`.mygo/`、根目录二进制 `tot-md-mygo`。
+- 禁止提交 `build/`、`.mygo/`、根目录二进制 `tot-md-mygo` / `Zakki`，以及更新签名私钥。

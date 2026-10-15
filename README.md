@@ -1,8 +1,29 @@
-# Tot MD — Tot 风格的速记便签（MyGo 原生 UI）
+# Zakki — Tot 风格的速记便签（MyGo 原生 UI）
 
-模仿 [Tot](https://tot.rocks)（The Iconfactory）的 7 点速记应用，用
+Zakki（原 Tot MD）模仿 [Tot](https://tot.rocks)（The Iconfactory）的 7 点速记应用，用
 [MyGo](https://github.com/egoist/mygo) 的**原生 Go UI** 实现：无 HTML/JS/webview，
 纯 Go 单二进制，GPU 绘制。
+
+## 安装与更新
+
+正式版本发布后，从 [GitHub Releases](https://github.com/gomeen/Zakki/releases/latest)
+选择对应平台的安装包：
+
+- **macOS**：通用 DMG（兼容 Intel 与 Apple Silicon），将 `Zakki.app` 拖入「应用程序」。
+  当前为 ad-hoc 签名，**没有 Developer ID 签名与 Apple 公证**；确认来源后，可在
+  「系统设置 → 隐私与安全性」允许打开，不要全局关闭 Gatekeeper。
+- **Windows 10/11 x64**：`Zakki Setup <版本> amd64.exe`，默认安装到当前用户的
+  `%LOCALAPPDATA%\Programs\Zakki`，无需管理员权限。当前未配置 Authenticode 代码签名，
+  SmartScreen 可能提示未知发布者；确认下载来源后再决定是否运行。原生 UI 不需要 WebView2。
+  已通过交叉构建，真实 Windows 的安装、中文输入法、快捷键和更新重启仍需验收。
+
+安装到可写目录后，使用应用菜单 **Zakki → 检查更新…**（两个平台的托盘右键菜单也有入口），查看更新说明、
+下载安装并选择重启。默认只手动检查，不后台检查；开发模式、只读 DMG 或无写权限的安装目录
+不能自更新。自动更新需要维护者先配置签名私钥 Secret 并公开包含更新文件的 Release。
+
+旧 Tot MD 用户需先完整退出旧程序，手动安装一次 Zakki，并移除旧 `.app`，避免两版同时写数据。
+**笔记、偏好与备份继续使用原 `Tot MD` 数据目录**，不随改名迁移或清空。
+发布者配置见 [发布与更新](docs/release.md)。
 
 ## 功能
 
@@ -109,14 +130,15 @@ Tot 的其他细节也一并移植了精神：单实例运行、关窗驻留托�
 go tool mygo dev      # 开发（热重载）
 go test               # 无窗口视图测试 + markdown 引擎测试 + 持久化测试
 go tool mygo vet      # mygo 静态检查
-go tool mygo build    # 打包 .app / .dmg
+make build            # macOS 通用 .app / .dmg；有更新私钥时生成签名更新文件
+make build-windows    # Windows x64 .exe；安装器需 NSIS，有私钥时生成签名更新文件
 make check            # gofmt + vet + test + race 全套检查（CI 同款，见 Makefile）
 ```
 
 ## 设置与偏好
 
 所有用户偏好保存在数据目录中的 `preferences.json`，**不再需要手工编辑配置文件**。
-通过应用菜单 **Tot MD → 设置…（⌘,）** 打开设置窗口：
+通过应用菜单 **Zakki → 设置…（⌘,）** 打开设置窗口：
 
 - **常规**：窗口置顶、按 Esc 隐藏、记忆主窗口位置与尺寸（从下次创建主窗口起生效）。
 - **外观**：跟随系统/浅色/深色；颜色主题与 Markdown 排版主题两组独立选择卡片
@@ -143,9 +165,9 @@ macOS 数据目录：`~/Library/Application Support/Tot MD/`。
 
 ## 数据
 
-- 数据目录：macOS 为 `~/Library/Application Support/Tot MD/`，其他平台遵循系统用户配置目录（os.UserConfigDir）
+- 数据目录：macOS 为 `~/Library/Application Support/Tot MD/`，Windows 为 `%APPDATA%\Tot MD\`（改名后保留兼容），其他平台遵循系统用户配置目录（os.UserConfigDir）
 - 数据文件：`tot-md.json`（7 点文本 + 编辑会话状态，tmp+rename 原子写入）
-- 偏好文件：`preferences.json`（全部用户偏好的唯一来源；损坏时原件隔离另存）
+- 偏好文件：`preferences.json`（应用偏好的唯一来源；损坏时原件隔离另存）；`updater.json` 由 MyGo 更新器管理更新选择与最近检查时间
 - 旧配置：`config.toml` / `config.json` 仅供首次迁移读取，迁移后原样保留，不再读取
 - 备份：`backups/`（默认启动备份 + 自动 5 分钟滚动备份 + 手动「立即备份」无条件创建 + 清空当前点前强制备份，默认保留最近 20 份；策略在设置窗口调整）
 

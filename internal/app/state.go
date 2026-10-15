@@ -19,8 +19,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// appName 决定数据目录名（~/Library/Application Support/<appName>）。
-const appName = "Tot MD"
+const appName = "Zakki"
+
+// 改名不迁移笔记、偏好与备份，避免旧版用户看不到已有数据。
+const dataDirectoryName = "Tot MD"
 
 // snapshotFile 在主线程把当前状态拍成磁盘格式（后台只写该快照）。
 func (a *app) snapshotFile() savedFile {
@@ -90,7 +92,7 @@ func dataDir() string {
 		home, _ := os.UserHomeDir()
 		base = filepath.Join(home, "Library", "Application Support")
 	}
-	return filepath.Join(base, appName)
+	return filepath.Join(base, dataDirectoryName)
 }
 
 // pendingPath 写保护期间新改动的暂存文件，绝不碰原路径。
@@ -169,7 +171,7 @@ func (a *app) recoverFromBrokenFile(cause error) error {
 }
 
 // welcomeText 首次运行时给标签 1 的欢迎文本。
-const welcomeText = `# Tot MD
+const welcomeText = `# Zakki
 
 7 个彩色标签，随手记。这里是 **标签 1**。
 
@@ -226,11 +228,22 @@ func (a *app) scheduleSave() {
 // shutdown 退出流程（OnWillQuit，主线程）：取消防抖定时器，做一次最终快照
 // 保存并等它完成；此后不再接受任何保存请求，也不会与定时保存并发写两份。
 func (a *app) shutdown() {
-	if err := a.notes.Shutdown(a.snapshotFile()); err != nil {
-		return
+	if err := a.shutdownForQuit(); err != nil {
+		slog.Error("最终保存失败", "error", err)
 	}
-	a.shutdownPreferences()
+}
+
+func (a *app) shutdownForQuit() error {
+	if err := a.notes.Shutdown(a.snapshotFile()); err != nil {
+		a.notes.SetStopped(false)
+		return err
+	}
+	if err := a.shutdownPreferences(); err != nil {
+		a.notes.SetStopped(false)
+		return err
+	}
 	slog.Info("退出前已最终保存")
+	return nil
 }
 
 // backupNow 保存当前数据并无条件写一份备份（手动备份入口，绕过周期节流）。

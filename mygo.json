@@ -1,6 +1,14 @@
 {
-  "name": "Tot MD",
+  "name": "Zakki",
   "identifier": "com.gomeen.totmd",
   "version": "0.1.0",
-  "out": "build"
+  "out": "build",
+  "macos": {
+    "signingIdentity": "-"
+  },
+  "updates": {
+    "publicKey": "C0k4xmj5j4rMor21c+UaCEoETX1q+67YYjbY6wJY02s=",
+    "github": "gomeen/Zakki",
+    "tagPrefix": "v"
+  }
 }

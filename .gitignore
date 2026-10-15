@@ -2,3 +2,6 @@
 /.mygo/
 mygo_windows_*.syso
 /tot-md-mygo
+/Zakki
+/zakki
+**/mygo-update.key

@@ -1,4 +1,4 @@
-# Tot MD 本地/CI 统一检查入口。Makefile 必须用 tab 缩进，勿改空格。
+# Zakki 本地/CI 统一检查入口。Makefile 必须用 tab 缩进，勿改空格。
 
 # 只检查仓库源码的 *.go，排除 build/ 与 .mygo/ 等生成目录。
 GO_FILES := $(shell find . -name '*.go' -not -path './build/*' -not -path './.mygo/*')
@@ -12,7 +12,7 @@ ARCH_RULES := \
 	notes:atomicfile \
 	prefs:legacyconfig,atomicfile
 
-.PHONY: fmt-check vet test race arch-check check build
+.PHONY: fmt-check vet test race arch-check check build build-windows
 
 fmt-check:
 	@echo "==> gofmt 检查：以下 *.go 必须已格式化（排除 build/ 与 .mygo/）"
@@ -52,5 +52,9 @@ check: fmt-check vet test race arch-check
 	@echo "==> make check 全部通过"
 
 build:
-	@echo "==> go tool mygo build：打包 .app / .dmg 到 build/"
-	go tool mygo build
+	@echo "==> go tool mygo build：打包通用 .app / .dmg 到 build/darwin-universal/"
+	go tool mygo build -platform darwin/universal
+
+build-windows:
+	@echo "==> go tool mygo build：打包 Windows x64 到 build/windows-amd64/（安装器需要 NSIS）"
+	go tool mygo build -platform windows/amd64
