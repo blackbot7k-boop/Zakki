@@ -102,8 +102,8 @@ func (p Preferences) Validate(v AccelValidator) error {
 		{"appearance.appearanceMode", p.Appearance.AppearanceMode, []string{"system", "light", "dark"}},
 		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"tot", "paper", "warmSand", "mistTeal", "graphite"}},
 		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "tot", "clear", "book", "compact"}},
-		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "pingfang", "songti"}},
-		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "sfmono", "menlo"}},
+		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti"}},
+		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
 	} {
 		valid := false
 		for _, allowed := range field.allowed {
