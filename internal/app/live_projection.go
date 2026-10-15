@@ -391,6 +391,7 @@ func (a *app) undoLive(redo bool) {
 	}
 	*from = (*from)[:len(*from)-1]
 	*to = append(*to, e)
+	a.clearDocSelection()
 	a.activeTab().Text = want.doc
 	if a.cfg.Source {
 		// 源码模式：恢复文本与选区，编辑器缓冲下一帧由绑定重新同步。

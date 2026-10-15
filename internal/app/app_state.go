@@ -66,14 +66,21 @@ type liveEditorState struct {
 	liveFocus          int
 	selSyncStart       int
 	selSyncEnd         int
-	scrollActive       bool
-	liveClickHandled   bool
-	mdCacheValid       bool
-	mdCacheDoc         string
-	mdCacheBlocks      []liveBlock
-	mdCacheLines       []string
-	lowerDoc           string
-	lowerCache         string
+	// selDoc 文档级全选：Cmd+A 选中全部块后，复制/剪切/删除/输入按
+	// 文档区间语义在 app 层拦截，不进单块控件。selDocStart/End 为文档 rune 偏移。
+	selDoc                 bool
+	selDocStart, selDocEnd int
+	// clipSvc 缓存窗口服务：文档级复制/剪切写剪贴板用（headless 测试安全）。
+	clipSvc          ui.Services
+	clipSvcOK        bool
+	scrollActive     bool
+	liveClickHandled bool
+	mdCacheValid     bool
+	mdCacheDoc       string
+	mdCacheBlocks    []liveBlock
+	mdCacheLines     []string
+	lowerDoc         string
+	lowerCache       string
 }
 
 // formatState 格式命令意图与链接浮层（live_format.go）。

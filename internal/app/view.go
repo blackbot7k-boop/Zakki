@@ -28,11 +28,13 @@ func (a *app) view(c *ui.Context) {
 	if a.cfg.Source || a.mdActive < 0 || a.mdActive >= len(a.mdBlocks()) || a.mdBlocks()[a.mdActive].kind != bkTable {
 		a.tableTools = tableTools{}
 	}
-	// 重命名会话优先消费 Esc；表格浮层次之；其余时候先关链接浮层、
+	// 重命名会话优先消费 Esc；表格浮层次之；文档级全选再次；其余时候先关链接浮层、
 	// 再关查找条，最后按设置隐藏窗口。
 	switch {
 	case a.renaming != 0 && c.Shortcut(0, ui.KeyEscape):
 		a.cancelRename()
+	case a.selDoc && c.Shortcut(0, ui.KeyEscape):
+		a.collapseDocSelection(false)
 	case !a.tableTools.open && c.Shortcut(0, ui.KeyEscape):
 		switch {
 		case a.linkTool.open:

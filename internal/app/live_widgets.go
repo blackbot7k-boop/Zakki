@@ -34,6 +34,17 @@ func (a *app) recordProjectedKey(ev ui.InputEvent, p liveProjection) bool {
 	if a.mdComposing {
 		return false
 	}
+	// 文档级全选（Cmd+A / 菜单全选）：表格单元格内保持原生单元格全选。
+	if !p.cell {
+		if ev.Kind == ui.InputCommand && ev.Text == "selectAll" ||
+			(ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyA && ev.Mods == ui.Super) {
+			a.selectDocWide()
+			return true
+		}
+		if a.selDoc && a.docSelectionInput(ev) {
+			return true
+		}
+	}
 	if ev.Kind == ui.InputCommand && (ev.Text == "undo" || ev.Text == "redo") {
 		a.liveUndoPending = 1
 		if ev.Text == "redo" {

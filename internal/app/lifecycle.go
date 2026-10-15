@@ -272,7 +272,10 @@ func (a *app) createMenu() *mygo.Menu {
 		{Role: mygo.RoleCut},
 		{Role: mygo.RoleCopy},
 		{Role: mygo.RolePaste},
-		{Role: mygo.RoleSelectAll},
+		// 显式全选菜单项：点击与 ⌘A 都走文档级选区（实时预览跨块），
+		// 不用 RoleSelectAll 的单块原生行为。
+		{Label: "全选", Accelerator: "CmdOrCtrl+A",
+			Click: func(*mygo.MenuItem, *mygo.Window) { a.menuSelectAll() }},
 		mygo.Separator(),
 		{Label: "Markdown", Submenu: markdownItems},
 	}

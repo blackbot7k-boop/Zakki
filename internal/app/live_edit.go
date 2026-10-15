@@ -180,6 +180,7 @@ func (a *app) resyncLive(caret int) {
 		a.mdActive = len(blocks) - 1
 	}
 	a.mdDraft = blocks[a.mdActive].raw
+	a.clearDocSelection()
 	if caret >= 0 {
 		a.selSyncStart, a.selSyncEnd = caret, caret
 		a.liveFocus = 1
@@ -299,6 +300,7 @@ func (a *app) focusBlock(idx int, start, end int) {
 			a.commitDraft(-1)
 		}
 	}
+	a.clearDocSelection()
 	blocks := a.mdBlocks()
 	if len(blocks) == 0 {
 		a.mdActive, a.mdDraft = -1, ""

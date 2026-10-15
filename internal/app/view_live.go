@@ -41,12 +41,15 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 			// 快照 active：块内 Enter 可能在本轮构建中把 mdActive 挧到别的块，
 			// 同一路循环不能因此误建第二个编辑器（同 key 冲突），重建交给下一帧。
 			active := a.mdActive
+			off := 0
 			for i, blk := range blocks {
+				blockEnd := off + utf8.RuneCountInString(blk.raw)
 				if i == active {
 					a.activeBlock(c, t)
 				} else {
-					a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i))
+					a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), off, blockEnd+1)
 				}
+				off = blockEnd + 1
 			}
 		})
 	})
@@ -107,6 +110,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		oldStart, oldEnd = p.visibleOffset(a.selSyncStart), p.visibleOffset(a.selSyncEnd)
 	}
 
+	a.captureClipboardService(c)
 	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).
 		Label("内容").
 		Lines(1, 4096).
@@ -161,6 +165,13 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	defer func() { a.rememberLiveEdit(beforeEdit, a.takePendingEditKind()) }()
 
 	if ta.Changed() && !a.mdComposing {
+		if a.selDoc {
+			// 文档级选区：输入文本不可在事件层拦截（走 NSTextInputClient），
+			// 在这里把控件对整块可见文字的替换升级为对整个文档的替换。
+			a.docSelectionReplace(a.mdVisible, p, cs)
+			c.Invalidate()
+			return
+		}
 		raw, caret := p.replaceSelection(a.mdVisible, cs, oldStart, oldEnd)
 		kind := editInput
 		if a.nextEditIsPaste {
@@ -241,7 +252,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 
 // liveBlockRow 渲染一个非焦点块；整行可点击进入编辑。
 // 勾选框是更内层的可点元素，它的点击不会冒泡到行（不会误切换焦点块）。
-func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool) {
+func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool, docStart, docEnd int) {
 	var row ui.Element
 	if blk.kind == bkBlank {
 		// 源码分隔符不占行高；额外的空段落可见、可点击，且一次退格只删一个。
@@ -253,6 +264,10 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 	} else {
 		row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).Gap(8).FillWidth()
 		row.Children(func() { a.renderLiveBlock(c, t, dark, blk) })
+	}
+	// 文档级全选：非焦点块画选区底色，提示它在选区内。
+	if a.blockSelectionBand(docStart, docEnd) {
+		row.Background(t.Selection)
 	}
 	row.OnClick(func() {
 		a.liveClickHandled = true
