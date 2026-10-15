@@ -54,7 +54,7 @@ func (a *app) loadPreferences() error {
 			a.prefs = prefs
 			a.applyPreferencesToRuntime()
 			a.setPrefsSaveError(err)
-			return fmt.Errorf("写入偏好文件 %s: %w", path, err)
+			return fmt.Errorf("%s: %w", locales.PrefsWriteErr(path), err)
 		}
 		a.prefs = prefs
 		a.applyPreferencesToRuntime()
@@ -63,7 +63,7 @@ func (a *app) loadPreferences() error {
 		}
 		return nil
 	case err != nil:
-		return fmt.Errorf("读取偏好文件 %s: %w", path, err)
+		return fmt.Errorf("%s: %w", locales.PrefsReadErr(path), err)
 	}
 	prefs, err := decodePreferences(raw)
 	if err != nil {
@@ -130,7 +130,7 @@ func (a *app) confirmRecoverPreferences() error {
 	if raw, err := os.ReadFile(path); err == nil {
 		backup := path + ".bad-" + a.now().Format("20060102-150405")
 		if err := os.WriteFile(backup, raw, 0o644); err != nil {
-			return fmt.Errorf("另存原件失败: %w", err)
+			return fmt.Errorf("%s: %w", locales.PrefsBackupCopyErr(), err)
 		}
 		slog.Info("损坏偏好文件已另存", "backup", backup)
 	}

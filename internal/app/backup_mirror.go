@@ -62,7 +62,7 @@ func canonicalPath(path string) (string, error) {
 func (a *app) validateMirrorDir(path string) (string, error) {
 	abs, err := canonicalPath(path)
 	if err != nil {
-		return "", fmt.Errorf("解析路径失败: %w", err)
+		return "", fmt.Errorf("%s", locales.MirrorErrParse())
 	}
 	backupDir, err := canonicalPath(a.notes.BackupDir)
 	if err != nil {
@@ -73,14 +73,14 @@ func (a *app) validateMirrorDir(path string) (string, error) {
 		dataDir = filepath.Clean(filepath.Dir(a.notes.BackupDir))
 	}
 	if abs == backupDir || strings.HasPrefix(abs, backupDir+string(filepath.Separator)) {
-		return "", fmt.Errorf("不能选择本地备份目录（含其子目录）作为外部备份")
+		return "", fmt.Errorf("%s", locales.MirrorErrLocalBackup())
 	}
 	if abs == dataDir {
-		return "", fmt.Errorf("不能选择应用数据目录作为外部备份")
+		return "", fmt.Errorf("%s", locales.MirrorErrAppData())
 	}
 	probe := filepath.Join(abs, ".zakki-backup-probe")
 	if err := os.WriteFile(probe, []byte("ok"), 0o644); err != nil {
-		return "", fmt.Errorf("文件夹不可写: %w", err)
+		return "", fmt.Errorf("%s", locales.MirrorErrNotWritable())
 	}
 	_ = os.Remove(probe)
 	return abs, nil
@@ -162,7 +162,7 @@ func (a *app) pushMirrorGitMode() {
 	mode := gitModeOfDisplay(a.settingsUI.gitModeSel)
 	if dir := a.settingsUI.draft.Backup.MirrorDir; dir != "" && mode != "off" && !dirIsGitRepo(dir) {
 		a.settingsUI.gitModeSel = gitModeDisplay(a.prefs.Backup.GitMode)
-		a.settingsUI.keyErr = "当前备份文件夹不是 Git 仓库，无法开启 Git 自动化"
+		a.settingsUI.keyErr = locales.MirrorNotGitErr()
 		return
 	}
 	a.settingsUI.draft.Backup.GitMode = mode

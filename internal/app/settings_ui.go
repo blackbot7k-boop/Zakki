@@ -708,7 +708,7 @@ func (a *app) cardResetFooter(c *ui.Context, page string) {
 	cardDivider(c)
 	ui.Row(c).FillWidth().Padding(8, 14).Children(func() {
 		ui.Box(c).Grow(1)
-		if ui.Button(c, "恢复本页默认值").Clicked() {
+		if ui.Button(c, locales.ResetPageButton()).Clicked() {
 			a.confirmResetPage(page)
 		}
 	})
