@@ -440,9 +440,6 @@
   "welcomeBodyTips": "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌘1–⌘9 switch tabs; ⌘T new tab; Enter splits blocks, arrows cross them\n- ⌘F searches this tab, ⌘⇧P toggles source mode\n- ⌘B / ⌘I / ⌘K bold, italic, link; ⌘⌥1–6 set headings\n- ⌘⇧Space shows/hides the window globally by default (rebind in Settings → Shortcuts)\n- Themes and backup options live in Settings… ⌘, and apply immediately\n- Tab names, order and colors are in Settings → Tabs; double-click the capsule to rename\n- ⌥⌘T keeps the window on top; Esc hides it",
   "welcomeBodyFooter": "Supports **bold**, *italic*, `code`, [links](https://github.com/egoist/mygo), quotes and code blocks.\n\n> Built with [MyGo](https://github.com/egoist/mygo).",
   "ctxInline": "Acts on the selection or the caret; works inside table cells",
-  "ctxHeading": "Used in paragraph context; unavailable inside table cells",
-  "ctxBlocks": "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables",
-  "ctxInsert": "Processes the selected lines and keeps the text; unavailable in code blocks and tables",
   "accEmpty": "Empty shortcut",
   "accInvalid": "Invalid shortcut {s}",
   "accUnknownMod": "Unknown modifier {raw}",
@@ -457,5 +454,16 @@
   "mirrorStateLast": "last mirror {time}",
   "prefsVersionAheadHint": "the preferences file version may be newer than this app",
   "prefsBrokenMessage": "The preferences file preferences.json cannot be read: {err}",
-  "prefsSaveBlockedPending": "Preferences await recovery; nothing is written until confirmed"
+  "prefsSaveBlockedPending": "Preferences await recovery; nothing is written until confirmed",
+  "mirrorErrParse": "Cannot resolve the path",
+  "mirrorErrLocalBackup": "The local backup folder (or its subfolders) cannot be the external backup destination",
+  "mirrorErrAppData": "The app data directory cannot be the external backup destination",
+  "mirrorErrNotWritable": "Folder is not writable",
+  "resetPageButton": "Reset this page",
+  "prefsWriteErr": "Failed to write preferences file {path}",
+  "prefsReadErr": "Failed to read preferences file {path}",
+  "prefsBackupCopyErr": "Failed to save a copy of the original",
+  "ctxParagraphContext": "Used in paragraph context; unavailable inside table cells",
+  "ctxBodyLines": "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables",
+  "ctxSelectedLines": "Processes the selected lines and keeps the text; unavailable in code blocks and tables"
 }

@@ -261,7 +261,11 @@ func (a *app) obLanguage(c *ui.Context, t *ui.Theme) {
 				if chosen {
 					btn = btn.BorderWidth(2).BorderColor(t.Accent)
 				}
-				btn.OnClick(func() { mygo.App.SetLocale(tag) })
+				btn.OnClick(func() {
+					// 经统一偏好入口：写 appearance.language 并即时应用，
+					// 设置页的语言单选与本步骤保持同一事实来源。
+					a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
+				})
 			}
 		})
 	})
@@ -287,7 +291,7 @@ func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
 		ui.Text(c, locales.OnboardChooseBackupBody()).
 			FontSize(12).TextColor(tMuted(c))
 		if ob.dirDraft == "" {
-			if ui.Button(c, locales.CommonChange()).Clicked() {
+			if ui.Button(c, locales.ChooseFolder()).Clicked() {
 				a.obPickFolder()
 			}
 			return

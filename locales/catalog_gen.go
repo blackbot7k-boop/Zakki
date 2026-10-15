@@ -4024,36 +4024,6 @@ func (msgs Messages) CtxInline() string {
 	return Catalog.Format(msgs.locale, "ctxInline", nil)
 }
 
-// CtxHeading says "Used in paragraph context; unavailable inside table cells"
-// in the language the app shows.
-func CtxHeading() string { return In(i18n.Locale()).CtxHeading() }
-
-// CtxHeading says "Used in paragraph context; unavailable inside table cells"
-// in the language of msgs.
-func (msgs Messages) CtxHeading() string {
-	return Catalog.Format(msgs.locale, "ctxHeading", nil)
-}
-
-// CtxBlocks says "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables"
-// in the language the app shows.
-func CtxBlocks() string { return In(i18n.Locale()).CtxBlocks() }
-
-// CtxBlocks says "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables"
-// in the language of msgs.
-func (msgs Messages) CtxBlocks() string {
-	return Catalog.Format(msgs.locale, "ctxBlocks", nil)
-}
-
-// CtxInsert says "Processes the selected lines and keeps the text; unavailable in code blocks and tables"
-// in the language the app shows.
-func CtxInsert() string { return In(i18n.Locale()).CtxInsert() }
-
-// CtxInsert says "Processes the selected lines and keeps the text; unavailable in code blocks and tables"
-// in the language of msgs.
-func (msgs Messages) CtxInsert() string {
-	return Catalog.Format(msgs.locale, "ctxInsert", nil)
-}
-
 // AccEmpty says "Empty shortcut"
 // in the language the app shows.
 func AccEmpty() string { return In(i18n.Locale()).AccEmpty() }
@@ -4204,4 +4174,114 @@ func PrefsSaveBlockedPending() string { return In(i18n.Locale()).PrefsSaveBlocke
 // in the language of msgs.
 func (msgs Messages) PrefsSaveBlockedPending() string {
 	return Catalog.Format(msgs.locale, "prefsSaveBlockedPending", nil)
+}
+
+// MirrorErrParse says "Cannot resolve the path"
+// in the language the app shows.
+func MirrorErrParse() string { return In(i18n.Locale()).MirrorErrParse() }
+
+// MirrorErrParse says "Cannot resolve the path"
+// in the language of msgs.
+func (msgs Messages) MirrorErrParse() string {
+	return Catalog.Format(msgs.locale, "mirrorErrParse", nil)
+}
+
+// MirrorErrLocalBackup says "The local backup folder (or its subfolders) cannot be the external backup destination"
+// in the language the app shows.
+func MirrorErrLocalBackup() string { return In(i18n.Locale()).MirrorErrLocalBackup() }
+
+// MirrorErrLocalBackup says "The local backup folder (or its subfolders) cannot be the external backup destination"
+// in the language of msgs.
+func (msgs Messages) MirrorErrLocalBackup() string {
+	return Catalog.Format(msgs.locale, "mirrorErrLocalBackup", nil)
+}
+
+// MirrorErrAppData says "The app data directory cannot be the external backup destination"
+// in the language the app shows.
+func MirrorErrAppData() string { return In(i18n.Locale()).MirrorErrAppData() }
+
+// MirrorErrAppData says "The app data directory cannot be the external backup destination"
+// in the language of msgs.
+func (msgs Messages) MirrorErrAppData() string {
+	return Catalog.Format(msgs.locale, "mirrorErrAppData", nil)
+}
+
+// MirrorErrNotWritable says "Folder is not writable"
+// in the language the app shows.
+func MirrorErrNotWritable() string { return In(i18n.Locale()).MirrorErrNotWritable() }
+
+// MirrorErrNotWritable says "Folder is not writable"
+// in the language of msgs.
+func (msgs Messages) MirrorErrNotWritable() string {
+	return Catalog.Format(msgs.locale, "mirrorErrNotWritable", nil)
+}
+
+// ResetPageButton says "Reset this page"
+// in the language the app shows.
+func ResetPageButton() string { return In(i18n.Locale()).ResetPageButton() }
+
+// ResetPageButton says "Reset this page"
+// in the language of msgs.
+func (msgs Messages) ResetPageButton() string {
+	return Catalog.Format(msgs.locale, "resetPageButton", nil)
+}
+
+// PrefsWriteErr says "Failed to write preferences file {path}"
+// in the language the app shows.
+func PrefsWriteErr(path string) string { return In(i18n.Locale()).PrefsWriteErr(path) }
+
+// PrefsWriteErr says "Failed to write preferences file {path}"
+// in the language of msgs.
+func (msgs Messages) PrefsWriteErr(path string) string {
+	return Catalog.Format(msgs.locale, "prefsWriteErr", map[string]any{"path": path})
+}
+
+// PrefsReadErr says "Failed to read preferences file {path}"
+// in the language the app shows.
+func PrefsReadErr(path string) string { return In(i18n.Locale()).PrefsReadErr(path) }
+
+// PrefsReadErr says "Failed to read preferences file {path}"
+// in the language of msgs.
+func (msgs Messages) PrefsReadErr(path string) string {
+	return Catalog.Format(msgs.locale, "prefsReadErr", map[string]any{"path": path})
+}
+
+// PrefsBackupCopyErr says "Failed to save a copy of the original"
+// in the language the app shows.
+func PrefsBackupCopyErr() string { return In(i18n.Locale()).PrefsBackupCopyErr() }
+
+// PrefsBackupCopyErr says "Failed to save a copy of the original"
+// in the language of msgs.
+func (msgs Messages) PrefsBackupCopyErr() string {
+	return Catalog.Format(msgs.locale, "prefsBackupCopyErr", nil)
+}
+
+// CtxParagraphContext says "Used in paragraph context; unavailable inside table cells"
+// in the language the app shows.
+func CtxParagraphContext() string { return In(i18n.Locale()).CtxParagraphContext() }
+
+// CtxParagraphContext says "Used in paragraph context; unavailable inside table cells"
+// in the language of msgs.
+func (msgs Messages) CtxParagraphContext() string {
+	return Catalog.Format(msgs.locale, "ctxParagraphContext", nil)
+}
+
+// CtxBodyLines says "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables"
+// in the language the app shows.
+func CtxBodyLines() string { return In(i18n.Locale()).CtxBodyLines() }
+
+// CtxBodyLines says "Changes the paragraph or the body lines of the source selection; unavailable in code blocks and tables"
+// in the language of msgs.
+func (msgs Messages) CtxBodyLines() string {
+	return Catalog.Format(msgs.locale, "ctxBodyLines", nil)
+}
+
+// CtxSelectedLines says "Processes the selected lines and keeps the text; unavailable in code blocks and tables"
+// in the language the app shows.
+func CtxSelectedLines() string { return In(i18n.Locale()).CtxSelectedLines() }
+
+// CtxSelectedLines says "Processes the selected lines and keeps the text; unavailable in code blocks and tables"
+// in the language of msgs.
+func (msgs Messages) CtxSelectedLines() string {
+	return Catalog.Format(msgs.locale, "ctxSelectedLines", nil)
 }

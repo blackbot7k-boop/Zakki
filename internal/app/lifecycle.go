@@ -52,6 +52,10 @@ func Run() {
 
 	mygo.App.WhenReady(func() {
 		a.ready = true // 之后偏好变更可安全触达原生 API
+		// 以 preferences.json 的语言为准同步一次（设置页显示值与实际语言一致；
+		// 空串 = 跟随系统，覆盖 MyGo 此前自己保存过的显式选择）。
+		mygo.App.SetLocale(a.prefs.Appearance.Language)
+		a.appliedLocale = a.prefs.Appearance.Language
 		// 手写字体用户在开窗前预热注册，避免首帧渲染时的一次性读盘卡顿；
 		// 其他用户不付这份内存，首次用到手写字体栈时才懒注册。
 		if key := a.prefs.Appearance.BodyFont; key == "hand" || key == "hannotate" {
@@ -195,11 +199,11 @@ func formatContextNote(id string) string {
 	case cmdBold, cmdItalic, cmdInlineCode, cmdLink:
 		return locales.CtxInline()
 	case cmdCodeBlock, cmdRule, cmdTable:
-		return locales.CtxHeading()
+		return locales.CtxParagraphContext()
 	case cmdBody, cmdH1, cmdH2, cmdH3, cmdH4, cmdH5, cmdH6:
-		return locales.CtxBlocks()
+		return locales.CtxBodyLines()
 	case cmdQuote, cmdBullet, cmdOrdered, cmdTask:
-		return locales.CtxInsert()
+		return locales.CtxSelectedLines()
 	}
 	return ""
 }

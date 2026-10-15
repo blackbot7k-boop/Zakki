@@ -145,6 +145,9 @@ type desktopRefs struct {
 type prefsRuntimeState struct {
 	prefs          preferences
 	prefsMigration migrationResult
+	// appliedLocale 已应用到 MyGo 的界面语言：与 prefs.Appearance.Language
+	// 比对，避免每次偏好更新都重复 SetLocale。
+	appliedLocale string
 }
 
 // settingsWindowState 设置窗口与草稿 UI。
@@ -169,10 +172,8 @@ type app struct {
 	prefsRuntimeState
 	onboarding onboardingState
 
-	cfg settings
-	// appliedLocale 已应用到 MyGo 的界面语言（避免每次偏好更新重复 SetLocale）。
-	appliedLocale string
-	ready         bool
+	cfg   settings
+	ready bool
 
 	notes      *notes.Store
 	now        func() time.Time
