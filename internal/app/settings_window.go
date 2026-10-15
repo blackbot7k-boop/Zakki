@@ -28,6 +28,7 @@ type settingsUIState struct {
 	// Select 控件绑定显示文案；与 draft 同步。
 	appearanceModeSel string
 	bodyFontSel       string
+	latinFontSel      string
 	monoFontSel       string
 	markdownThemeSel  string
 	tabAnimSpeedSel   string
@@ -46,6 +47,9 @@ type settingsUIState struct {
 	recording string
 	keyErr    string
 
+	// Git 自动化 Select 绑定的显示文案。
+	gitModeSel string
+
 	resetTarget string // 待确认的「恢复本页默认值」页面
 }
 
@@ -55,8 +59,9 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
 	ui.bodyFontSel = displayOf(
-		[]string{"kai", "pingfang", "songti"},
-		[]string{"霞鹜文楷（默认）", "系统苹方", "宋体"}, p.Appearance.BodyFont)
+		bodyFontKeys, bodyFontOptions, p.Appearance.BodyFont)
+	ui.latinFontSel = displayOf(
+		latinFontKeys, latinFontOptions, p.Appearance.LatinFont)
 	ui.monoFontSel = displayOf(
 		[]string{"jbm", "sfmono", "menlo"},
 		[]string{"JetBrains Mono（默认）", "SF Mono", "Menlo"}, p.Appearance.MonoFont)
@@ -64,6 +69,7 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.lineHeightText = floatText(p.Appearance.LineHeight)
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
 	ui.keyErr = ""
+	ui.gitModeSel = gitModeDisplay(p.Backup.GitMode)
 }
 
 func floatText(v float32) string {
@@ -137,7 +143,7 @@ func (a *app) settingsView(c *ui.Context) {
 	t := *c.Theme()
 	t.Background, t.Text, t.TextMuted = style.background, style.text, style.textMuted
 	t.Surface, t.Border, t.Accent = style.surface, style.border, style.accent
-	t.Font, t.FontSize = bodyFontStack("pingfang"), 13
+	t.Font, t.FontSize = bodyFontStack("pingfang", ""), 13
 	c.SetTheme(&t)
 
 	if a.settingsPage == "" {

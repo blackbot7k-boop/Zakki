@@ -122,6 +122,27 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 			a.cardResetFooter(c, pageAppearance)
 		})
 
+		settingsCard(c, "整套主题", func() {
+			settingsRow(c, "手绘手账", "点阵纸、手写字体、铅笔线框、荧光笔标题与马克笔引用", func() {
+				ap := a.settingsUI.draft.Appearance
+				applied := ap.ColorTheme == "sketch" && ap.MarkdownTheme == "sketch" && ap.BodyFont == "hand" && ap.LatinFont == ""
+				label := "一键套用"
+				if applied {
+					label = "已套用"
+				}
+				if ui.Button(c.Key("preset-sketch"), label).Label("套用手绘整套主题").Clicked() && !applied {
+					a.settingsUI.draft.Appearance.ColorTheme = "sketch"
+					a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
+					a.settingsUI.draft.Appearance.BodyFont = "hand"
+					a.settingsUI.draft.Appearance.LatinFont = ""
+					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
+					a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
+					a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
+					a.pushAppearance()
+				}
+			}).PaddingX(14)
+		})
+
 		settingsCard(c, "排版微调", func() {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.typographyOverrides(c)
@@ -162,7 +183,7 @@ func appearanceModeDisplay(key string) string {
 }
 
 // colorThemeCards 颜色主题选择卡片：名称 + 迷你界面样（顶栏 + 文字/强调色线条），
-// 五列网格，选中态描边。
+// 三列网格，选中态描边。
 func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 	type card struct {
 		id, name string
@@ -176,7 +197,7 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 		}
 		cards = append(cards, card{id: def.id, name: def.name, pal: pal})
 	}
-	ui.Grid(c).Columns(5).Gap(8).FillWidth().Children(func() {
+	ui.Grid(c).Columns(3).Gap(8).FillWidth().Children(func() {
 		for _, cd := range cards {
 			cd := cd
 			selected := a.settingsUI.draft.Appearance.ColorTheme == cd.id
@@ -196,6 +217,15 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 			})
 			if btn.Clicked() {
 				a.settingsUI.draft.Appearance.ColorTheme = cd.id
+				if cd.id == "sketch" {
+					// 手绘是整套风格：颜色、手账排版与手写字体一起切换，之后仍可单独调整。
+					a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
+					a.settingsUI.draft.Appearance.BodyFont = "hand"
+					a.settingsUI.draft.Appearance.LatinFont = ""
+					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
+					a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
+					a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
+				}
 				a.pushAppearance()
 			}
 		}
@@ -276,25 +306,49 @@ func layoutFontNote(id string) string {
 		return "便签排版"
 	case "clear":
 		return "层级明确"
+	case "sketch":
+		return "手账留白"
 	}
 	return "Typora 式排版"
 }
 
+// bodyFontKeys / bodyFontOptions 中文字体键与显示名（同序）。
+var (
+	bodyFontKeys    = []string{"kai", "pingfang", "songti", "hand", "hannotate"}
+	bodyFontOptions = []string{"霞鹜文楷（默认）", "系统苹方", "宋体", "手写（标题手札体）", "手札体"}
+)
+
+// latinFontKeys / latinFontOptions 西文字体键与显示名（同序）；空串 = 跟随中文字体。
+var (
+	latinFontKeys    = []string{"", "jetbrains", "system", "noteworthy", "bradley"}
+	latinFontOptions = []string{"跟随中文字体", "JetBrains Mono", "系统西文", "Noteworthy", "Bradley Hand"}
+)
+
 // typographyOverrides 排版覆盖：每项可「跟随 Markdown 主题」（空 = 跟随）。
 func (a *app) typographyOverrides(c *ui.Context) {
-	bodyOptions := []string{"霞鹜文楷（默认）", "系统苹方", "宋体"}
-	bodyKeys := []string{"kai", "pingfang", "songti"}
+	bodyOptions, bodyKeys := bodyFontOptions, bodyFontKeys
 	monoOptions := []string{"JetBrains Mono（默认）", "SF Mono", "Menlo"}
 	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
-				ui.Text(c, "正文字体")
-				ui.Text(c, "默认霞鹜文楷；与排版主题无关").FontSize(11).TextColor(tMuted(c))
+				ui.Text(c, "中文字体")
+				ui.Text(c, "中文字形；未单独指定西文时，英文也用这套").FontSize(11).TextColor(tMuted(c))
 			})
 			if ui.Select(c, &a.settingsUI.bodyFontSel, bodyOptions).Changed() {
 				a.settingsUI.draft.Appearance.BodyFont = keyOfDisplay(bodyKeys, bodyOptions, a.settingsUI.bodyFontSel)
+				a.pushAppearance()
+			}
+		})
+		cardDivider(c)
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
+			ui.Column(c).Grow(1).Gap(0).Children(func() {
+				ui.Text(c, "西文字体")
+				ui.Text(c, "英文字母与数字；默认跟随中文字体").FontSize(11).TextColor(tMuted(c))
+			})
+			if ui.Select(c, &a.settingsUI.latinFontSel, latinFontOptions).Changed() {
+				a.settingsUI.draft.Appearance.LatinFont = keyOfDisplay(latinFontKeys, latinFontOptions, a.settingsUI.latinFontSel)
 				a.pushAppearance()
 			}
 		})
@@ -421,7 +475,7 @@ func (a *app) themePreview(c *ui.Context, dark bool) {
 		Radius(8).BorderWidth(1).BorderColor(style.border).
 		Background(style.background).Font(style.bodyFont).FontSize(style.bodySize * 0.8).
 		LineHeight(style.lineHeight).Children(func() {
-		ui.Text(c, "标题：写作与速记 Writing").Bold().FontSize(style.headingSizes[1]).TextColor(style.text)
+		ui.Text(c, "标题：写作与速记 Writing").Font(style.headingFont).Bold().FontSize(style.headingSizes[1]).TextColor(style.text)
 		ui.RichText(c).Children(func() {
 			ui.Text(c, "正文 ")
 			ui.Text(c, "粗体").Bold()
@@ -438,7 +492,7 @@ func (a *app) themePreview(c *ui.Context, dark bool) {
 			ui.Text(c, "任务：已完成的事项").TextColor(style.text)
 		})
 		ui.Row(c).Gap(6).Children(func() {
-			ui.Box(c).Width(3).FillHeight().Radius(2).Background(style.quoteBorder)
+			quoteBar(c, style, 7)
 			ui.Text(c, "引用：灵感来自 Tot。").TextColor(style.textMuted)
 		})
 		ui.Row(c).Gap(0).Children(func() {
@@ -469,6 +523,39 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(14).Children(func() {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
+
+		settingsCard(c, "外部备份", func() {
+			mono := monoFontStack("sfmono")
+			if dir := a.prefs.Backup.MirrorDir; dir == "" {
+				settingsRow(c, "未配置", "每次备份会镜像一份到外部文件夹：选云盘同步文件夹即云备份，选 Git 仓库的本地 clone 可开启自动提交。跳过则仅保留本地备份。", func() {
+					if ui.Button(c, "选择文件夹…").Clicked() {
+						a.pickMirrorFolder()
+					}
+				}).PaddingX(14)
+			} else {
+				ui.Column(c).FillWidth().Padding(10, 14).Gap(8).Children(func() {
+					ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
+					ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
+					ui.Row(c).Gap(8).Children(func() {
+						if ui.Button(c, "打开文件夹").Clicked() {
+							_ = mygo.Shell.OpenPath(dir)
+						}
+						if ui.Button(c, "更换…").Clicked() {
+							a.pickMirrorFolder()
+						}
+						if ui.Button(c, "断开").Clicked() {
+							a.disconnectMirror()
+						}
+					})
+				})
+			}
+			cardDivider(c)
+			settingsRow(c, "Git 自动化", a.gitModeDetailText(), func() {
+				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions).Changed() {
+					a.pushMirrorGitMode()
+				}
+			}).PaddingX(14)
+		})
 
 		settingsCard(c, "自动备份", func() {
 			settingsRow(c, "编辑后自动备份最小间隔", "1–1440 分钟；是节流间隔，不是独立定时备份", func() {
@@ -515,6 +602,11 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 			})
 			a.cardResetFooter(c, pageBackup)
 		})
+
+		// 本页操作错误（备份失败、目录不可用等）。
+		if a.settingsUI.keyErr != "" {
+			ui.Text(c, a.settingsUI.keyErr).FontSize(12).TextColor(t.Danger)
+		}
 	})
 }
 

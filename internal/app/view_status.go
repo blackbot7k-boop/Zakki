@@ -66,3 +66,29 @@ func (a *app) backupLabel() string {
 		return last.Format("01-02 15:04 备份")
 	}
 }
+
+// mirrorLabel 底栏外部备份状态短句；未配置返回空串，warn 为真时加粗提示。
+func (a *app) mirrorLabel() (string, bool) {
+	st := a.notes.MirrorStatus()
+	if st.Dir == "" {
+		return "", false
+	}
+	if st.Err != "" {
+		return "镜像失败", true
+	}
+	last := st.Last
+	if last.IsZero() {
+		return "尚未镜像", false
+	}
+	d := a.now().Sub(last)
+	switch {
+	case d < time.Minute:
+		return "刚刚镜像", false
+	case d < time.Hour:
+		return fmt.Sprintf("%d 分钟前镜像", int(d.Minutes())), false
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d 小时前镜像", int(d.Hours())), false
+	default:
+		return last.Format("01-02 15:04 镜像"), false
+	}
+}
