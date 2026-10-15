@@ -16,6 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 const appName = "Zakki"
@@ -153,38 +155,25 @@ func (a *app) recoverFromBrokenFile(cause error) error {
 	if f, name, ok := a.notes.LoadNewestBackup(); ok {
 		a.applySavedFile(f)
 		a.resyncLive(0)
-		a.notice = "数据文件损坏，已从备份 " + name + " 恢复（原件已隔离）"
+		a.notice = locales.NoticeRecoveredFromBackup(name)
 		slog.Warn("数据文件损坏，已从备份恢复", "backup", name, "error", cause)
 		return cause
 	}
 	a.initDefaults()
 	a.resyncLive(0)
 	a.notes.SetSaveBlocked(true)
-	a.notice = "数据文件损坏且无可用备份，新改动暂存 .pending；请用菜单“写回数据文件”确认覆盖"
+	a.notice = locales.NoticeWriteProtected()
 	slog.Error("数据文件损坏且备份不可用，默认内容不写回原路径", "error", cause)
 	return cause
 }
 
-// welcomeTextBody 欢迎文案中与标签数量无关的段落。
-const welcomeTextBody = `- [ ] 试试勾选我：其他块即时排版，点一下就能编辑
-- ⌘1 到 ⌘9 切换标签；⌘T 新建；Enter 分块，↑↓←→ 跨块
-- ⌘F 搜索本标签内容，⌘⇧P 切换源码模式
-- ⌘B / ⌘I / ⌘K 直接加粗、斜体、插链接；⌘⌥1–6 改标题
-- 默认 ⌘⇧空格 全局呼出/隐藏窗口（在「设置 → 快捷键」里改）
-- 颜色与排版主题、备份策略都在「设置…」⌘, 里，即时生效
-- 标签命名、排序与颜色在「设置 → 标签与外观」里，双击胶囊也可重命名
-- ⌥⌘T 窗口置顶，Esc 隐藏窗口
-
-支持 **粗体**、*斜体*、` + "`代码`" + `、[链接](https://tot.rocks)、引用和代码块。
-
-> 灵感来自 [Tot](https://tot.rocks)，用 [MyGo](https://github.com/egoist/mygo) 构建。`
-
-// welcomeTextFor 按初始标签数生成标签 1 的欢迎文本。
+// welcomeTextFor 按初始标签数生成标签 1 的欢迎文本；提示段落来自 catalog。
 func welcomeTextFor(tabCount int) string {
 	if tabCount < 1 {
 		tabCount = 1
 	}
-	return fmt.Sprintf("# Zakki\n\n%d 个彩色标签，随手记。这里是 **标签 1**。\n\n", tabCount) + welcomeTextBody
+	return locales.WelcomeTitle() + "\n\n" + locales.WelcomeIntro(fmt.Sprint(tabCount)) + "\n\n" +
+		locales.WelcomeBodyTips() + "\n\n" + locales.WelcomeBodyFooter()
 }
 
 // welcomeText 默认标签数下的欢迎文案（测试与固定引用）。

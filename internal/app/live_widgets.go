@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 func styleHeading(h ui.Element, level int, md resolvedStyle) {
@@ -24,7 +26,7 @@ func (a *app) taskCheckbox(c *ui.Context, blk liveBlock, md resolvedStyle) {
 		a.onEdited()
 	}
 	key := c.Key("task-" + strconv.Itoa(blk.start))
-	label := "完成：" + projectBlock(blk).text
+	label := locales.EditorTaskDone(projectBlock(blk).text)
 	if md.sketch {
 		sketchCheckbox(c, key, label, blk.checked, md, uint32(blk.start), toggle)
 		return
@@ -197,7 +199,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 				for col := 0; col < cols; col++ {
 					ci := index + col
 					cell := ui.Box(c.Key(fmt.Sprintf("cell-%d", col))).Grow(1).Basis(0).MinWidth(0).Padding(md.tablePadY, md.tablePadX).
-						Label(fmt.Sprintf("单元格 %d,%d", row+1, col+1))
+						Label(locales.EditorTableCell(row+1, col+1))
 					switch {
 					case md.sketch:
 						lastRow := row == len(blk.table.rows)-1

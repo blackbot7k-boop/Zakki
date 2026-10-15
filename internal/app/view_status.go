@@ -1,11 +1,12 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"zakki/locales"
 )
 
 // statusWarn 状态栏警示文案：持久化错误优先，其次载入提示。
@@ -48,22 +49,22 @@ func countLines(s string) int {
 	return strings.Count(s, "\n") + 1
 }
 
-// backupLabel 把最近备份时间转成人性化短句（Tot 底栏的 "Just now"）。
+// backupLabel 把最近备份时间转成人性化短句。
 func (a *app) backupLabel() string {
 	last := a.lastBackupTime()
 	if last.IsZero() {
-		return "尚未备份"
+		return locales.StatusNeverBackedUp()
 	}
 	d := a.now().Sub(last)
 	switch {
 	case d < time.Minute:
-		return "刚刚备份"
+		return locales.StatusBackedUpJustNow()
 	case d < time.Hour:
-		return fmt.Sprintf("%d 分钟前备份", int(d.Minutes()))
+		return locales.StatusBackedUpMinutes(int(d.Minutes()))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%d 小时前备份", int(d.Hours()))
+		return locales.StatusBackedUpHours(int(d.Hours()))
 	default:
-		return last.Format("01-02 15:04 备份")
+		return locales.StatusBackedUpAt(last.Format("01-02 15:04"))
 	}
 }
 
@@ -74,22 +75,22 @@ func (a *app) mirrorLabel() (string, bool) {
 		return "", false
 	}
 	if st.Err != "" {
-		return "镜像失败", true
+		return locales.StatusMirrorFailed(), true
 	}
 	last := st.Last
 	if last.IsZero() {
-		return "尚未镜像", false
+		return locales.StatusNeverMirrored(), false
 	}
 	d := a.now().Sub(last)
 	switch {
 	case d < time.Minute:
-		return "刚刚镜像", false
+		return locales.StatusMirroredJustNow(), false
 	case d < time.Hour:
-		return fmt.Sprintf("%d 分钟前镜像", int(d.Minutes())), false
+		return locales.StatusMirroredMinutes(int(d.Minutes())), false
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%d 小时前镜像", int(d.Hours())), false
+		return locales.StatusMirroredHours(int(d.Hours())), false
 	default:
-		return last.Format("01-02 15:04 镜像"), false
+		return locales.StatusMirroredAt(last.Format("01-02 15:04")), false
 	}
 }
 

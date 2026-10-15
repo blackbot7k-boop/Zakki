@@ -19,7 +19,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
+
 	"zakki/internal/prefs"
+	"zakki/locales"
 )
 
 const currentPreferencesVersion = prefs.CurrentVersion
@@ -65,15 +68,15 @@ func (a *app) loadPreferences() error {
 	prefs, err := decodePreferences(raw)
 	if err != nil {
 		if strings.Contains(err.Error(), "json: unknown field") {
-			err = fmt.Errorf("%w（偏好文件版本可能超前）", err)
+			err = fmt.Errorf("%w（%s）", err, locales.PrefsVersionAheadHint())
 		}
 		a.prefs = defaultPreferences()
 		a.applyPreferencesToRuntime()
 		a.setPrefsIssue(prefsIssue{
 			Kind:    prefsIssuePrefsBroken,
-			Message: fmt.Sprintf("偏好文件 preferences.json 无法读取: %v", err),
+			Message: locales.PrefsBrokenMessage(err.Error()),
 		})
-		a.setPrefsSaveError(errors.New("偏好文件待恢复，确认前不写盘"))
+		a.setPrefsSaveError(errors.New(locales.PrefsSaveBlockedPending()))
 		return err
 	}
 	a.prefs = prefs
@@ -178,6 +181,11 @@ func (a *app) applyPreferencesToRuntime() {
 	a.notes.SetMirror(p.Backup.MirrorDir, p.Backup.GitMode)
 	if a.ready {
 		applyTheme(p.Appearance.AppearanceMode)
+	}
+	// 语言变更经 MyGo 即时生效并持久化；OnLocaleChanged 里重建菜单。
+	if a.ready && p.Appearance.Language != a.appliedLocale {
+		mygo.App.SetLocale(p.Appearance.Language)
+		a.appliedLocale = p.Appearance.Language
 	}
 	a.applyAlwaysOnTop()
 }

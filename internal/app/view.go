@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // view 每帧由主线程调用，从状态构建界面。
@@ -111,7 +113,7 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(tabTrackHeight).Background(bg).PaddingX(14).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		DragWindow().AlignItems(ui.Center).Children(func() {
-		ui.Icon(c.Key("close-window"), iconCloseWindow).Size(16, 16).Label("关闭窗口").
+		ui.Icon(c.Key("close-window"), iconCloseWindow).Size(16, 16).Label(locales.CloseWindow()).
 			TextColor(t.TextMuted).Cursor(ui.CursorPointer).OnClick(func() {
 			if a.win != nil {
 				a.win.Close()
@@ -208,7 +210,7 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 		btn.Children(func() {
 			ui.Box(c).Fill().PaddingX(pillPadX).Children(func() {
 				in := ui.TextInputBase(c.Key("tab-rename"), &a.renameDraft).
-					Label("重命名标签").FontSize(pillTitleSize).Fill().
+					Label(locales.RenameTabField()).FontSize(pillTitleSize).Fill().
 					TextColor(pillTextColor(a.lastBody.color)).
 					FocusBind(&a.renameFocus, 1).AutoFocus().
 					HandleInput(func(ev ui.InputEvent) bool { return a.handleRenameInput(ev) })
@@ -259,7 +261,7 @@ func (a *app) handleTabShortcuts(c *ui.Context) {
 // iconPin 置顶开关：激活时用强调色并加粗。
 func (a *app) iconPin(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
-	g := ui.Icon(c.Key("pin-top"), iconPin).Size(16, 16).Label("置顶").Cursor(ui.CursorPointer)
+	g := ui.Icon(c.Key("pin-top"), iconPin).Size(16, 16).Label(locales.PinTop()).Cursor(ui.CursorPointer)
 	if a.cfg.AlwaysOnTop {
 		g.Bold().TextColor(style.accent)
 	} else {
@@ -315,10 +317,10 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			a.findStep(1)
 		}
 		matches := a.docMatches(a.activeTab().Text, a.query)
-		if ui.Button(c.Key("find-prev"), "‹").Label("上一个").Clicked() {
+		if ui.Button(c.Key("find-prev"), "‹").Label(locales.FindPrev()).Clicked() {
 			a.findStep(-1)
 		}
-		count := "无结果"
+		count := locales.FindNoResults()
 		if a.query != "" && len(matches) > 0 {
 			a.matchIdx = clamp(a.matchIdx, 0, len(matches)-1)
 			count = fmt.Sprintf("%d/%d", a.matchIdx+1, len(matches))
@@ -326,10 +328,10 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			count = "0/0"
 		}
 		ui.Text(c, count).FontSize(12).TextColor(t.TextMuted)
-		if ui.Button(c.Key("find-next"), "›").Label("下一个").Clicked() {
+		if ui.Button(c.Key("find-next"), "›").Label(locales.FindNext()).Clicked() {
 			a.findStep(1)
 		}
-		if ui.Button(c.Key("find-close"), "完成").Clicked() {
+		if ui.Button(c.Key("find-close"), locales.CommonDone()).Clicked() {
 			a.findOpen = false
 		}
 	})
@@ -354,7 +356,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 	ta := ui.TextAreaBase(c.Key("source-editor"), text).
 		Bind(&a.editorHandle).
 		ContextMenu(a.editorContextMenu).
-		Label("内容").
+		Label(locales.EditorContent()).
 		Fill().Grow(1).
 		Padding(14, 20).
 		FontSize(md.bodySize).Font(md.monoFont).LineHeight(md.lineHeight).
@@ -415,7 +417,7 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 		}
 		ui.Box(c).Width(8).Height(8).Radius(999).Background(dotInk)
 		lines, words, chars := a.docStats(a.activeTab().Text)
-		ui.Textf(c, "%d 行 · %d 词 · %d 字符", lines, words, chars).
+		ui.Text(c, locales.StatsLinesWordsChars(lines, words, chars)).
 			FontSize(12).TextColor(fg)
 		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
 		ui.Text(c, a.backupLabel()).FontSize(12).TextColor(fg)
@@ -434,11 +436,11 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 		ui.Box(c).Grow(1)
 
 		// 源码模式开关（Lucide eye）：默认实时预览，打开后全文源码 + 语法高亮。
-		a.iconStatusToggle(c, "sb-source", iconPreview, "源码", a.cfg.Source, t, dark, func() {
+		a.iconStatusToggle(c, "sb-source", iconPreview, locales.StatusSource(), a.cfg.Source, t, dark, func() {
 			a.toggleSourceMode()
 		})
 		// 搜索开关（Lucide search）
-		a.iconStatusToggle(c, "sb-find", iconSearch, "搜索", a.findOpen, t, dark, func() {
+		a.iconStatusToggle(c, "sb-find", iconSearch, locales.StatusSearch(), a.findOpen, t, dark, func() {
 			a.findOpen = !a.findOpen
 			if a.findOpen {
 				a.query, a.matchIdx = "", 0

@@ -39,6 +39,8 @@ type Appearance struct {
 	AppearanceMode string `json:"appearanceMode"`
 	ColorTheme     string `json:"colorTheme"`
 	MarkdownTheme  string `json:"markdownTheme"`
+	// Language 是界面语言；空串 = 跟随系统（MyGo 按用户系统语言挑目录语言）。
+	Language string `json:"language,omitempty"`
 	// BodyFont 是中文字体；LatinFont 是西文字体，空串表示跟随中文字体。
 	BodyFont   string  `json:"bodyFont"`
 	LatinFont  string  `json:"latinFont"`
@@ -112,6 +114,7 @@ func (p Preferences) Validate(v AccelValidator) error {
 		allowed     []string
 	}{
 		{"appearance.appearanceMode", p.Appearance.AppearanceMode, []string{"system", "light", "dark"}},
+		{"appearance.language", p.Appearance.Language, []string{"", "en", "zh-Hans"}},
 		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "sketch"}},
 		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact", "sketch"}},
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},

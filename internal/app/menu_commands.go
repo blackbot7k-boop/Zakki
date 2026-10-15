@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // ---- 命令 ID ----
@@ -102,13 +104,13 @@ func acceleratorKey(k ui.Key) string { return keyNameByKey[k] }
 func parseAccelerator(s string) (keyBinding, error) {
 	parts := strings.Split(s, "+")
 	if strings.TrimSpace(s) == "" {
-		return keyBinding{}, fmt.Errorf("空快捷键")
+		return keyBinding{}, fmt.Errorf("%s", locales.AccEmpty())
 	}
 	var b keyBinding
 	for i, raw := range parts {
 		p := strings.ToLower(strings.TrimSpace(raw))
 		if p == "" {
-			return keyBinding{}, fmt.Errorf("无效快捷键 %q", s)
+			return keyBinding{}, fmt.Errorf("%s", locales.AccInvalid(s))
 		}
 		last := i == len(parts)-1
 		if !last {
@@ -126,7 +128,7 @@ func parseAccelerator(s string) (keyBinding, error) {
 				b.mods |= ui.Shift
 				continue
 			}
-			return keyBinding{}, fmt.Errorf("未知修饰键 %q", raw)
+			return keyBinding{}, fmt.Errorf("%s", locales.AccUnknownMod(raw))
 		}
 		if p == "plus" {
 			b.key = ui.KeyEqual
@@ -134,12 +136,12 @@ func parseAccelerator(s string) (keyBinding, error) {
 		}
 		key, ok := namedKeyByName[p]
 		if !ok || len([]rune(p)) != 1 && key == ui.KeyUnknown {
-			return keyBinding{}, fmt.Errorf("未知按键 %q", raw)
+			return keyBinding{}, fmt.Errorf("%s", locales.AccUnknownKey(raw))
 		}
 		b.key = key
 	}
 	if b.key == ui.KeyUnknown {
-		return keyBinding{}, fmt.Errorf("快捷键 %q 缺少主键", s)
+		return keyBinding{}, fmt.Errorf("%s", locales.AccMissingKey(s))
 	}
 	return b, nil
 }
@@ -208,13 +210,13 @@ func (b keyBinding) displayName() string {
 func displayKeyName(k ui.Key) string {
 	switch k {
 	case ui.KeySpace:
-		return "空格"
+		return locales.KeySpace()
 	case ui.KeyEnter:
-		return "回车"
+		return locales.KeyEnter()
 	case ui.KeyEscape:
 		return "Esc"
 	case ui.KeyBackspace:
-		return "删除"
+		return locales.KeyBackspace()
 	case ui.KeyTab:
 		return "Tab"
 	case ui.KeyDelete:
@@ -258,34 +260,84 @@ type commandDef struct {
 }
 
 // keymapGroups 决定 Keymap 页与 Markdown 菜单的分组顺序。
-var keymapGroups = []struct{ id, name string }{
-	{"inline", "行内格式"},
-	{"heading", "标题"},
-	{"blocks", "列表与引用"},
-	{"insert", "插入"},
-	{"global", "全局"},
+// keymapGroupName 返回分组的当前语言显示名（顺序见 keymapGroupIDs）。
+func keymapGroupName(id string) string {
+	switch id {
+	case "inline":
+		return locales.GroupInline()
+	case "heading":
+		return locales.GroupHeading()
+	case "blocks":
+		return locales.GroupBlocks()
+	case "insert":
+		return locales.GroupInsert()
+	case "global":
+		return locales.GroupGlobal()
+	}
+	return id
 }
 
+// keymapGroupIDs 决定 Keymap 页与 Markdown 菜单的分组顺序。
+var keymapGroupIDs = []string{"inline", "heading", "blocks", "insert", "global"}
+
 var commandRegistry = []commandDef{
-	{id: cmdBold, name: "加粗", group: "inline", def: "CmdOrCtrl+B"},
-	{id: cmdItalic, name: "斜体", group: "inline", def: "CmdOrCtrl+I"},
-	{id: cmdInlineCode, name: "行内代码", group: "inline", def: "CmdOrCtrl+Shift+E"},
-	{id: cmdLink, name: "插入或编辑链接", group: "inline", def: "CmdOrCtrl+K"},
-	{id: cmdH1, name: "标题 1", group: "heading", def: "CmdOrCtrl+1"},
-	{id: cmdH2, name: "标题 2", group: "heading", def: "CmdOrCtrl+2"},
-	{id: cmdH3, name: "标题 3", group: "heading", def: "CmdOrCtrl+3"},
-	{id: cmdH4, name: "标题 4", group: "heading", def: "CmdOrCtrl+4"},
-	{id: cmdH5, name: "标题 5", group: "heading", def: "CmdOrCtrl+5"},
-	{id: cmdH6, name: "标题 6", group: "heading", def: "CmdOrCtrl+6"},
-	{id: cmdBody, name: "正文", group: "heading", def: "CmdOrCtrl+0"},
-	{id: cmdQuote, name: "引用", group: "blocks", def: "CmdOrCtrl+Shift+Q"},
-	{id: cmdBullet, name: "无序列表", group: "blocks", def: "CmdOrCtrl+Shift+8"},
-	{id: cmdOrdered, name: "有序列表", group: "blocks", def: "CmdOrCtrl+Shift+7"},
-	{id: cmdTask, name: "任务列表", group: "blocks", def: "CmdOrCtrl+Shift+9"},
-	{id: cmdCodeBlock, name: "代码块", group: "insert", def: "CmdOrCtrl+Alt+C"},
-	{id: cmdRule, name: "分隔线", group: "insert", def: ""},
-	{id: cmdTable, name: "插入表格", group: "insert", def: ""},
-	{id: cmdToggleWindow, name: "全局显示/隐藏主窗口", group: "global", def: "CmdOrCtrl+Shift+Space", global: true},
+	{id: cmdBold, name: "cmdBold", group: "inline", def: "CmdOrCtrl+B"},
+	{id: cmdItalic, name: "cmdItalic", group: "inline", def: "CmdOrCtrl+I"},
+	{id: cmdInlineCode, name: "cmdInlineCode", group: "inline", def: "CmdOrCtrl+Shift+E"},
+	{id: cmdLink, name: "cmdLink", group: "inline", def: "CmdOrCtrl+K"},
+	{id: cmdH1, name: "cmdH1", group: "heading", def: "CmdOrCtrl+1"},
+	{id: cmdH2, name: "cmdH2", group: "heading", def: "CmdOrCtrl+2"},
+	{id: cmdH3, name: "cmdH3", group: "heading", def: "CmdOrCtrl+3"},
+	{id: cmdH4, name: "cmdH4", group: "heading", def: "CmdOrCtrl+4"},
+	{id: cmdH5, name: "cmdH5", group: "heading", def: "CmdOrCtrl+5"},
+	{id: cmdH6, name: "cmdH6", group: "heading", def: "CmdOrCtrl+6"},
+	{id: cmdBody, name: "cmdBody", group: "heading", def: "CmdOrCtrl+0"},
+	{id: cmdQuote, name: "cmdQuote", group: "blocks", def: "CmdOrCtrl+Shift+Q"},
+	{id: cmdBullet, name: "cmdBullet", group: "blocks", def: "CmdOrCtrl+Shift+8"},
+	{id: cmdOrdered, name: "cmdOrdered", group: "blocks", def: "CmdOrCtrl+Shift+7"},
+	{id: cmdTask, name: "cmdTask", group: "blocks", def: "CmdOrCtrl+Shift+9"},
+	{id: cmdCodeBlock, name: "cmdCodeBlock", group: "insert", def: "CmdOrCtrl+Alt+C"},
+	{id: cmdRule, name: "cmdRule", group: "insert", def: ""},
+	{id: cmdTable, name: "cmdTable", group: "insert", def: ""},
+	{id: cmdToggleWindow, name: "cmdToggleWindow", group: "global", def: "CmdOrCtrl+Shift+Space", global: true},
+}
+
+// commandDisplayName 命令名注册表存 catalog 键，显示时按当前语言取文案。
+func commandDisplayName(def commandDef) string {
+	switch def.name {
+	case "cmdBold":
+		return locales.CmdBold()
+	case "cmdItalic":
+		return locales.CmdItalic()
+	case "cmdInlineCode":
+		return locales.CmdInlineCode()
+	case "cmdLink":
+		return locales.CmdLink()
+	case "cmdBody":
+		return locales.CmdBody()
+	case "cmdQuote":
+		return locales.CmdQuote()
+	case "cmdBullet":
+		return locales.CmdBullet()
+	case "cmdOrdered":
+		return locales.CmdOrdered()
+	case "cmdTask":
+		return locales.CmdTask()
+	case "cmdCodeBlock":
+		return locales.CmdCodeBlock()
+	case "cmdRule":
+		return locales.CmdRule()
+	case "cmdTable":
+		return locales.CmdTable()
+	case "cmdToggleWindow":
+		return locales.CmdToggleWindow()
+	}
+	if n := def.name; strings.HasPrefix(n, "cmdH") {
+		if v := n[len("cmdH"):]; v >= "1" && v <= "9" {
+			return locales.CmdH(int(v[0] - '0'))
+		}
+	}
+	return def.name
 }
 
 func commandDefByID(id string) (commandDef, bool) {
@@ -301,39 +353,92 @@ func commandDefByID(id string) (commandDef, bool) {
 
 // fixedBindings 是不开放改键的既有快捷键：Keymap 录键时作为冲突源，
 // 让「应用命令与全局命令统一校验」有完整依据。
-var fixedBindings = []struct{ acc, name string }{
-	{"CmdOrCtrl+F", "查找"},
-	{"CmdOrCtrl+G", "查找下一个"},
-	{"Shift+CmdOrCtrl+G", "查找上一个"},
-	{"Shift+CmdOrCtrl+P", "源码模式"},
-	{"Alt+CmdOrCtrl+T", "窗口置顶"},
-	{"Ctrl+1", "切换到标签 1"},
-	{"Ctrl+2", "切换到标签 2"},
-	{"Ctrl+3", "切换到标签 3"},
-	{"Ctrl+4", "切换到标签 4"},
-	{"Ctrl+5", "切换到标签 5"},
-	{"Ctrl+6", "切换到标签 6"},
-	{"Ctrl+7", "切换到标签 7"},
-	{"Ctrl+8", "切换到标签 8"},
-	{"Ctrl+9", "切换到标签 9"},
-	{"CmdOrCtrl+T", "新建标签"},
-	{"CmdOrCtrl+R", "重命名标签"},
-	{"Alt+CmdOrCtrl+Left", "上一个标签"},
-	{"Alt+CmdOrCtrl+Right", "下一个标签"},
-	{"CmdOrCtrl+S", "立即备份"},
-	{"Shift+CmdOrCtrl+C", "复制标签全文"},
-	{"CmdOrCtrl+Z", "撤销"},
-	{"Shift+CmdOrCtrl+Z", "重做"},
-	{"CmdOrCtrl+X", "剪切"},
-	{"CmdOrCtrl+C", "复制"},
-	{"CmdOrCtrl+V", "粘贴"},
-	{"CmdOrCtrl+A", "全选"},
-	{"CmdOrCtrl+Q", "退出"},
-	{"CmdOrCtrl+W", "关闭窗口"},
-	{"CmdOrCtrl+M", "最小化"},
-	{"CmdOrCtrl+H", "隐藏应用"},
-	{"CmdOrCtrl+,", "设置"},
-	{"CmdOrCtrl+Tab", "应用切换"},
+// fixedBindingKey 是固定绑定显示名的 catalog 键；显示经 fixedBindingName 取当前语言。
+var fixedBindings = []struct{ acc, key string }{
+	{"CmdOrCtrl+F", "find"},
+	{"CmdOrCtrl+G", "findNext"},
+	{"Shift+CmdOrCtrl+G", "findPrev"},
+	{"Shift+CmdOrCtrl+P", "sourceMode"},
+	{"Alt+CmdOrCtrl+T", "keepOnTop"},
+	{"Ctrl+1", "tab1"}, {"Ctrl+2", "tab2"}, {"Ctrl+3", "tab3"},
+	{"Ctrl+4", "tab4"}, {"Ctrl+5", "tab5"}, {"Ctrl+6", "tab6"},
+	{"Ctrl+7", "tab7"}, {"Ctrl+8", "tab8"}, {"Ctrl+9", "tab9"},
+	{"CmdOrCtrl+T", "newTab"},
+	{"CmdOrCtrl+R", "renameTab"},
+	{"Alt+CmdOrCtrl+Left", "prevTab"},
+	{"Alt+CmdOrCtrl+Right", "nextTab"},
+	{"CmdOrCtrl+S", "backupNow"},
+	{"Shift+CmdOrCtrl+C", "copyTabText"},
+	{"CmdOrCtrl+Z", "undo"},
+	{"Shift+CmdOrCtrl+Z", "redo"},
+	{"CmdOrCtrl+X", "cut"},
+	{"CmdOrCtrl+C", "copy"},
+	{"CmdOrCtrl+V", "paste"},
+	{"CmdOrCtrl+A", "selectAll"},
+	{"CmdOrCtrl+Q", "quit"},
+	{"CmdOrCtrl+W", "closeWindow"},
+	{"CmdOrCtrl+M", "minimize"},
+	{"CmdOrCtrl+H", "hideApp"},
+	{"CmdOrCtrl+,", "settings"},
+	{"CmdOrCtrl+Tab", "appSwitcher"},
+}
+
+// fixedBindingName 按 catalog 键给出固定绑定的当前语言显示名。
+func fixedBindingName(key string) string {
+	switch key {
+	case "find":
+		return locales.FixedFind()
+	case "findNext":
+		return locales.FixedFindNext()
+	case "findPrev":
+		return locales.FixedFindPrev()
+	case "sourceMode":
+		return locales.FixedSourceMode()
+	case "keepOnTop":
+		return locales.FixedKeepOnTop()
+	case "newTab":
+		return locales.FixedNewTab()
+	case "renameTab":
+		return locales.FixedRenameTab()
+	case "prevTab":
+		return locales.FixedPrevTab()
+	case "nextTab":
+		return locales.FixedNextTab()
+	case "backupNow":
+		return locales.FixedBackupNow()
+	case "copyTabText":
+		return locales.FixedCopyTabText()
+	case "undo":
+		return locales.FixedUndo()
+	case "redo":
+		return locales.FixedRedo()
+	case "cut":
+		return locales.FixedCut()
+	case "copy":
+		return locales.FixedCopy()
+	case "paste":
+		return locales.FixedPaste()
+	case "selectAll":
+		return locales.FixedSelectAll()
+	case "quit":
+		return locales.FixedQuit()
+	case "closeWindow":
+		return locales.FixedCloseWindow()
+	case "minimize":
+		return locales.FixedMinimize()
+	case "hideApp":
+		return locales.FixedHideApp(appName)
+	case "settings":
+		return locales.FixedSettings()
+	case "appSwitcher":
+		return locales.FixedAppSwitcher()
+	}
+	if strings.HasPrefix(key, "tab") {
+		if n := key[len("tab"):]; n >= "1" && n <= "9" {
+			return locales.FixedSwitchToTab(int(n[0] - '0'))
+		}
+	}
+	return key
 }
 
 // ---- 绑定解析与冲突校验 ----
@@ -366,22 +471,22 @@ func (a *app) parsedCommandBinding(id string) (keyBinding, bool) {
 // 导航输入键；普通字符键至少要带一个命令修饰键。
 func validateBinding(b keyBinding) error {
 	if b.key == ui.KeyUnknown {
-		return fmt.Errorf("请按下一组完整快捷键（仅修饰键无效）")
+		return fmt.Errorf("%s", locales.KeyErrIncomplete())
 	}
 	switch b.key {
 	case ui.KeyTab, ui.KeyEnter, ui.KeyEscape, ui.KeyBackspace, ui.KeyDelete,
 		ui.KeyHome, ui.KeyEnd, ui.KeyPageUp, ui.KeyPageDown,
 		ui.KeyLeft, ui.KeyRight, ui.KeyUp, ui.KeyDown:
-		return fmt.Errorf("%s 是导航输入键，不能用作快捷键", displayKeyName(b.key))
+		return fmt.Errorf("%s", locales.KeyErrNavigation(displayKeyName(b.key)))
 	}
 	cmdMod := b.mods&(ui.Super|ui.Ctrl|ui.Alt) != 0
 	if !cmdMod {
 		if b.key >= ui.KeyA && b.key <= ui.KeyZ || b.key >= ui.Key0 && b.key <= ui.Key9 {
-			return fmt.Errorf("裸字母/数字不能用作快捷键，请加上 ⌘/⌃/⌥ 修饰键")
+			return fmt.Errorf("%s", locales.AccBareLetter())
 		}
 		switch b.key {
 		case ui.KeySpace:
-			return fmt.Errorf("空格必须与 ⌘/⌃/⌥ 组合使用")
+			return fmt.Errorf("%s", locales.AccSpaceNeedsMod())
 		}
 	}
 	return nil
@@ -395,12 +500,12 @@ func (a *app) findBindingConflict(id string, b keyBinding) string {
 			continue
 		}
 		if other, ok := a.parsedCommandBinding(def.id); ok && sameBinding(other, b) {
-			return def.name
+			return commandDisplayName(def)
 		}
 	}
 	for _, fixed := range fixedBindings {
 		if other, err := parseAccelerator(fixed.acc); err == nil && sameBinding(other, b) {
-			return fixed.name
+			return fixedBindingName(fixed.key)
 		}
 	}
 	return ""
@@ -418,7 +523,7 @@ func (a *app) validateKeymapChange(id string, acc string) error {
 			return err
 		}
 		if name := a.findBindingConflict(id, b); name != "" {
-			return fmt.Errorf("快捷键已被「%s」使用", name)
+			return fmt.Errorf("%s", locales.KeyErrConflict(name))
 		}
 	}
 	// 全局命令不允许和文档命令同键：全局键会吞掉文档快捷键。
@@ -429,7 +534,7 @@ func (a *app) validateKeymapChange(id string, acc string) error {
 				continue
 			}
 			if ob, ok := a.parsedCommandBinding(other.id); ok && sameBinding(ob, b) {
-				return fmt.Errorf("全局快捷键不能与「%s」的文档快捷键相同", other.name)
+				return fmt.Errorf("%s", locales.KeyErrConflict(commandDisplayName(other)))
 			}
 		}
 	}
@@ -439,7 +544,7 @@ func (a *app) validateKeymapChange(id string, acc string) error {
 // setCommandBinding 通过统一偏好入口写入一条绑定（acc="" 解除绑定）。
 func (a *app) setCommandBinding(id string, acc string) error {
 	if _, ok := commandDefByID(id); !ok {
-		return fmt.Errorf("未知命令 %q", id)
+		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(id))
 	}
 	if err := a.validateKeymapChange(id, acc); err != nil {
 		return err

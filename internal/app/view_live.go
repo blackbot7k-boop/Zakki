@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // ---- 实时预览（Typora 式） ----
@@ -136,7 +138,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 
 	a.captureClipboardService(c)
 	ta := ui.TextAreaBase(c.Key("md-active"), &a.mdVisible).
-		Bind(&a.editorHandle).ContextMenu(a.editorContextMenu).Label("内容")
+		Bind(&a.editorHandle).ContextMenu(a.editorContextMenu).Label(locales.EditorContent())
 	if a.selDoc {
 		// 文档级全选：焦点块的输入框铺选区底色，避免自绘背景盖住色带。
 		ta = ta.Background(t.Selection)

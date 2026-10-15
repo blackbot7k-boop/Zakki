@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 const (
@@ -33,8 +35,8 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 		a.tableTools = tableTools{dot: a.active, line: blk.start}
 	}
 	ui.Row(c.Key("table-tools")).FillWidth().Gap(2).AlignItems(ui.Center).
-		Label("表格工具栏").Children(func() {
-		anchor := a.tableToolButton(c, t, "table-size", "调整表格大小", iconTable, a.tableTools.open)
+		Label(locales.TableToolbar()).Children(func() {
+		anchor := a.tableToolButton(c, t, "table-size", locales.TableResize(), iconTable, a.tableTools.open)
 		anchor.OnClick(func() {
 			a.liveClickHandled = true
 			a.tableTools.open = !a.tableTools.open
@@ -47,9 +49,9 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 			icon       *ui.SVG
 			align      int
 		}{
-			{"table-left", "表格左对齐", iconAlignLeft, -1},
-			{"table-center", "表格居中对齐", iconAlignCenter, 2},
-			{"table-right", "表格右对齐", iconAlignRight, 1},
+			{"table-left", locales.TableAlignLeft(), iconAlignLeft, -1},
+			{"table-center", locales.TableAlignCenter(), iconAlignCenter, 2},
+			{"table-right", locales.TableAlignRight(), iconAlignRight, 1},
 		} {
 			selected := tableAllAligned(blk.table.align, action.align)
 			a.tableToolButton(c, t, action.key, action.label, action.icon, selected).OnClick(func() {
@@ -58,22 +60,22 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 			})
 		}
 		ui.Box(c).Grow(1)
-		a.tableToolButton(c, t, "table-delete", "删除表格", iconTrash, false).OnClick(func() {
+		a.tableToolButton(c, t, "table-delete", locales.TableDelete(), iconTrash, false).OnClick(func() {
 			a.liveClickHandled = true
 			a.deleteTable()
 		})
 		popover := ui.Popover(c.Key("table-size-popup"), anchor, &a.tableTools.open, func() {
 			ui.Column(c).Gap(8).Children(func() {
 				if a.tableTools.confirm {
-					ui.Text(c, "缩小会删除有内容的单元格").FontSize(12).Bold()
-					ui.Text(c, fmt.Sprintf("调整为 %d 列 × %d 行？可用 ⌘Z 撤销。", a.tableTools.cols, a.tableTools.rows)).FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, locales.TableShrinkWarn()).FontSize(12).Bold()
+					ui.Text(c, locales.TableResizeConfirm(a.tableTools.cols, a.tableTools.rows)).FontSize(11).TextColor(t.TextMuted)
 					ui.Row(c).Gap(8).Children(func() {
-						ui.Button(c.Key("cancel-resize"), "取消").OnClick(func() {
+						ui.Button(c.Key("cancel-resize"), locales.CommonCancel()).OnClick(func() {
 							a.liveClickHandled = true
 							a.tableTools = tableTools{}
 							a.liveFocus = 1
 						})
-						ui.Button(c.Key("confirm-resize"), "确认缩小").OnClick(func() {
+						ui.Button(c.Key("confirm-resize"), locales.TableConfirmShrink()).OnClick(func() {
 							a.liveClickHandled = true
 							a.confirmTableResize()
 						})
@@ -94,7 +96,7 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 }
 
 func (a *app) tableSizePicker(c *ui.Context, t *ui.Theme) {
-	ui.Text(c, fmt.Sprintf("%d 列 × %d 行", a.tableTools.hoverCols, a.tableTools.hoverRows)).FontSize(12).Bold()
+	ui.Text(c, locales.TableSizeAt(a.tableTools.hoverCols, a.tableTools.hoverRows)).FontSize(12).Bold()
 	// Build all hit targets first so every cell uses the same hover rectangle,
 	// including cells earlier in build order. Elements stay local to this pass.
 	var cells []ui.Element
@@ -104,7 +106,7 @@ func (a *app) tableSizePicker(c *ui.Context, t *ui.Theme) {
 				for col := 1; col <= tablePickerCols; col++ {
 					btn := ui.ButtonBase(c.Key(fmt.Sprintf("size-col-%d", col))).
 						Size(20, 20).Radius(1).Border(1, t.Border).FocusRing(false).
-						Label(fmt.Sprintf("%d 列 %d 行", col, row)).Cursor(ui.CursorPointer)
+						Label(locales.TablePickSize(col, row)).Cursor(ui.CursorPointer)
 					btn.OnClick(func() {
 						a.liveClickHandled = true
 						a.requestTableResize(row, col)
@@ -138,5 +140,5 @@ func (a *app) tableSizePicker(c *ui.Context, t *ui.Theme) {
 			cell.Background(t.Accent.Mix(t.Background, 0.78)).BorderColor(t.Accent)
 		}
 	}
-	ui.Text(c, "行数含表头 · 网格最多 8 列 × 10 行").FontSize(10).TextColor(t.TextMuted)
+	ui.Text(c, locales.TableSizeHint()).FontSize(10).TextColor(t.TextMuted)
 }

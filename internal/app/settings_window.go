@@ -9,6 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // settingsPageID 设置页 ID。
@@ -27,6 +29,7 @@ type settingsUIState struct {
 
 	// Select 控件绑定显示文案；与 draft 同步。
 	appearanceModeSel string
+	languageSel       string
 	bodyFontSel       string
 	latinFontSel      string
 	monoFontSel       string
@@ -58,6 +61,7 @@ type settingsUIState struct {
 func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.draft = clonePrefs(p)
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
+	ui.languageSel = languageDisplay(p.Appearance.Language)
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
 	ui.bodyFontSel = displayOf(
 		bodyFontKeys, bodyFontOptions, p.Appearance.BodyFont)
@@ -65,7 +69,7 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 		latinFontKeys, latinFontOptions, p.Appearance.LatinFont)
 	ui.monoFontSel = displayOf(
 		[]string{"jbm", "sfmono", "menlo"},
-		[]string{"JetBrains Mono（默认）", "SF Mono", "Menlo"}, p.Appearance.MonoFont)
+		[]string{locales.FontJetBrainsDefault(), locales.FontSFMono(), locales.FontMenlo()}, p.Appearance.MonoFont)
 	ui.bodySizeText = floatText(p.Appearance.BodySize)
 	ui.lineHeightText = floatText(p.Appearance.LineHeight)
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
@@ -109,7 +113,7 @@ func (a *app) openSettings(page string) {
 	}
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	win := mygo.NewWindow(mygo.WindowOptions{
-		Title:     "设置 — " + appName,
+		Title:     locales.SettingsTitle(appName),
 		Width:     900,
 		Height:    620,
 		MinWidth:  760,
@@ -152,11 +156,11 @@ func (a *app) settingsView(c *ui.Context) {
 	}
 	ui.Row(c).Fill().LineHeight(1.35).Children(func() {
 		if ui.Sidebar(c, &a.settingsPage, func() {
-			ui.SidebarItem(c, pageGeneral, iconGear, "常规")
-			ui.SidebarItem(c, pageAppearance, iconPalette, "外观")
-			ui.SidebarItem(c, pageTabs, iconLayers, "标签与外观")
-			ui.SidebarItem(c, pageBackup, iconDatabase, "备份与数据")
-			ui.SidebarItem(c, pageKeymap, iconKeyboard, "快捷键")
+			ui.SidebarItem(c, pageGeneral, iconGear, locales.PageGeneral())
+			ui.SidebarItem(c, pageAppearance, iconPalette, locales.PageAppearance())
+			ui.SidebarItem(c, pageTabs, iconLayers, locales.PageTabs())
+			ui.SidebarItem(c, pageBackup, iconDatabase, locales.PageBackup())
+			ui.SidebarItem(c, pageKeymap, iconKeyboard, locales.PageKeymap())
 		}).Width(200).FillHeight().Changed() {
 			a.settingsUI.syncDraftFromPrefs(a.prefs)
 			a.settingsUI.recording = ""
@@ -251,10 +255,10 @@ func (a *app) confirmResetPage(page string) {
 	go func() {
 		res, err := mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageQuestion,
-			Title:   "恢复默认值",
-			Message: "确定恢复本页默认设置吗？",
-			Detail:  "只重置本页设置，不清除笔记内容和备份。",
-			Buttons: []string{"恢复默认值", "取消"},
+			Title:   locales.DialogResetPageTitle(),
+			Message: locales.DialogResetPageMessage(),
+			Detail:  locales.DialogResetPageDetail(),
+			Buttons: []string{locales.DialogResetPageConfirm(), locales.CommonCancel()},
 		})
 		if err != nil || res.Button != 0 {
 			return

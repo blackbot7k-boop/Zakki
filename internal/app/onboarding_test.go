@@ -172,11 +172,12 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 	a.onboarding.tabCount = 7
 
 	steps := map[int][]string{
-		1: {"欢迎使用 Zakki", "本地优先", "云盘备份", "跳过，使用默认设置"},
-		2: {"选择备份文件夹", mirror, "Git 仓库", "更换…"},
-		3: {"初始标签数量", "7 个"},
-		4: {"Git 自动备份（可选）", "提交并推送"},
-		5: {"准备就绪", "完成，进入 Zakki", "打开备份文件夹"},
+		1: {"选择语言", "English", "简体中文"},
+		2: {"欢迎使用 Zakki", "本地优先", "云盘备份", "跳过，使用默认设置"},
+		3: {"选择备份文件夹", mirror, "Git 仓库", "更换…"},
+		4: {"初始标签数量", "7 个"},
+		5: {"Git 自动备份（可选）", "提交并推送"},
+		6: {"准备就绪", "完成，进入 Zakki", "打开备份文件夹"},
 	}
 	for step, wants := range steps {
 		a.onboarding.step = step
@@ -188,8 +189,8 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 			}
 		}
 	}
-	// 非 Git 目录的第 4 步：说明不可用而不是给选项。
-	a.onboarding.step = 4
+	// 非 Git 目录的第 5 步：说明不可用而不是给选项。
+	a.onboarding.step = 5
 	a.onboarding.dirIsGit = false
 	tt := ui.NewTester(a.onboardingView, 560, 500)
 	tt.Frame()

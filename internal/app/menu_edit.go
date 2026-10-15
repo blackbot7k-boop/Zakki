@@ -6,6 +6,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // 系统编辑角色直接操作 TextArea 的块内历史；文档聚焦时改由应用统一执行。
@@ -15,12 +17,12 @@ func (a *app) editMenuItems() []*mygo.MenuItem {
 		id, label, accelerator string
 		role                   mygo.MenuRole
 	}{
-		{"undo", "撤销", "CmdOrCtrl+Z", mygo.RoleUndo},
-		{"redo", "重做", "Shift+CmdOrCtrl+Z", mygo.RoleRedo},
-		{"cut", "剪切", "CmdOrCtrl+X", mygo.RoleCut},
-		{"copy", "复制", "CmdOrCtrl+C", mygo.RoleCopy},
-		{"paste", "粘贴", "CmdOrCtrl+V", mygo.RolePaste},
-		{"selectAll", "全选", "CmdOrCtrl+A", mygo.RoleSelectAll},
+		{"undo", locales.FixedUndo(), "CmdOrCtrl+Z", mygo.RoleUndo},
+		{"redo", locales.FixedRedo(), "Shift+CmdOrCtrl+Z", mygo.RoleRedo},
+		{"cut", locales.FixedCut(), "CmdOrCtrl+X", mygo.RoleCut},
+		{"copy", locales.FixedCopy(), "CmdOrCtrl+C", mygo.RoleCopy},
+		{"paste", locales.FixedPaste(), "CmdOrCtrl+V", mygo.RolePaste},
+		{"selectAll", locales.FixedSelectAll(), "CmdOrCtrl+A", mygo.RoleSelectAll},
 	}
 	items := make([]*mygo.MenuItem, 0, len(commands)+1)
 	for i, command := range commands {
@@ -39,7 +41,7 @@ func (a *app) editMenuItems() []*mygo.MenuItem {
 		if i == 4 { // 粘贴之后：Typora 式把拷贝族放在一起，这里收整标签正文进剪贴板。
 			items = append(items, &mygo.MenuItem{
 				ID:          "copy-tab",
-				Label:       "复制标签全文",
+				Label:       locales.MenuCopyTabText(),
 				Accelerator: "Shift+CmdOrCtrl+C",
 				Click: func(*mygo.MenuItem, *mygo.Window) {
 					text := a.activeTab().Text
@@ -177,8 +179,8 @@ func (a *app) replaceEditorSelection(text string, kind editKind) {
 
 func (a *app) editorContextMenu(m *ui.Menu) {
 	for i, command := range []struct{ id, label string }{
-		{"undo", "撤销"}, {"redo", "重做"}, {"cut", "剪切"},
-		{"copy", "复制"}, {"paste", "粘贴"}, {"selectAll", "全选"},
+		{"undo", locales.FixedUndo()}, {"redo", locales.FixedRedo()}, {"cut", locales.FixedCut()},
+		{"copy", locales.FixedCopy()}, {"paste", locales.FixedPaste()}, {"selectAll", locales.FixedSelectAll()},
 	} {
 		if i == 2 || i == 5 {
 			m.Separator()

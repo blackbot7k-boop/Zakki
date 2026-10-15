@@ -10,31 +10,34 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+
+	"zakki/locales"
 )
 
-// gitModeOptions 是 Git 自动化的展示顺序，与 gitModeDisplay/gitModeOfDisplay 对应。
-var gitModeOptions = []string{"关闭", "自动提交", "提交并推送"}
+// gitModeOptions 是 Git 自动化的展示顺序（当前语言的文案），与
+// gitModeDisplay/gitModeOfDisplay 对应。
+func gitModeOptions() []string {
+	return []string{locales.GitModeOff(), locales.GitModeCommit(), locales.GitModeCommitPush()}
+}
 
 func gitModeDisplay(mode string) string {
 	switch mode {
 	case "commit":
-		return "自动提交"
+		return locales.GitModeCommit()
 	case "commitPush":
-		return "提交并推送"
+		return locales.GitModeCommitPush()
 	default:
-		return "关闭"
+		return locales.GitModeOff()
 	}
 }
 
 func gitModeOfDisplay(sel string) string {
-	switch sel {
-	case "自动提交":
-		return "commit"
-	case "提交并推送":
-		return "commitPush"
-	default:
-		return "off"
+	for i, opt := range gitModeOptions() {
+		if opt == sel {
+			return [3]string{"off", "commit", "commitPush"}[i]
+		}
 	}
+	return "off"
 }
 
 // dirIsGitRepo 目录是否为 Git 仓库（含 worktree 的 .git 文件形态）。
@@ -94,9 +97,9 @@ func (a *app) chooseMirrorDirAsync(notify *mygo.Window, cb func(path string)) {
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Parent:            notify,
-			Title:             "选择备份文件夹",
-			Message:           "选择云盘同步文件夹（iCloud、坚果云等）或 Git 仓库的本地 clone；每次备份会镜像一份到这里",
-			ButtonLabel:       "用作备份文件夹",
+			Title:             locales.DialogChooseMirrorTitle(),
+			Message:           locales.DialogChooseMirrorMessage(),
+			ButtonLabel:       locales.DialogChooseMirrorButton(),
 			Directory:         true,
 			CreateDirectories: true,
 		})
@@ -168,18 +171,18 @@ func (a *app) pushMirrorGitMode() {
 
 // mirrorStateText 设置页外部备份的状态行：类型 + 最近镜像结果。
 func (a *app) mirrorStateText(dir string) string {
-	kind := "文件夹"
+	kind := locales.CommonFolder()
 	if dirIsGitRepo(dir) {
-		kind = "Git 仓库"
+		kind = locales.CommonGitRepo()
 	}
 	st := a.notes.MirrorStatus()
 	switch {
 	case st.Err != "":
-		return kind + " · 最近镜像失败：" + st.Err
+		return locales.MirrorStatusLine(kind, locales.MirrorStateFailed(st.Err))
 	case st.Last.IsZero():
-		return kind + " · 尚未镜像（下次备份时写入）"
+		return locales.MirrorStatusLine(kind, locales.MirrorStatePending())
 	default:
-		return kind + " · 最近镜像 " + st.Last.Format("01-02 15:04")
+		return locales.MirrorStatusLine(kind, locales.MirrorStateLast(st.Last.Format("01-02 15:04")))
 	}
 }
 
@@ -188,12 +191,12 @@ func (a *app) gitModeDetailText() string {
 	dir := a.prefs.Backup.MirrorDir
 	switch {
 	case dir == "":
-		return "先选择备份文件夹；仅对 Git 仓库目录可用"
+		return locales.GitDetailPickFirst()
 	case !dirIsGitRepo(dir):
-		return "当前文件夹不是 Git 仓库，Git 自动化不可用；作为云盘同步目录使用没有问题"
+		return locales.GitDetailNotRepo()
 	case a.prefs.Backup.GitMode == "commitPush":
-		return "每次备份写入后 git add tot-md-*.json 并提交、推送；失败只提示，不影响备份本身"
+		return locales.GitModeCommitPushDetail()
 	default:
-		return "每次备份写入后 git add tot-md-*.json 并提交；失败只提示，不影响备份本身"
+		return locales.GitModeCommitDetail()
 	}
 }

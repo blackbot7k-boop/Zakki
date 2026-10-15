@@ -15,6 +15,8 @@ import (
 	"math"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // ---- 颜色主题 ----
@@ -37,17 +39,34 @@ type colorPalette struct {
 
 type colorThemeDef struct {
 	id    string
-	name  string
 	light colorPalette
 	dark  colorPalette
+}
+
+// colorThemeDisplayName 颜色主题的当前语言显示名；未知 ID 原样返回。
+func colorThemeDisplayName(id string) string {
+	switch id {
+	case colorThemeClassic:
+		return locales.ThemeClassic()
+	case "paper":
+		return locales.ThemePaper()
+	case "warmSand":
+		return locales.ThemeWarmSand()
+	case "mistTeal":
+		return locales.ThemeMistTeal()
+	case "graphite":
+		return locales.ThemeGraphite()
+	case "sketch":
+		return locales.ThemeSketch()
+	}
+	return id
 }
 
 // colorThemes 是全部颜色主题；classic 之外的浅/深色底色成对给出，
 // 正文/次级文字对实际背景 ≥ 4.5:1，必要边界 ≥ 3:1（有对比度测试保障）。
 var colorThemes = []colorThemeDef{
 	{
-		id:   "paper",
-		name: "纸白",
+		id: "paper",
 		light: colorPalette{
 			background: ui.Hex("#fafaf8"), header: ui.Hex("#f0f0ec"), status: ui.Hex("#f0f0ec"),
 			surface: ui.Hex("#ffffff"), border: ui.Hex("#dededa"),
@@ -64,8 +83,7 @@ var colorThemes = []colorThemeDef{
 		},
 	},
 	{
-		id:   "warmSand",
-		name: "暖砂",
+		id: "warmSand",
 		light: colorPalette{
 			background: ui.Hex("#f5efe3"), header: ui.Hex("#eee6d5"), status: ui.Hex("#eee6d5"),
 			surface: ui.Hex("#fdfaf3"), border: ui.Hex("#ddd2bc"),
@@ -82,8 +100,7 @@ var colorThemes = []colorThemeDef{
 		},
 	},
 	{
-		id:   "mistTeal",
-		name: "雾青",
+		id: "mistTeal",
 		light: colorPalette{
 			background: ui.Hex("#edf4f1"), header: ui.Hex("#e2ece8"), status: ui.Hex("#e2ece8"),
 			surface: ui.Hex("#f8fbfa"), border: ui.Hex("#cfdfd8"),
@@ -100,8 +117,7 @@ var colorThemes = []colorThemeDef{
 		},
 	},
 	{
-		id:   "graphite",
-		name: "石墨",
+		id: "graphite",
 		light: colorPalette{
 			background: ui.Hex("#eff1f5"), header: ui.Hex("#e5e8ee"), status: ui.Hex("#e5e8ee"),
 			surface: ui.Hex("#f9fafc"), border: ui.Hex("#d5dae3"),
@@ -119,8 +135,7 @@ var colorThemes = []colorThemeDef{
 	},
 	{
 		// 手绘：浅色是米黄纸张 + 墨水字 + 朱红批注，选区像荧光笔；深色是夜间手账。
-		id:   "sketch",
-		name: "手绘",
+		id: "sketch",
 		light: colorPalette{
 			background: ui.Hex("#fbf6ea"), header: ui.Hex("#f3ead6"), status: ui.Hex("#f3ead6"),
 			surface: ui.Hex("#fffcf3"), border: ui.Hex("#d8c9a8"),
@@ -151,9 +166,8 @@ func colorThemeByID(id string) (colorThemeDef, bool) {
 // colorThemeNames 返回全部颜色主题的展示名（顺序即选择卡片顺序）。
 func colorThemeNames() []string {
 	names := make([]string, 0, len(colorThemes)+1)
-	names = append(names, "经典")
 	for _, t := range colorThemes {
-		names = append(names, t.name)
+		names = append(names, colorThemeDisplayName(t.id))
 	}
 	return names
 }
@@ -230,7 +244,6 @@ func colorFloats(c ui.Color) [4]float64 {
 // markdownLayout 是一套排版主题的静态参数（不携带颜色）。
 type markdownLayout struct {
 	id           string
-	name         string
 	bodySize     float32 // 基准字号 px
 	lineHeight   float32 // 基准行高
 	blockGap     float32 // 块间距 px
@@ -248,35 +261,35 @@ type markdownLayout struct {
 
 var markdownLayouts = []markdownLayout{
 	{
-		id: "sonnet", name: "Sonnet（Typora）",
+		id:       "sonnet",
 		bodySize: 16, lineHeight: 1.6, blockGap: 12,
 		padX: 24, padY: 24,
 		headingScale: [6]float32{1.75, 1.5, 1.25, 1.0625, 0.9375, 0.875},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 8, tablePadY: 6,
 	},
 	{
-		id: "note", name: "便签",
+		id:       "note",
 		bodySize: 15, lineHeight: 1.5, blockGap: 12,
 		padX: 24, padY: 24,
 		headingScale: [6]float32{1.75, 1.5, 1.25, 1.0625, 0.9375, 0.875},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 8, tablePadY: 6,
 	},
 	{
-		id: "clear", name: "清晰",
+		id:       "clear",
 		bodySize: 16, lineHeight: 1.65, blockGap: 14,
 		padX: 26, padY: 26,
 		headingScale: [6]float32{1.7, 1.45, 1.25, 1.08, 0.95, 0.88},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 9, tablePadY: 7,
 	},
 	{
-		id: "book", name: "书页",
+		id:       "book",
 		bodySize: 17, lineHeight: 1.8, blockGap: 18,
 		padX: 32, padY: 28,
 		headingScale: [6]float32{1.5, 1.3, 1.15, 1.02, 0.95, 0.9},
 		codePadX:     14, codePadY: 12, quoteIndent: 10, tablePadX: 10, tablePadY: 8,
 	},
 	{
-		id: "compact", name: "紧凑",
+		id:       "compact",
 		bodySize: 15, lineHeight: 1.5, blockGap: 10,
 		padX: 20, padY: 20,
 		headingScale: [6]float32{1.6, 1.38, 1.2, 1.05, 0.93, 0.86},
@@ -284,13 +297,32 @@ var markdownLayouts = []markdownLayout{
 	},
 	{
 		// 手账：疏朗行距、荧光笔式粗引用条、圆角描边代码卡，配合手绘颜色主题。
-		id: "sketch", name: "手账",
+		id:       "sketch",
 		bodySize: 16, lineHeight: 1.75, blockGap: 16,
 		padX: 28, padY: 26,
 		headingScale: [6]float32{1.6, 1.38, 1.2, 1.06, 0.96, 0.9},
 		codePadX:     14, codePadY: 12, quoteIndent: 10, tablePadX: 9, tablePadY: 7,
 		quoteBar: 5, codeRadius: 12, codeBorder: 1.5,
 	},
+}
+
+// markdownLayoutDisplayName 排版主题的当前语言显示名；未知 ID 原样返回。
+func markdownLayoutDisplayName(id string) string {
+	switch id {
+	case "sonnet":
+		return locales.LayoutSonnet()
+	case "note":
+		return locales.LayoutNote()
+	case "clear":
+		return locales.LayoutClear()
+	case "book":
+		return locales.LayoutBook()
+	case "compact":
+		return locales.LayoutCompact()
+	case "sketch":
+		return locales.LayoutSketch()
+	}
+	return id
 }
 
 func markdownLayoutByID(id string) markdownLayout {
@@ -306,7 +338,7 @@ func markdownLayoutByID(id string) markdownLayout {
 func markdownLayoutNames() []string {
 	names := make([]string, 0, len(markdownLayouts))
 	for _, l := range markdownLayouts {
-		names = append(names, l.name)
+		names = append(names, markdownLayoutDisplayName(l.id))
 	}
 	return names
 }

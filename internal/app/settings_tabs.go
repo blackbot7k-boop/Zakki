@@ -12,59 +12,70 @@ import (
 	"fmt"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
-// tabAnimSpeedOptions 动画速度选择项（显示文案与倍率）。
-var tabAnimSpeedOptions = []struct {
+// tabAnimSpeedOptions 动画速度选择项（当前语言文案与倍率，顺序固定）。
+func tabAnimSpeedOptions() []struct {
 	display string
 	speed   float32
-}{
-	{"慢", 0.5},
-	{"正常", 1},
-	{"快", 1.5},
-	{"更快", 2},
+} {
+	return []struct {
+		display string
+		speed   float32
+	}{
+		{locales.AnimSlow(), 0.5},
+		{locales.AnimNormal(), 1},
+		{locales.AnimFast(), 1.5},
+		{locales.AnimFaster(), 2},
+	}
 }
 
 func tabAnimSpeedDisplay(speed float32) string {
 	if speed <= 0 {
 		speed = 1
 	}
-	for _, o := range tabAnimSpeedOptions {
+	for _, o := range tabAnimSpeedOptions() {
 		if o.speed == speed {
 			return o.display
 		}
 	}
-	return tabAnimSpeedOptions[1].display // 非法值收敛到「正常」
+	return tabAnimSpeedOptions()[1].display // 非法值收敛到「正常」
 }
 
-// tabDotShapeOptions 标签形状选择项（ID 与显示文案，顺序即下拉顺序）。
-var tabDotShapeOptions = []struct {
+// tabDotShapeOptions 标签形状选择项（ID 与当前语言文案，顺序即下拉顺序）。
+func tabDotShapeOptions() []struct {
 	id, display string
-}{
-	{tabDotShapeDot, "圆点"},
-	{tabDotShapeRing, "圆环"},
-	{tabDotShapeSquare, "方点"},
-	{tabDotShapeRSquare, "圆角方"},
-	{tabDotShapePill, "胶囊"},
-	{tabDotShapeDiamond, "菱形"},
-	{tabDotShapeHexagon, "六边形"},
-	{tabDotShapeTriangle, "三角"},
-	{tabDotShapeStar, "星形"},
-	{tabDotShapeDrop, "水滴"},
-	{tabDotShapeLeaf, "叶片"},
+} {
+	return []struct {
+		id, display string
+	}{
+		{tabDotShapeDot, locales.ShapeDot()},
+		{tabDotShapeRing, locales.ShapeRing()},
+		{tabDotShapeSquare, locales.ShapeSquare()},
+		{tabDotShapeRSquare, locales.ShapeRSquare()},
+		{tabDotShapePill, locales.ShapePill()},
+		{tabDotShapeDiamond, locales.ShapeDiamond()},
+		{tabDotShapeHexagon, locales.ShapeHexagon()},
+		{tabDotShapeTriangle, locales.ShapeTriangle()},
+		{tabDotShapeStar, locales.ShapeStar()},
+		{tabDotShapeDrop, locales.ShapeDrop()},
+		{tabDotShapeLeaf, locales.ShapeLeaf()},
+	}
 }
 
 func tabDotShapeDisplay(id string) string {
-	for _, o := range tabDotShapeOptions {
+	for _, o := range tabDotShapeOptions() {
 		if o.id == id {
 			return o.display
 		}
 	}
-	return tabDotShapeOptions[0].display // 空串/非法值收敛到「圆点」
+	return tabDotShapeOptions()[0].display // 空串/非法值收敛到「圆点」
 }
 
 func tabDotShapeKey(display string) string {
-	for _, o := range tabDotShapeOptions {
+	for _, o := range tabDotShapeOptions() {
 		if o.display == display {
 			return o.id
 		}
@@ -78,13 +89,13 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
-			settingsCard(c, "标签", func() {
+			settingsCard(c, locales.CardTabs(), func() {
 				ui.Column(c).FillWidth().Padding(10, 14, 12, 14).Gap(10).Children(func() {
 					a.tabListSection(c, dark)
 				})
 			})
 
-			settingsCard(c, "标签栏外观", func() {
+			settingsCard(c, locales.CardTabBar(), func() {
 				a.tabAppearanceSection(c, dark)
 			})
 		})
@@ -95,12 +106,12 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 func (a *app) tabListSection(c *ui.Context, dark bool) {
 	atCap := len(a.tabs) >= MaxTabCount
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
-		if ui.Button(c, "新建标签").Clicked() {
+		if ui.Button(c, locales.MenuNewTab()).Clicked() {
 			a.addTab()
 		}
-		hint := fmt.Sprintf("共 %d 个；最多 %d 个，至少保留 1 个", len(a.tabs), MaxTabCount)
+		hint := locales.TabCountSummary(len(a.tabs), MaxTabCount)
 		if atCap {
-			hint = fmt.Sprintf("已达上限 %d 个：先删除才能新增", MaxTabCount)
+			hint = locales.TabMaxReached(MaxTabCount)
 			ui.Text(c, hint).FontSize(11).TextColor(c.Theme().Warning)
 		} else {
 			ui.Text(c, hint).FontSize(11).TextColor(tMuted(c))
@@ -126,7 +137,7 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 			// 颜色点：点击切换当前标签；再点是行内的展开箭头语义，调色板
 			// 在下方展开（避免弹出层与滚动容器嵌套）。
-			dot := ui.ButtonBase(c.Key(fmt.Sprintf("tabcur-%d", tb.ID))).Label("切换到 "+a.menuTitle(i)).
+			dot := ui.ButtonBase(c.Key(fmt.Sprintf("tabcur-%d", tb.ID))).Label(locales.TabSwitchTo(a.menuTitle(i))).
 				Size(18, 18).Radius(9).Cursor(ui.CursorPointer)
 			dot.Draw(func(p *ui.Painter, r ui.Rect) {
 				ink := a.tabColor(i)
@@ -151,15 +162,15 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 				ui.Text(c, fmt.Sprintf("⌃%d", i+1)).FontSize(11).TextColor(tMuted(c))
 			}
 			if ui.Button(c.Key(fmt.Sprintf("tabup-%d", tb.ID)), "↑").
-				Label("上移 " + a.menuTitle(i)).Disabled(i == 0).Clicked() {
+				Label(locales.TabMoveUp(a.menuTitle(i))).Disabled(i == 0).Clicked() {
 				a.moveTab(i, -1)
 			}
 			if ui.Button(c.Key(fmt.Sprintf("tabdown-%d", tb.ID)), "↓").
-				Label("下移 " + a.menuTitle(i)).Disabled(i == len(a.tabs)-1).Clicked() {
+				Label(locales.TabMoveDown(a.menuTitle(i))).Disabled(i == len(a.tabs)-1).Clicked() {
 				a.moveTab(i, 1)
 			}
-			if ui.Button(c.Key(fmt.Sprintf("tabdel-%d", tb.ID)), "删除").
-				Label("删除 " + a.menuTitle(i)).Clicked() {
+			if ui.Button(c.Key(fmt.Sprintf("tabdel-%d", tb.ID)), locales.CommonDelete()).
+				Label(locales.TabDelete(a.menuTitle(i))).Clicked() {
 				a.confirmDeleteTab(i)
 			}
 		})
@@ -170,7 +181,7 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 					pi, cand := pi, cand
 					selected := a.tabColor(i) == ui.Hex(cand)
 					s := ui.ButtonBase(c.Key(fmt.Sprintf("pal-%d-%d", tb.ID, pi))).
-						Label("标签颜色 "+cand).Size(20, 20).Radius(10).Cursor(ui.CursorPointer)
+						Label(locales.TabColorOf(cand)).Size(20, 20).Radius(10).Cursor(ui.CursorPointer)
 					s.Draw(func(p *ui.Painter, r ui.Rect) {
 						var path ui.Path
 						path.Circle(r.X+r.W/2, r.Y+r.H/2, 9)
@@ -200,7 +211,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 		glass = 0.5
 	}
 	ui.Column(c).FillWidth().Children(func() {
-		settingsRow(c, "标签标题最大宽度", "80–220 DIP；超出的文字用 … 省略，未命名标签只显示圆点", func() {
+		settingsRow(c, locales.TabTitleMaxWidth(), locales.TabTitleMaxWidthHint(), func() {
 			if ui.NumberInput(c, &titleW, 80, 220, 10).Changed() {
 				a.cfg.TabTitleWidth = float32(titleW)
 				a.scheduleSave()
@@ -208,26 +219,31 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "切换动画速度", "液态融合动画的节奏", func() {
-			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel,
-				[]string{"慢", "正常", "快", "更快"}).Changed() {
+		settingsRow(c, locales.TabAnimSpeed(), locales.TabAnimSpeedHint(), func() {
+			opts := tabAnimSpeedOptions()
+			displays := make([]string, len(opts))
+			for i, o := range opts {
+				displays[i] = o.display
+			}
+			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel, displays).Changed() {
 				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
 				a.scheduleSave()
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "顶栏动效", "关闭后切换标签瞬间完成，不再播放液态融合动画", func() {
+		settingsRow(c, locales.TabMotion(), locales.TabMotionHint(), func() {
 			motion := !a.cfg.TabMotionOff
-			if ui.Switch(c, &motion).Label("顶栏动效开关").Changed() {
+			if ui.Switch(c, &motion).Label(locales.TabMotionSwitch()).Changed() {
 				a.cfg.TabMotionOff = !motion
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "标签形状", "非当前标签的示意形状；当前标签始终是标题胶囊", func() {
-			displays := make([]string, 0, len(tabDotShapeOptions))
-			for _, o := range tabDotShapeOptions {
+		settingsRow(c, locales.TabDotShape(), locales.TabDotShapeHint(), func() {
+			opts := tabDotShapeOptions()
+			displays := make([]string, 0, len(opts))
+			for _, o := range opts {
 				displays = append(displays, o.display)
 			}
 			if ui.Select(c, &a.settingsUI.tabDotShapeSel, displays).Changed() {
@@ -237,24 +253,24 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "界面外观", "浅色/深色/跟随系统，即时生效", func() {
+		settingsRow(c, locales.AppearanceLabel(), locales.ModeRowHint(), func() {
 			if ui.Select(c, &a.settingsUI.appearanceModeSel,
-				[]string{"跟随系统", "浅色", "深色"}).Changed() {
+				[]string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Changed() {
 				a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
 				a.pushAppearance()
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "彩色圆点", "关闭后圆点与胶囊使用中性色，不再区分标签颜色", func() {
+		settingsRow(c, locales.ColoredDots(), locales.ColoredDotsHint(), func() {
 			colored := !a.cfg.MonoDots
-			if ui.Switch(c, &colored).Label("彩色圆点开关").Changed() {
+			if ui.Switch(c, &colored).Label(locales.ColoredDotsSwitch()).Changed() {
 				a.cfg.MonoDots = !colored
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		settingsRow(c, "毛玻璃回退强度", "无系统材质的平台上的半透明层浓度（20–90%）", func() {
+		settingsRow(c, locales.GlassStrength(), locales.GlassStrengthHint(), func() {
 			if ui.NumberInput(c, &glass, 0.2, 0.9, 0.05).Changed() {
 				a.cfg.GlassStrength = float32(glass)
 				a.scheduleSave()
@@ -262,13 +278,13 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			}
 		}).PaddingX(14)
 		cardDivider(c)
-		ui.Text(c, "标签内容、名称与颜色属于笔记数据，随自动保存落盘；窗口材质是运行平台能力，不支持时自动回退为半透明色。").
+		ui.Text(c, locales.TabsPageFootnote()).
 			FontSize(11).TextColor(tMuted(c)).Padding(8, 14, 10, 14)
 	})
 }
 
 func tabAnimSpeedKey(display string) float32 {
-	for _, o := range tabAnimSpeedOptions {
+	for _, o := range tabAnimSpeedOptions() {
 		if o.display == display {
 			return o.speed
 		}

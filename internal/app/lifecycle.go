@@ -11,6 +11,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // Run 是应用装配与事件循环入口，由根目录 main.go 调用。
@@ -35,6 +37,12 @@ func Run() {
 		slog.Warn("偏好载入未完成（详情见设置页；旧文件保持原样）", "error", err)
 	}
 
+	// 语言切换（设置页或系统语言变化）后重建菜单与设置窗口文案；
+	// 原生窗口的界面由 MyGo 自动重绘。
+	mygo.App.OnLocaleChanged(func(string) {
+		a.buildMenu()
+		a.refreshSettingsWindow()
+	})
 	mygo.App.OnSecondInstance(func([]string, string) { a.showWindow() })
 	// 关闭窗口后留在托盘，等全局热键或托盘再唤起。
 	mygo.App.OnWindowAllClosed(func() {})
@@ -143,7 +151,7 @@ func (a *app) windowOptions() mygo.WindowOptions {
 		stateKey = "main"
 	}
 	return mygo.WindowOptions{
-		Title:       appName + " — 速记便签",
+		Title:       locales.WindowTitle(appName),
 		Width:       a.prefs.Advanced.WindowWidth,
 		Height:      a.prefs.Advanced.WindowHeight,
 		MinWidth:    300,
@@ -185,13 +193,13 @@ func (a *app) rebuildTabMenus() {
 func formatContextNote(id string) string {
 	switch id {
 	case cmdBold, cmdItalic, cmdInlineCode, cmdLink:
-		return "作用于当前选区或光标位置；表格单元格内可用"
+		return locales.CtxInline()
 	case cmdCodeBlock, cmdRule, cmdTable:
-		return "在段落上下文中使用；表格单元格内不可用"
+		return locales.CtxHeading()
 	case cmdBody, cmdH1, cmdH2, cmdH3, cmdH4, cmdH5, cmdH6:
-		return "修改当前段落或源码选区覆盖的正文行；代码块与表格内不可用"
+		return locales.CtxBlocks()
 	case cmdQuote, cmdBullet, cmdOrdered, cmdTask:
-		return "处理所选行并保留文本；代码块与表格内不可用"
+		return locales.CtxInsert()
 	}
 	return ""
 }
@@ -220,7 +228,7 @@ func (a *app) createMenu() *mygo.Menu {
 
 	a.miPreview = &mygo.MenuItem{
 		ID:          "preview",
-		Label:       "源码模式",
+		Label:       locales.MenuSourceMode(),
 		Type:        mygo.MenuItemCheckbox,
 		Checked:     a.cfg.Source,
 		Accelerator: "Shift+CmdOrCtrl+P",
@@ -233,7 +241,7 @@ func (a *app) createMenu() *mygo.Menu {
 	}
 	a.miFind = &mygo.MenuItem{
 		ID:          "find",
-		Label:       "查找",
+		Label:       locales.MenuFind(),
 		Accelerator: "CmdOrCtrl+F",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.findOpen, a.query, a.matchIdx = true, "", 0 })
@@ -241,7 +249,7 @@ func (a *app) createMenu() *mygo.Menu {
 	}
 	a.miFindNext = &mygo.MenuItem{
 		ID:          "find-next",
-		Label:       "查找下一个",
+		Label:       locales.MenuFindNext(),
 		Accelerator: "CmdOrCtrl+G",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.findOpenOrStep(1) })
@@ -249,7 +257,7 @@ func (a *app) createMenu() *mygo.Menu {
 	}
 	a.miFindPrev = &mygo.MenuItem{
 		ID:          "find-prev",
-		Label:       "查找上一个",
+		Label:       locales.MenuFindPrev(),
 		Accelerator: "Shift+CmdOrCtrl+G",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.findOpenOrStep(-1) })
@@ -257,7 +265,7 @@ func (a *app) createMenu() *mygo.Menu {
 	}
 	a.miTop = &mygo.MenuItem{
 		ID:          "ontop",
-		Label:       "窗口置顶",
+		Label:       locales.MenuKeepOnTop(),
 		Type:        mygo.MenuItemCheckbox,
 		Checked:     a.cfg.AlwaysOnTop,
 		Accelerator: "Alt+CmdOrCtrl+T",
@@ -274,13 +282,13 @@ func (a *app) createMenu() *mygo.Menu {
 		a.miPreview,
 		a.miTop,
 		mygo.Separator(),
-		{Label: "上一个标签", Accelerator: "Alt+CmdOrCtrl+Left", Click: func(*mygo.MenuItem, *mygo.Window) {
+		{Label: locales.MenuPrevTab(), Accelerator: "Alt+CmdOrCtrl+Left", Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.cycleTab(-1) })
 		}},
-		{Label: "下一个标签", Accelerator: "Alt+CmdOrCtrl+Right", Click: func(*mygo.MenuItem, *mygo.Window) {
+		{Label: locales.MenuNextTab(), Accelerator: "Alt+CmdOrCtrl+Right", Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.cycleTab(1) })
 		}},
-		{Label: "切换标签", Submenu: tabItems},
+		{Label: locales.MenuSwitchTab(), Submenu: tabItems},
 	}
 	// 编辑菜单：系统编辑操作 + 查找组（查找/下一个/上一个），与 Typora 的 Edit 布局一致。
 	editItems := append(a.editMenuItems(),
@@ -295,49 +303,49 @@ func (a *app) createMenu() *mygo.Menu {
 		// 角色项默认英文标签，这里统一覆盖为中文。「服务」必须带空子菜单：
 		// 否则 macOS 拿不到 servicesMenu，菜单里只剩一个点不动的死项。
 		{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
-			{Role: mygo.RoleAbout, Label: "关于 " + appName},
+			{Role: mygo.RoleAbout, Label: locales.MenuAbout(appName)},
 			updateMenuItem(),
 			mygo.Separator(),
-			{ID: "app-settings", Label: "设置…", Accelerator: "CmdOrCtrl+,",
+			{ID: "app-settings", Label: locales.MenuSettings(), Accelerator: "CmdOrCtrl+,",
 				Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings(pageGeneral) }},
 			mygo.Separator(),
-			{Role: mygo.RoleServices, Label: "服务", Submenu: []*mygo.MenuItem{}},
+			{Role: mygo.RoleServices, Label: locales.MenuServices(), Submenu: []*mygo.MenuItem{}},
 			mygo.Separator(),
-			{Role: mygo.RoleHide, Label: "隐藏 " + appName},
-			{Role: mygo.RoleHideOthers, Label: "隐藏其他"},
-			{Role: mygo.RoleUnhide, Label: "显示全部"},
+			{Role: mygo.RoleHide, Label: locales.MenuHide(appName)},
+			{Role: mygo.RoleHideOthers, Label: locales.MenuHideOthers()},
+			{Role: mygo.RoleUnhide, Label: locales.MenuShowAll()},
 			mygo.Separator(),
-			{Role: mygo.RoleQuit, Label: "退出 " + appName},
+			{Role: mygo.RoleQuit, Label: locales.MenuQuit(appName)},
 		}},
 		// 文件菜单按 macOS 惯例：新建/整理在前，保存类居中，关闭收尾。
-		{Label: "文件", Submenu: []*mygo.MenuItem{
-			{Label: "新建标签", Accelerator: "CmdOrCtrl+T", Click: func(*mygo.MenuItem, *mygo.Window) {
+		{Label: locales.MenuFile(), Submenu: []*mygo.MenuItem{
+			{Label: locales.MenuNewTab(), Accelerator: "CmdOrCtrl+T", Click: func(*mygo.MenuItem, *mygo.Window) {
 				a.withWindow(func() { a.addTab() })
 			}},
-			{Label: "重命名标签", Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) {
+			{Label: locales.MenuRenameTab(), Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) {
 				a.withWindow(func() { a.beginRename(a.active) })
 			}},
 			mygo.Separator(),
 			// 立即备份必须绕过节流：保存当前数据并无条件写一份备份。
-			{Label: "立即备份", Accelerator: "CmdOrCtrl+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.backupNow() }},
+			{Label: locales.MenuBackupNow(), Accelerator: "CmdOrCtrl+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.backupNow() }},
 			mygo.Separator(),
-			{Role: mygo.RoleClose, Label: "关闭窗口"},
+			{Role: mygo.RoleClose, Label: locales.MenuCloseWindow()},
 		}},
-		{Label: "编辑", Submenu: editItems},
+		{Label: locales.MenuEdit(), Submenu: editItems},
 		// Typora 式把 Markdown 命令拆为两个顶层菜单：段落收块级、格式收行内，
 		// 不再埋在编辑下的二级子菜单里。
-		{Label: "段落", Submenu: a.commandMenuItems("heading", "blocks", "insert")},
-		{Label: "格式", Submenu: a.commandMenuItems("inline")},
-		{Label: "显示", Submenu: viewItems},
+		{Label: locales.MenuParagraph(), Submenu: a.commandMenuItems("heading", "blocks", "insert")},
+		{Label: locales.MenuFormat(), Submenu: a.commandMenuItems("inline")},
+		{Label: locales.MenuView(), Submenu: viewItems},
 		// 窗口菜单角色默认同样是英文标签，覆盖为中文并保留最小化/缩放/前置。
-		{Role: mygo.RoleWindowMenu, Label: "窗口", Submenu: []*mygo.MenuItem{
+		{Role: mygo.RoleWindowMenu, Label: locales.MenuWindow(), Submenu: []*mygo.MenuItem{
 			// 关闭窗口后驻留托盘，菜单栏也应能唤回主窗口（Typora 无托盘驻留场景）。
-			{Label: "显示主窗口", Click: func(*mygo.MenuItem, *mygo.Window) { a.showWindow() }},
+			{Label: locales.MenuShowMainWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { a.showWindow() }},
 			mygo.Separator(),
-			{Role: mygo.RoleMinimize, Label: "最小化"},
-			{Role: mygo.RoleZoom, Label: "缩放"},
+			{Role: mygo.RoleMinimize, Label: locales.MenuMinimize()},
+			{Role: mygo.RoleZoom, Label: locales.MenuZoom()},
 			mygo.Separator(),
-			{Role: mygo.RoleFront, Label: "前置全部窗口"},
+			{Role: mygo.RoleFront, Label: locales.MenuBringAllToFront()},
 		}},
 	})
 	return menu
@@ -355,21 +363,21 @@ func (a *app) commandMenuItems(groups ...string) []*mygo.MenuItem {
 		return false
 	}
 	var items []*mygo.MenuItem
-	for _, group := range keymapGroups {
-		if group.id == "global" || !inSet(group.id) {
+	for _, groupID := range keymapGroupIDs {
+		if groupID == "global" || !inSet(groupID) {
 			continue
 		}
 		if len(items) > 0 {
 			items = append(items, mygo.Separator())
 		}
 		for _, def := range commandRegistry {
-			if def.group != group.id {
+			if def.group != groupID {
 				continue
 			}
 			def := def
 			items = append(items, &mygo.MenuItem{
 				ID:          "cmd-" + def.id,
-				Label:       def.name,
+				Label:       commandDisplayName(def),
 				Accelerator: a.commandBinding(def.id),
 				Disabled:    !a.winOpen,
 				ToolTip:     formatContextNote(def.id),
@@ -408,7 +416,7 @@ func (a *app) setupTray() {
 	tray, err := mygo.NewTray(mygo.TrayOptions{
 		Icon:           trayPNG(),
 		IconIsTemplate: true,
-		ToolTip:        appName + " — 左键显示/隐藏，右键菜单",
+		ToolTip:        appName,
 	})
 	if err != nil {
 		slog.Error("托盘创建失败", "error", err)
@@ -417,11 +425,11 @@ func (a *app) setupTray() {
 	tray.OnClick(func() { a.toggleWindow() })
 	tray.OnRightClick(func() {
 		menu := mygo.NewMenu([]*mygo.MenuItem{
-			{Label: "显示 / 隐藏", Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleWindow() }},
-			{Label: "设置…", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings(pageGeneral) }},
+			{Label: locales.MenuShowHide(), Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleWindow() }},
+			{Label: locales.MenuSettings(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings(pageGeneral) }},
 			updateMenuItem(),
 			mygo.Separator(),
-			{Role: mygo.RoleQuit, Label: "退出 " + appName},
+			{Role: mygo.RoleQuit, Label: locales.MenuQuit(appName)},
 		})
 		tray.SetMenu(menu)
 		tray.PopUpMenu()

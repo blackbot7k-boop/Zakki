@@ -5,6 +5,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // ---- 链接浮层 ----
@@ -101,14 +103,14 @@ func (a *app) applyLinkTool() {
 	text := strings.TrimSpace(tool.text)
 	url := strings.TrimSpace(tool.url)
 	if text == "" {
-		a.linkTool.err = "请填写链接文字"
+		a.linkTool.err = locales.LinkErrText()
 		if a.win != nil && a.winOpen {
 			a.win.Update(func() {})
 		}
 		return
 	}
 	if url == "" {
-		a.linkTool.err = "请填写链接地址"
+		a.linkTool.err = locales.LinkErrAddress()
 		if a.win != nil && a.winOpen {
 			a.win.Update(func() {})
 		}
@@ -148,9 +150,9 @@ func (a *app) applyLinkTool() {
 func (a *app) linkOverlay(c *ui.Context, t *ui.Theme) {
 	ui.Column(c.Key("link-tool")).FillWidth().Padding(10, 12).Gap(8).
 		Radius(8).Background(t.Surface).BorderWidth(1).BorderColor(t.Border).
-		Label("链接浮层").Children(func() {
+		Label(locales.LinkOverlay()).Children(func() {
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "链接文字").TextColor(t.TextMuted)
+			ui.Text(c, locales.LinkText()).TextColor(t.TextMuted)
 			ti := ui.TextInput(c.Key("link-text"), &a.linkTool.text).Grow(1)
 			ti.FocusBind(&a.linkTool.focus, 1)
 			if ti.Submitted() {
@@ -158,7 +160,7 @@ func (a *app) linkOverlay(c *ui.Context, t *ui.Theme) {
 			}
 		})
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "地址").TextColor(t.TextMuted)
+			ui.Text(c, locales.LinkAddress()).TextColor(t.TextMuted)
 			if ui.TextInput(c.Key("link-url"), &a.linkTool.url).Grow(1).Submitted() {
 				a.applyLinkTool()
 			}
@@ -169,10 +171,10 @@ func (a *app) linkOverlay(c *ui.Context, t *ui.Theme) {
 			} else {
 				ui.Box(c).Grow(1)
 			}
-			if ui.Button(c.Key("link-cancel"), "取消").Clicked() {
+			if ui.Button(c.Key("link-cancel"), locales.CommonCancel()).Clicked() {
 				a.closeLinkTool()
 			}
-			if ui.Button(c.Key("link-ok"), "确定").Clicked() {
+			if ui.Button(c.Key("link-ok"), locales.CommonOK()).Clicked() {
 				a.applyLinkTool()
 			}
 		})

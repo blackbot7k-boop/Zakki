@@ -1,8 +1,9 @@
 package app
 
 // 首启初始化向导：仅在全新安装（数据文件不存在）时出现。
-// 五步：欢迎 → 备份文件夹（可跳过）→ 初始标签数量 → Git（可选）→ 完成。
+// 六步：语言 → 欢迎 → 备份文件夹（可跳过）→ 初始标签数量 → Git（可选）→ 完成。
 // 所有选择先存草稿，确认时才写入偏好与数据文件；关闭窗口等同跳过。
+// 语言步骤即时经 App.SetLocale 生效（MyGo 持久化选择），后续步骤随之换语言。
 
 import (
 	"log/slog"
@@ -10,11 +11,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // onboardingLastStep 向导最后一步的序号。
-const onboardingLastStep = 5
+const onboardingLastStep = 6
 
 // onboardingState 向导的草稿状态（主线程）。
 type onboardingState struct {
@@ -45,7 +49,7 @@ func (a *app) openOnboarding() {
 		gitModeSel: gitModeDisplay("off"),
 	}
 	win := mygo.NewWindow(mygo.WindowOptions{
-		Title:     "欢迎使用 Zakki",
+		Title:     locales.OnboardWindowTitle(),
 		Width:     560,
 		Height:    500,
 		MinWidth:  520,
@@ -68,7 +72,7 @@ func (a *app) openOnboarding() {
 // abandonOnboarding 放弃向导：保持默认值创建主窗口。
 func (a *app) abandonOnboarding() {
 	if err := a.persistFirstRunSnapshot(); err != nil {
-		a.notice = "首启数据未能保存，下次启动可能再次显示初始化向导"
+		a.notice = locales.OnboardDraftPendingNotice()
 	}
 	a.onboarding.finished = true
 	a.enterMainFromOnboarding()
@@ -93,21 +97,21 @@ func (a *app) finishOnboarding(configured bool) {
 			p.Backup.MirrorDir = dir
 			p.Backup.GitMode = mode
 		}); err != nil {
-			ob.dirErr = "保存设置失败：" + err.Error()
+			ob.dirErr = locales.OnboardSaveErr(err.Error())
 			return // 留在向导，让用户重试或跳过
 		}
 		if err := a.commitFirstRunData(n); err != nil {
-			ob.dirErr = "数据写入失败：" + err.Error()
+			ob.dirErr = locales.OnboardWriteErr(err.Error())
 			return // 数据未落盘时不关向导，避免偏好已改但下次仍首启
 		}
 		if dir != "" {
 			if err := a.backupNow(); err != nil {
 				slog.Warn("向导完成后首次备份失败", "error", err)
-				a.notice = "数据已保存，但首次外部备份失败：" + err.Error()
+				a.notice = locales.OnboardFirstMirrorErr(err.Error())
 			}
 		}
 	} else if err := a.persistFirstRunSnapshot(); err != nil {
-		ob.dirErr = "数据写入失败：" + err.Error()
+		ob.dirErr = locales.OnboardWriteErr(err.Error())
 		return
 	}
 	ob.finished = true
@@ -162,9 +166,9 @@ func (a *app) obApplyFolder(path string) {
 // obNextLabel 底栏主按钮文案。
 func (a *app) obNextLabel() string {
 	if a.onboarding.step >= onboardingLastStep {
-		return "完成，进入 Zakki"
+		return locales.OnboardFinish()
 	}
-	return "下一步"
+	return locales.OnboardNext()
 }
 
 // onboardingView 向导窗口每帧构建。
@@ -189,16 +193,18 @@ func (a *app) onboardingView(c *ui.Context) {
 	}
 
 	ui.Column(c).Fill().Padding(28, 32).Gap(16).Children(func() {
-		ui.Textf(c, "初始设置 · 步骤 %d / %d", ob.step, onboardingLastStep).
+		ui.Text(c, locales.OnboardStep(ob.step, onboardingLastStep)).
 			FontSize(11).Bold().TextColor(tMuted(c))
 		switch ob.step {
 		case 1:
-			a.obWelcome(c, &t)
+			a.obLanguage(c, &t)
 		case 2:
-			a.obFolder(c, &t)
+			a.obWelcome(c, &t)
 		case 3:
-			a.obTabs(c)
+			a.obFolder(c, &t)
 		case 4:
+			a.obTabs(c)
+		case 5:
 			a.obGit(c)
 		default:
 			a.obDone(c)
@@ -209,13 +215,13 @@ func (a *app) onboardingView(c *ui.Context) {
 		}
 		ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 			if ob.step < onboardingLastStep {
-				if ui.Button(c, "跳过，使用默认设置").Clicked() {
+				if ui.Button(c, locales.OnboardSkip()).Clicked() {
 					a.finishOnboarding(false)
 				}
 			}
 			ui.Box(c).Grow(1)
 			if ob.step > 1 {
-				if ui.Button(c, "上一步").Clicked() {
+				if ui.Button(c, locales.OnboardBack()).Clicked() {
 					ob.step--
 				}
 			}
@@ -241,15 +247,35 @@ func obBullet(c *ui.Context, title, detail string) {
 	})
 }
 
-// obWelcome 步骤 1：欢迎。
+// obLanguage 步骤 1：选择界面语言（即时生效，选择会被 MyGo 记住）。
+func (a *app) obLanguage(c *ui.Context, t *ui.Theme) {
+	ui.Column(c).FillWidth().Gap(12).Children(func() {
+		ui.Text(c, locales.OnboardLanguageTitle()).FontSize(22).Bold()
+		ui.Text(c, locales.OnboardLanguageSub()).TextColor(tMuted(c))
+		ui.Row(c).Gap(10).Children(func() {
+			for _, tag := range mygo.App.Languages() {
+				tag := tag
+				chosen := mygo.App.Locale() == tag
+				btn := ui.ButtonBase(c.Key("lang-"+tag)).Label(i18n.Autonym(tag)).
+					Padding(14, 10).Radius(10).Cursor(ui.CursorPointer)
+				if chosen {
+					btn = btn.BorderWidth(2).BorderColor(t.Accent)
+				}
+				btn.OnClick(func() { mygo.App.SetLocale(tag) })
+			}
+		})
+	})
+}
+
+// obWelcome 步骤 2：欢迎。
 func (a *app) obWelcome(c *ui.Context, t *ui.Theme) {
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, "欢迎使用 Zakki").FontSize(22).Bold()
-		ui.Text(c, "一分钟完成初始设置；笔记数据始终优先保存在本机。").TextColor(tMuted(c))
+		ui.Text(c, locales.OnboardWelcomeTitle()).FontSize(22).Bold()
+		ui.Text(c, locales.OnboardWelcomeSub()).TextColor(tMuted(c))
 		ui.Box(c).Height(6)
-		obBullet(c, "本地优先", "数据与本地备份永远先落盘，外部副本失败不影响使用。")
-		obBullet(c, "云盘备份", "备份目录选在 iCloud、坚果云等同步文件夹内即自动上云。")
-		obBullet(c, "Git 备份（可选）", "目录选在 Git 仓库里，可开启自动提交甚至推送；不配置也完全可用。")
+		obBullet(c, locales.OnboardBulletLocalTitle(), locales.OnboardBulletLocalBody())
+		obBullet(c, locales.OnboardBulletCloudTitle(), locales.OnboardBulletCloudBody())
+		obBullet(c, locales.OnboardBulletGitTitle(), locales.OnboardBulletGitBody())
 	})
 }
 
@@ -257,28 +283,28 @@ func (a *app) obWelcome(c *ui.Context, t *ui.Theme) {
 func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, "选择备份文件夹").FontSize(17).Bold()
-		ui.Text(c, "每次备份会镜像一份到这里：云盘同步文件夹即云备份；GitHub 仓库的本地 clone 可版本化。跳过则仅保留本地备份，之后可在设置里配置。").
+		ui.Text(c, locales.OnboardChooseBackupTitle()).FontSize(17).Bold()
+		ui.Text(c, locales.OnboardChooseBackupBody()).
 			FontSize(12).TextColor(tMuted(c))
 		if ob.dirDraft == "" {
-			if ui.Button(c, "选择文件夹…").Clicked() {
+			if ui.Button(c, locales.CommonChange()).Clicked() {
 				a.obPickFolder()
 			}
 			return
 		}
-		kind := "文件夹"
+		kind := locales.CommonFolder()
 		if ob.dirIsGit {
-			kind = "Git 仓库"
+			kind = locales.CommonGitRepo()
 		}
 		ui.Column(c).FillWidth().Gap(6).Padding(12, 14).Radius(8).
 			Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
 			ui.Text(c, ob.dirDraft).FontSize(11).Font(monoFontStack("sfmono")).TextColor(tMuted(c))
-			ui.Textf(c, "%s · 每次备份时镜像一份到这里", kind)
+			ui.Text(c, locales.MirrorGitDetailLine(kind))
 			ui.Row(c).Gap(8).Children(func() {
-				if ui.Button(c, "更换…").Clicked() {
+				if ui.Button(c, locales.CommonChange()).Clicked() {
 					a.obPickFolder()
 				}
-				if ui.Button(c, "断开").Clicked() {
+				if ui.Button(c, locales.CommonDisconnect()).Clicked() {
 					ob.dirDraft, ob.dirIsGit = "", false
 					ob.gitMode, ob.gitModeSel = "off", gitModeDisplay("off")
 				}
@@ -291,8 +317,8 @@ func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
 func (a *app) obTabs(c *ui.Context) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, "初始标签数量").FontSize(17).Bold()
-		ui.Textf(c, "决定首次打开时的标签页个数（1–%d 个）；以后随时可在设置里增删。", MaxTabCount).
+		ui.Text(c, locales.OnboardTabCountTitle()).FontSize(17).Bold()
+		ui.Text(c, locales.OnboardTabCountBody(MaxTabCount)).
 			FontSize(12).TextColor(tMuted(c))
 		ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
 			if ui.Button(c, "−").Clicked() {
@@ -300,7 +326,7 @@ func (a *app) obTabs(c *ui.Context) {
 					ob.tabCount--
 				}
 			}
-			ui.Textf(c, "%d 个", ob.tabCount).FontSize(18).Bold()
+			ui.Text(c, locales.OnboardTabCountN(ob.tabCount)).FontSize(18).Bold()
 			if ui.Button(c, "+").Clicked() {
 				if ob.tabCount < MaxTabCount {
 					ob.tabCount++
@@ -319,16 +345,15 @@ func (a *app) obTabs(c *ui.Context) {
 func (a *app) obGit(c *ui.Context) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, "Git 自动备份（可选）").FontSize(17).Bold()
+		ui.Text(c, locales.OnboardGitTitle()).FontSize(17).Bold()
 		if ob.dirDraft == "" || !ob.dirIsGit {
-			ui.Text(c, "Git 自动化仅对 Git 仓库目录可用。当前所选文件夹"+gitFolderState(ob)+
-				"；作为云盘同步文件夹使用没有问题，想用 Git 备份请返回上一步更换目录。").
+			ui.Text(c, locales.OnboardGitNotRepoBody(gitFolderState(ob))).
 				FontSize(12).TextColor(tMuted(c))
 			return
 		}
-		ui.Text(c, "检测到备份文件夹是 Git 仓库。可让应用在每次备份写入后自动提交（可选推送）；需要本机已安装 git，失败只提示、不影响备份本身。").
+		ui.Text(c, locales.OnboardGitRepoBody()).
 			FontSize(12).TextColor(tMuted(c))
-		if ui.Select(c, &ob.gitModeSel, gitModeOptions).Changed() {
+		if ui.Select(c, &ob.gitModeSel, gitModeOptions()).Changed() {
 			ob.gitMode = gitModeOfDisplay(ob.gitModeSel)
 		}
 	})
@@ -336,30 +361,30 @@ func (a *app) obGit(c *ui.Context) {
 
 func gitFolderState(ob *onboardingState) string {
 	if ob.dirDraft == "" {
-		return "尚未选择"
+		return locales.CommonNotSet()
 	}
-	return "不是 Git 仓库"
+	return locales.OnboardGitNotRepo()
 }
 
 // obDone 步骤 5：配置汇总。
 func (a *app) obDone(c *ui.Context) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, "准备就绪").FontSize(17).Bold()
-		obDoneRow(c, "本地备份", "启动 + 编辑节流 + ⌘S 立即备份")
+		ui.Text(c, locales.OnboardDoneTitle()).FontSize(17).Bold()
+		obDoneRow(c, locales.OnboardDoneLocal(), locales.OnboardDoneLocalBody())
 		if ob.dirDraft != "" {
-			kind := "文件夹"
+			kind := locales.CommonFolder()
 			if ob.dirIsGit {
-				kind = "Git 仓库"
+				kind = locales.CommonGitRepo()
 			}
-			obDoneRow(c, "外部备份", kind+" · "+ob.dirDraft)
-			obDoneRow(c, "Git 自动化", gitModeDisplay(ob.gitMode))
+			obDoneRow(c, locales.OnboardDoneExternal(), locales.OnboardDoneExternalBody(kind, ob.dirDraft))
+			obDoneRow(c, locales.OnboardDoneGit(), gitModeDisplay(ob.gitMode))
 		} else {
-			obDoneRow(c, "外部备份", "未配置（仅本地备份，可随时在设置里补配）")
+			obDoneRow(c, locales.OnboardDoneExternal(), locales.OnboardDoneNone())
 		}
-		ui.Textf(c, "初始标签 %d 个", ob.tabCount).FontSize(12).TextColor(tMuted(c))
+		ui.Text(c, locales.OnboardInitialTabs(ob.tabCount)).FontSize(12).TextColor(tMuted(c))
 		if ob.dirDraft != "" {
-			if ui.Button(c, "打开备份文件夹").Clicked() {
+			if ui.Button(c, locales.OnboardOpenBackupFolder()).Clicked() {
 				_ = mygo.Shell.OpenPath(ob.dirDraft)
 			}
 		}

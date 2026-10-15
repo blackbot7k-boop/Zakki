@@ -169,8 +169,10 @@ type app struct {
 	prefsRuntimeState
 	onboarding onboardingState
 
-	cfg   settings
-	ready bool
+	cfg settings
+	// appliedLocale 已应用到 MyGo 的界面语言（避免每次偏好更新重复 SetLocale）。
+	appliedLocale string
+	ready         bool
 
 	notes      *notes.Store
 	now        func() time.Time

@@ -10,5 +10,9 @@
     "publicKey": "C0k4xmj5j4rMor21c+UaCEoETX1q+67YYjbY6wJY02s=",
     "github": "gomeen/Zakki",
     "tagPrefix": "v"
+  },
+  "i18n": {
+    "dir": "locales",
+    "source": "en"
   }
 }

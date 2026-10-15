@@ -15,6 +15,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 const (
@@ -70,7 +72,7 @@ func (a *app) menuTitle(i int) string {
 	if name := a.displayTitle(i); name != "" {
 		return name
 	}
-	return fmt.Sprintf("标签 %d", i+1)
+	return locales.TabN(fmt.Sprint(i + 1))
 }
 
 // validTabColor 校验标签颜色：#rgb/#rrggbb 形式（ui.Hex 只接受这些
@@ -169,7 +171,7 @@ func (a *app) syncNextTabID() {
 // 自动分配未使用的调色板颜色与新 ID，随后聚焦内容编辑。
 func (a *app) addTab() bool {
 	if len(a.tabs) >= MaxTabCount {
-		a.notice = fmt.Sprintf("最多 %d 个标签，无法新增", MaxTabCount)
+		a.notice = locales.TabMaxCannotAdd(MaxTabCount)
 		return false
 	}
 	a.tabs = append(a.tabs, tab{ID: a.nextID(), Color: a.unusedTabColor()})
@@ -183,7 +185,7 @@ func (a *app) addTab() bool {
 // 备份失败取消删除；至少保留一个标签。
 func (a *app) deleteTabNow(i int) bool {
 	if len(a.tabs) <= 1 {
-		a.notice = "至少保留一个标签"
+		a.notice = locales.TabKeepOne()
 		return false
 	}
 	if i < 0 || i >= len(a.tabs) {
@@ -192,7 +194,7 @@ func (a *app) deleteTabNow(i int) bool {
 	if strings.TrimSpace(a.tabs[i].Text) != "" {
 		if err := a.backupNow(); err != nil {
 			slog.Error("删除标签前备份失败，已取消删除", "error", err)
-			a.notice = "备份失败，已取消删除"
+			a.notice = locales.TabBackupBeforeDeleteFailed()
 			return false
 		}
 	}
@@ -229,10 +231,10 @@ func (a *app) confirmDeleteTab(i int) {
 	go func() {
 		res, err := mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageQuestion,
-			Title:   "删除标签",
-			Message: fmt.Sprintf("确定删除「%s」吗？", title),
-			Detail:  "删除前会先做一份安全备份；备份失败会自动取消删除。",
-			Buttons: []string{"删除标签", "取消"},
+			Title:   locales.DialogDeleteTabTitle(),
+			Message: locales.DialogDeleteTabMessage(title),
+			Detail:  locales.DialogDeleteTabDetail(),
+			Buttons: []string{locales.DialogDeleteTabConfirm(), locales.CommonCancel()},
 		})
 		if err != nil || res.Button != 0 {
 			return

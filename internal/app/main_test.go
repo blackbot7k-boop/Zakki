@@ -14,6 +14,14 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// TestMain 把测试进程的界面语言固定为简体中文：MYGO_LOCALE 只影响本次
+// 进程、不写系统设置，存量断言继续使用中文文案；英文目录由 locales.In("en")
+// 直接覆盖。
+func TestMain(m *testing.M) {
+	os.Setenv("MYGO_LOCALE", "zh-Hans")
+	os.Exit(m.Run())
+}
+
 // newTestApp 测试用 app：持久化写进 t.TempDir()，时钟固定，不碰真实数据。
 // 路径与时钟都经接缝注入（见 app.notes / app.now），没有全局开关。
 func newTestApp(tb testing.TB) *app {

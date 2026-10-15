@@ -9,6 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // syncGlobalHotkey 让全局热键与偏好一致：先尝试注册新键，成功后再注销
@@ -26,14 +28,14 @@ func (a *app) syncGlobalHotkey() bool {
 	if want != "" {
 		b, err := parseAccelerator(want)
 		if err != nil {
-			a.noticeHotkey = "全局热键无效：" + err.Error()
+			a.noticeHotkey = locales.KeymapHotkeyInvalid(err.Error())
 			return false
 		}
 		if err := mygo.GlobalShortcut.Register(want, func() { a.toggleWindow() }); err != nil {
 			// 注册失败：保留旧绑定并提示。
-			msg := "全局热键注册失败（可能被其他应用占用）：" + err.Error()
+			msg := locales.KeymapHotkeyFailed(err.Error())
 			if a.hotkeyAcc != "" {
-				a.noticeHotkey = msg + "；已保留原快捷键 " + b.displayName()
+				a.noticeHotkey = msg + locales.KeymapHotkeyKeptOld(b.displayName())
 			} else {
 				a.noticeHotkey = msg
 				// 回滚偏好中的无效绑定？保留用户输入，仅提示；托盘仍可唤起。
@@ -54,28 +56,28 @@ func (a *app) syncGlobalHotkey() bool {
 func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).Fill().Grow(1).Gap(10).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Text(c, "Markdown 格式与全局唤起可以改键；搜索、剪切、复制、粘贴、撤销等保持系统惯例。").FontSize(12).TextColor(tMuted(c)).Grow(1)
-			if ui.Button(c, "恢复全部默认").Clicked() {
+			ui.Text(c, locales.KeymapHint()).FontSize(12).TextColor(tMuted(c)).Grow(1)
+			if ui.Button(c, locales.KeymapResetAll()).Clicked() {
 				a.confirmResetPage(pageKeymap)
 			}
 		})
-		ui.SearchField(c, &a.settingsUI.keySearch).Placeholder("搜索命令").FillWidth()
+		ui.SearchField(c, &a.settingsUI.keySearch).Placeholder(locales.KeymapSearchPlaceholder()).FillWidth()
 
 		ui.Scroll(c).Fill().Grow(1).Children(func() {
 			ui.Column(c).FillWidth().Gap(12).Children(func() {
-				for _, group := range keymapGroups {
-					items := a.keymapGroupItems(group.id)
+				for _, groupID := range keymapGroupIDs {
+					items := a.keymapGroupItems(groupID)
 					if len(items) == 0 {
 						continue
 					}
-					settingsSectionTitle(c, group.name)
+					settingsSectionTitle(c, keymapGroupName(groupID))
 					ui.Column(c).FillWidth().Gap(6).Children(func() {
 						for _, def := range items {
 							a.keymapRow(c, def)
 						}
 					})
 				}
-				ui.Text(c, "固定快捷键（不可更改）：⌘F 查找、⌘G/⇧⌘G 查找下一个/上一个、⌘⇧P 源码模式、⌘⌥T 置顶、⌃1–9 切标签、⌘1–6 标题、⌘T 新建标签、⌘R 重命名标签、⌘⌥←/→ 上/下一个标签、⌘S 立即备份、⌘⇧C 复制标签全文、系统编辑操作。").
+				ui.Text(c, locales.KeymapFixedHint()).
 					FontSize(11).TextColor(tMuted(c))
 			})
 		})
@@ -97,7 +99,7 @@ func (a *app) keymapGroupItems(group string) []commandDef {
 		if def.group != group {
 			continue
 		}
-		if query != "" && !strings.Contains(strings.ToLower(def.name), query) {
+		if query != "" && !strings.Contains(strings.ToLower(commandDisplayName(def)), query) {
 			continue
 		}
 		out = append(out, def)
@@ -109,7 +111,7 @@ func (a *app) keymapGroupItems(group string) []commandDef {
 func (a *app) keymapRow(c *ui.Context, def commandDef) {
 	acc := a.commandBinding(def.id)
 	b, _ := parseAccelerator(acc)
-	display := "未设置"
+	display := locales.KeymapUnbound()
 	if acc != "" {
 		display = b.displayName()
 	}
@@ -119,30 +121,30 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 			Background(c.Theme().Accent.Mix(c.Theme().Background, 0.9)).
 			BorderWidth(1.5).BorderColor(c.Theme().Accent).
 			Focusable().AutoFocus().FocusRing(true).
-			Label("录制快捷键").
+			Label(locales.KeymapRecord()).
 			AlignItems(ui.Center).Justify(ui.Center).
 			HandleInput(func(ev ui.InputEvent) bool {
 				return a.captureKeymapKey(def, ev)
 			}).Children(func() {
-			ui.Text(c, "按下组合键，Esc 取消").TextColor(c.Theme().Accent).Bold()
+			ui.Text(c, locales.KeymapRecording()).TextColor(c.Theme().Accent).Bold()
 		})
 		_ = box
 		return
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
-		ui.Text(c, def.name).Grow(1)
+		ui.Text(c, commandDisplayName(def)).Grow(1)
 		badge := ui.Box(c.Key("bind-"+def.id)).Padding(2, 8).Radius(5).
 			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Border).
-			Label("当前快捷键 " + display).Children(func() {
+			Label(locales.KeymapCurrent(display)).Children(func() {
 			ui.Text(c, display).FontSize(12)
 		})
 		_ = badge
-		if ui.Button(c.Key("rec-"+def.id), "更改").Clicked() {
+		if ui.Button(c.Key("rec-"+def.id), locales.KeymapChange()).Clicked() {
 			a.settingsUI.recording = def.id
 			a.settingsUI.keyErr = ""
 		}
 		if acc != "" {
-			if ui.Button(c.Key("clear-"+def.id), "解除").Clicked() {
+			if ui.Button(c.Key("clear-"+def.id), locales.KeymapClear()).Clicked() {
 				if err := a.setCommandBinding(def.id, ""); err != nil {
 					a.settingsUI.keyErr = err.Error()
 				}
@@ -150,7 +152,7 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 		}
 		if over, ok := a.prefs.Keymap.Overrides[def.id]; ok {
 			_ = over
-			if ui.Button(c.Key("reset-"+def.id), "恢复默认").Clicked() {
+			if ui.Button(c.Key("reset-"+def.id), locales.KeymapResetOne()).Clicked() {
 				if err := a.resetCommandBinding(def.id); err != nil {
 					a.settingsUI.keyErr = err.Error()
 				}
@@ -174,7 +176,7 @@ func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 	b := keyBinding{mods: ev.Mods, key: ev.Key}
 	acc := b.accelerator()
 	if err := a.setCommandBinding(def.id, acc); err != nil {
-		a.settingsUI.keyErr = def.name + "：" + err.Error()
+		a.settingsUI.keyErr = commandDisplayName(def) + "：" + err.Error()
 	} else {
 		a.settingsUI.keyErr = ""
 	}
