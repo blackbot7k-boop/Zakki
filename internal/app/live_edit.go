@@ -231,6 +231,15 @@ func (a *app) commitDraftSel(caret int, syncSel bool) {
 	if newDoc == doc && draft == blk.raw {
 		return
 	}
+	// 整块草稿是单行围栏（用户键入 ``` 新建代码块）：闭合成对围栏，
+	// 与空块上执行「代码块」命令的结果一致，光标落到内容行首。
+	// 代码块内的围栏是正文内容，表格单元格草稿另有语义，均不转换。
+	if blk.kind != bkCode && blk.kind != bkTable &&
+		!strings.Contains(draft, "\n") && isFenceLine(draft) {
+		draft += "\n\n```"
+		newDoc = spliceDocLines(doc, blk.start, blk.end, draft)
+		caret = utf8.RuneCountInString(draft) - 4
+	}
 	if caret < 0 {
 		if a.selSyncStart >= 0 {
 			caret = a.selSyncStart

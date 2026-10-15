@@ -226,7 +226,8 @@ func (p liveProjection) fragment(start, end int) string {
 	return out.String()
 }
 
-func (p liveProjection) content(c *ui.Context, t *ui.Theme, accent ui.Color) ui.Element {
+func (p liveProjection) content(c *ui.Context, t *ui.Theme, md resolvedStyle) ui.Element {
+	accent := md.accent
 	text := p.text
 	if text == "" {
 		text = " "
@@ -245,12 +246,21 @@ func (p liveProjection) content(c *ui.Context, t *ui.Theme, accent ui.Color) ui.
 		switch s.kind {
 		case spanBold:
 			sp.Weight = 700
+			if md.sketch {
+				sp.Background = sketchMark(md)
+			}
 		case spanItalic:
 			sp.Italic = true
 		case spanCode:
 			sp.Font, sp.Color = "monospace", t.TextMuted
+			if md.sketch {
+				sp.Background = md.codeBackground
+			}
 		case spanLink:
 			sp.Color, sp.Underline = accent, true
+			if md.sketch {
+				sp.Underline, sp.WavyUnderline, sp.DecorationColor = false, true, accent
+			}
 		}
 		spans = append(spans, sp)
 		prev = s.end
@@ -319,6 +329,9 @@ type liveEdit struct {
 }
 
 func (a *app) liveSnapshot() liveSnapshot {
+	if a.selDoc {
+		return liveSnapshot{a.activeTab().Text, a.selDocStart, a.selDocEnd}
+	}
 	if a.cfg.Source {
 		// 源码模式：全文即文档，选区为文档 rune 偏移。
 		start, end := a.srcCaret, a.srcSelEnd
@@ -403,6 +416,10 @@ func (a *app) undoLive(redo bool) {
 	idx, off := blockOfRuneOffset(blocks, want.start)
 	a.mdActive, a.mdDraft = idx, blocks[idx].raw
 	a.selSyncStart, a.selSyncEnd = want.start-off, want.end-off
+	if want.end > off+utf8.RuneCountInString(blocks[idx].raw) {
+		a.selDoc, a.selDocStart, a.selDocEnd = true, want.start, want.end
+		a.selSyncEnd = a.selSyncStart
+	}
 	a.liveFocus, a.scrollActive = 1, true
 	a.mdPending, a.lastPendingCaret = nil, 0
 	a.onEdited()

@@ -17,8 +17,7 @@ var (
 	iconAlignCenter = lucide(`<path d="M4 6h16M7 12h10M4 18h16"/>`)
 	iconAlignRight  = lucide(`<path d="M4 6h16M10 12h10M4 18h16"/>`)
 	iconTrash       = lucide(`<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>`)
-	// iconClearDot 清空当前点（Lucide circle-x）
-	iconClearDot = lucide(`<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`)
+	iconCloseWindow = lucide(`<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`)
 	// iconPin 窗口置顶（Lucide pin）
 	iconPin = lucide(`<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/>`)
 	// iconPreview markdown 预览（Lucide eye）

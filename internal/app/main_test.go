@@ -1,7 +1,9 @@
 package app
 
 import (
+	"bytes"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -102,6 +104,30 @@ func TestView(t *testing.T) {
 	}
 	if !a.findOpen {
 		t.Error("点击搜索后应打开查找条")
+	}
+}
+
+func TestHeaderClosePreservesNotes(t *testing.T) {
+	for _, source := range []bool{false, true} {
+		t.Run(map[bool]string{false: "实时预览", true: "源码"}[source], func(t *testing.T) {
+			a := newTestApp(t)
+			t.Cleanup(a.shutdown)
+			a.cfg.Source = source
+			a.active = 2
+			a.tabs[2].Text = "关闭窗口后要保留的内容"
+			a.resyncLive(0)
+			before := append([]tab(nil), a.tabs...)
+			tt := ui.NewTester(a.view, 400, 540)
+
+			tt.ClickAt(22, tabTrackHeight/2)
+			tt.Frame()
+			if !reflect.DeepEqual(a.tabs, before) || a.active != 2 {
+				t.Fatalf("点击左上角关闭按钮修改了笔记：tabs=%+v active=%d", a.tabs, a.active)
+			}
+			if !tt.HasText("关闭窗口") || tt.HasText("清空当前标签") {
+				t.Fatalf("顶栏应提供关闭窗口按钮：%q", tt.Texts())
+			}
+		})
 	}
 }
 
@@ -537,5 +563,27 @@ func TestFindMatches(t *testing.T) {
 	}
 	if findMatches("abc", "") != nil {
 		t.Error("空查询应无命中")
+	}
+}
+
+// TestNoDirectProductionAppInTests 测试不得直接用 newApp()：它指向真实用户数据
+// 目录，跑一次就会把用户的偏好与笔记覆盖成测试内容。新增测试请用 newTestApp(t)。
+func TestNoDirectProductionAppInTests(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, "_test.go") || name == "main_test.go" {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(src, []byte("newApp()")) {
+			t.Errorf("%s 使用了 newApp()，会写真实用户数据目录；请改用 newTestApp(t)", name)
+		}
 	}
 }

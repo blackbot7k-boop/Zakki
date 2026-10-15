@@ -20,9 +20,10 @@ func benchDoc() string {
 	return b.String()
 }
 
-// benchApp 跑分用 app：置 stopped 不落盘，避免定时保存干扰测量或写真实数据。
-func benchApp(doc string) *app {
-	a := newApp()
+// benchApp 跑分用 app：newTestApp 提供临时目录（绝不写真实用户数据），
+// 再置 stopped 不落盘，避免定时保存干扰测量。
+func benchApp(b *testing.B, doc string) *app {
+	a := newTestApp(b)
 	a.notes.SetStopped(true)
 	a.tabs[0].Text = doc
 	a.resyncLive(0)
@@ -43,7 +44,7 @@ func BenchmarkLiveBlocks(b *testing.B) {
 
 // BenchmarkMdBlocksCached 带文档缓存后的重复调用（每帧的 ensureDraftSynced+livePane）。
 func BenchmarkMdBlocksCached(b *testing.B) {
-	a := benchApp(benchDoc())
+	a := benchApp(b, benchDoc())
 	b.ReportAllocs()
 	for b.Loop() {
 		if bs := a.mdBlocks(); len(bs) == 0 {
@@ -59,7 +60,7 @@ func BenchmarkCommitDraft(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		b.StopTimer()
-		a := benchApp(doc)
+		a := benchApp(b, doc)
 		blocks := liveBlocks(doc)
 		// 找中间一个段落块，模拟在其中打一个字
 		mid := len(blocks) / 2

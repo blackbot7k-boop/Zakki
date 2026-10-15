@@ -136,7 +136,10 @@ func TestPopulatedDotBlankAreaFocusesDocumentEnd(t *testing.T) {
 
 // TestLivePanePreviewByDefault 启动即预览态：点击内容区之前，键盘输入不动文档。
 func TestLivePanePreviewByDefault(t *testing.T) {
-	a := newApp()
+	// newTestApp 用临时目录；newApp 会指向真实用户数据目录，跑到这里会把
+	// 用户的偏好与笔记覆盖成测试内容。生产启动态是 mdActive = -1，手动设回去。
+	a := newTestApp(t)
+	a.mdActive = -1
 	t.Cleanup(a.shutdown)
 	a.tabs[0].Text = "正文"
 	tt := ui.NewTester(a.view, 400, 540)
