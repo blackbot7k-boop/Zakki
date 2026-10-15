@@ -275,10 +275,10 @@ func (a *app) createMenu() *mygo.Menu {
 		{Role: mygo.RoleCut},
 		{Role: mygo.RoleCopy},
 		{Role: mygo.RolePaste},
-		// 显式全选菜单项：点击与 ⌘A 都走文档级选区（实时预览跨块），
-		// 不用 RoleSelectAll 的单块原生行为。
-		{Label: "全选", Accelerator: "CmdOrCtrl+A",
-			Click: func(*mygo.MenuItem, *mygo.Window) { a.menuSelectAll() }},
+		// 显式全选菜单项：文档级选区（实时预览跨块）。⌘A 不挂加速键——
+		// 自定义 Click 项的键等价在打包后不触发还会吞掉按键，
+		// 让按键走 surface 的 HandleInput（recordProjectedKey 的 selectAll 分支）。
+		{Label: "全选", Click: func(*mygo.MenuItem, *mygo.Window) { a.menuSelectAll() }},
 		mygo.Separator(),
 		{Label: "Markdown", Submenu: markdownItems},
 	}

@@ -10,6 +10,7 @@ import (
 // 跨块的高亮与复制/剪切/删除/输入由 app 层接管（见 docSelectionInput）。
 func (a *app) selectDocWide() {
 	a.selDoc = true
+	a.selDoc = true
 	if a.mdActive >= 0 && a.mdActive < len(a.mdBlocks()) && a.mdBlocks()[a.mdActive].kind == bkTable {
 		// 表格单元格内：保持单元格原生全选语义。
 		a.clearDocSelection()
@@ -64,9 +65,6 @@ func (a *app) docSelectionInput(ev ui.InputEvent) bool {
 		ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyX && ev.Mods == ui.Super:
 		a.writeDocClipboard()
 		a.spliceDocSelection("")
-		return true
-	case ev.Kind == ui.InputText:
-		a.spliceDocSelection(ev.Text)
 		return true
 	case ev.Kind == ui.InputKeyDown && ev.Mods == 0 && ev.Key == ui.KeyEnter:
 		a.spliceDocSelection("\n")
