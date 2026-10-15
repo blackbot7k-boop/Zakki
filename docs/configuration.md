@@ -62,7 +62,7 @@ macOS 路径：
   「标签与外观」页调整，功能不受影响。
 - **Markdown 排版主题**：Sonnet（Typora）、Tot 便签、清晰（16px/1.65）、
   书页（宋体 17px/1.8）、紧凑（15px/1.5）；标题字号 = 正文基准 × 主题比例。
-- **排版微调**：正文字体（Sonnet 同款 / 系统苹方 / 宋体）、代码字体
+- **排版微调**：正文字体（霞鹜文楷 / 系统苹方 / 宋体，与排版主题解耦）、代码字体
   （JetBrains Mono / SF Mono / Menlo）、字号（10–40）、行高（1–3）；
   清空表示「跟随 Markdown 排版主题」。主题切换不重置显式覆盖。
 - **预览**：只读示例（中英文、标题、链接、代码、引用、任务、表格），
@@ -151,7 +151,7 @@ macOS 路径：
 }
 ```
 
-- `appearance.bodyFont` / `monoFont` 空串 = 跟随排版主题；`bodySize` / `lineHeight` 0 = 跟随。
+- `appearance.bodyFont` / `monoFont` 与排版主题解耦：空串 = 默认字体栈（霞鹜文楷 / JetBrains Mono），换主题不换字体；旧值 `sonnet` 按默认栈解析。`bodySize` / `lineHeight` 0 = 跟随主题。
 - `keymap.overrides` 缺项用默认绑定；显式空串表示解除绑定；值为规范化 accelerator。
 - `advanced` 是兼容参数（自动保存防抖毫秒、主窗口初始宽高），不在设置页展示，
   仅在旧配置携带有效值时迁移保留。

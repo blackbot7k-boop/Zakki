@@ -49,8 +49,9 @@ func TestPreviewStyleFollowsThemeWithoutOverrides(t *testing.T) {
 	if s.bodySize != layout.bodySize || s.lineHeight != layout.lineHeight {
 		t.Fatalf("空覆盖应跟随排版主题: %+v", s)
 	}
-	if s.bodyFont != bodyFontStack(layout.bodyFont) || s.monoFont != monoFontStack(layout.monoFont) {
-		t.Fatalf("空覆盖应跟随主题字体: %q %q", s.bodyFont, s.monoFont)
+	// 字体与排版主题解耦：book 主题不再带宋体，空键始终是默认栈。
+	if s.bodyFont != sonnetBodyFont || s.monoFont != sonnetMonoFont {
+		t.Fatalf("空字体键应为默认栈: %q %q", s.bodyFont, s.monoFont)
 	}
 }
 

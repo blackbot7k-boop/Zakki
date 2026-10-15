@@ -212,8 +212,6 @@ func colorFloats(c ui.Color) [4]float64 {
 type markdownLayout struct {
 	id           string
 	name         string
-	bodyFont     string  // 默认正文字体栈 key：""（Sonnet 同款）| pingfang | songti
-	monoFont     string  // 默认代码字体栈 key："" | sfmono | menlo
 	bodySize     float32 // 基准字号 px
 	lineHeight   float32 // 基准行高
 	blockGap     float32 // 块间距 px
@@ -228,35 +226,35 @@ type markdownLayout struct {
 var markdownLayouts = []markdownLayout{
 	{
 		id: "sonnet", name: "Sonnet（Typora）",
-		bodyFont: "", monoFont: "", bodySize: 16, lineHeight: 1.6, blockGap: 12,
+		bodySize: 16, lineHeight: 1.6, blockGap: 12,
 		padX: 24, padY: 24,
 		headingScale: [6]float32{1.75, 1.5, 1.25, 1.0625, 0.9375, 0.875},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 8, tablePadY: 6,
 	},
 	{
 		id: "tot", name: "Tot 便签",
-		bodyFont: "pingfang", monoFont: "sfmono", bodySize: 15, lineHeight: 1.5, blockGap: 12,
+		bodySize: 15, lineHeight: 1.5, blockGap: 12,
 		padX: 24, padY: 24,
 		headingScale: [6]float32{1.75, 1.5, 1.25, 1.0625, 0.9375, 0.875},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 8, tablePadY: 6,
 	},
 	{
 		id: "clear", name: "清晰",
-		bodyFont: "pingfang", monoFont: "sfmono", bodySize: 16, lineHeight: 1.65, blockGap: 14,
+		bodySize: 16, lineHeight: 1.65, blockGap: 14,
 		padX: 26, padY: 26,
 		headingScale: [6]float32{1.7, 1.45, 1.25, 1.08, 0.95, 0.88},
 		codePadX:     12, codePadY: 10, quoteIndent: 8, tablePadX: 9, tablePadY: 7,
 	},
 	{
 		id: "book", name: "书页",
-		bodyFont: "songti", monoFont: "menlo", bodySize: 17, lineHeight: 1.8, blockGap: 18,
+		bodySize: 17, lineHeight: 1.8, blockGap: 18,
 		padX: 32, padY: 28,
 		headingScale: [6]float32{1.5, 1.3, 1.15, 1.02, 0.95, 0.9},
 		codePadX:     14, codePadY: 12, quoteIndent: 10, tablePadX: 10, tablePadY: 8,
 	},
 	{
 		id: "compact", name: "紧凑",
-		bodyFont: "pingfang", monoFont: "sfmono", bodySize: 15, lineHeight: 1.5, blockGap: 10,
+		bodySize: 15, lineHeight: 1.5, blockGap: 10,
 		padX: 20, padY: 20,
 		headingScale: [6]float32{1.6, 1.38, 1.2, 1.05, 0.93, 0.86},
 		codePadX:     9, codePadY: 7, quoteIndent: 6, tablePadX: 6, tablePadY: 4,
@@ -289,6 +287,8 @@ const (
 )
 
 // bodyFontStack 是设置里可选的正文字体栈。
+// bodyFontStack 把用户正文字体键解析为字体栈。字体与排版主题解耦：
+// ""（默认）、kai、sonnet（旧值别名）都是霞鹜文楷栈，与主题选择无关。
 func bodyFontStack(key string) string {
 	switch key {
 	case "pingfang":
@@ -300,7 +300,7 @@ func bodyFontStack(key string) string {
 	}
 }
 
-// monoFontStack 是设置里可选的代码字体栈。
+// monoFontStack 是用户代码字体键到字体栈的解析，解耦规则同 bodyFontStack。
 func monoFontStack(key string) string {
 	switch key {
 	case "sfmono":
@@ -364,8 +364,9 @@ func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 		accent: pal.accent, selection: pal.selection,
 		codeBackground: pal.codeBackground, quoteBorder: pal.quoteBorder, rule: pal.rule,
 
-		bodyFont:   bodyFontStack(layout.bodyFont),
-		monoFont:   monoFontStack(layout.monoFont),
+		// 字体与排版主题解耦：始终用用户选择的字体键（空 = 默认栈）。
+		bodyFont:   bodyFontStack(a.prefs.Appearance.BodyFont),
+		monoFont:   monoFontStack(a.prefs.Appearance.MonoFont),
 		bodySize:   layout.bodySize,
 		lineHeight: layout.lineHeight,
 		blockGap:   layout.blockGap,
@@ -381,13 +382,7 @@ func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 		s.headingSizes[i] = roundHalf(layout.bodySize * scale)
 	}
 	if override {
-		// 用户显式覆盖优先；主题切换不重置覆盖值。
-		if key := a.prefs.Appearance.BodyFont; key != "" {
-			s.bodyFont = bodyFontStack(key)
-		}
-		if key := a.prefs.Appearance.MonoFont; key != "" {
-			s.monoFont = monoFontStack(key)
-		}
+		// 用户显式覆盖优先；主题切换不重置覆盖值。字体已解耦，无需覆盖分支。
 		if a.prefs.Appearance.BodySize > 0 {
 			s.bodySize = a.prefs.Appearance.BodySize
 			for i := range s.headingSizes {

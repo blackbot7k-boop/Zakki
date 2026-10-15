@@ -63,12 +63,13 @@ func TestMarkdownLayouts(t *testing.T) {
 	for _, l := range markdownLayouts {
 		byID[l.id] = l
 	}
+	// 字体已解耦：排版主题只携带间距与字号参数。
 	clear := byID["clear"]
-	if clear.bodySize != 16 || clear.lineHeight != 1.65 || clear.blockGap != 14 || clear.bodyFont != "pingfang" {
+	if clear.bodySize != 16 || clear.lineHeight != 1.65 || clear.blockGap != 14 {
 		t.Fatalf("清晰排版参数: %+v", clear)
 	}
 	book := byID["book"]
-	if book.bodySize != 17 || book.lineHeight != 1.8 || book.blockGap != 18 || book.bodyFont != "songti" {
+	if book.bodySize != 17 || book.lineHeight != 1.8 || book.blockGap != 18 {
 		t.Fatalf("书页排版参数: %+v", book)
 	}
 	compact := byID["compact"]
@@ -109,11 +110,11 @@ func TestResolveStyleIndependentLayers(t *testing.T) {
 	if p0.background != def.light.background {
 		t.Fatalf("纸白浅色背景: %v", p0.background)
 	}
-	// 排版独立：换颜色主题不改变字号/字体。
+	// 排版独立：换颜色主题不改变字号；字体与主题解耦，保持用户选择。
 	a.prefs.Appearance.MarkdownTheme = "book"
 	b := a.resolveStyle(3, false, true)
-	if b.bodySize != 17 || b.bodyFont != bodyFontStack("songti") {
-		t.Fatalf("书页排版应生效: %+v", b)
+	if b.bodySize != 17 || b.bodyFont != sonnetBodyFont {
+		t.Fatalf("书页排版应生效且字体不随主题: %+v", b)
 	}
 	// 设置窗口（dot=-1）用 Tot 中性灰变体。
 	a.prefs.Appearance.ColorTheme = "tot"
@@ -131,7 +132,11 @@ func TestResolveStyleOverridesFollowTheme(t *testing.T) {
 	if s.bodySize != 16 || s.lineHeight != 1.65 {
 		t.Fatalf("无覆盖应跟随主题: %+v", s)
 	}
-	// 显式覆盖优先，且主题切换不重置覆盖。
+	// 字体键与排版主题解耦：clear 主题不再改变字体，空键是默认栈。
+	if s.bodyFont != sonnetBodyFont || s.monoFont != sonnetMonoFont {
+		t.Fatalf("空字体键应为默认栈: %q %q", s.bodyFont, s.monoFont)
+	}
+	// 显式字号/行高覆盖优先，且主题切换不重置覆盖。
 	a.prefs.Appearance.BodySize = 22
 	a.prefs.Appearance.LineHeight = 2
 	a.prefs.Appearance.BodyFont = "songti"

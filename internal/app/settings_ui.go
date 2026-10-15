@@ -245,13 +245,13 @@ func (a *app) markdownThemeCards(c *ui.Context) {
 			btn.Children(func() {
 				ui.Column(c).Gap(4).Children(func() {
 					ui.Text(c, l.name).Bold().FontSize(13)
-					bodyFont := bodyFontStack(l.bodyFont)
+					bodyFont := bodyFontStack(a.prefs.Appearance.BodyFont)
 					sampleSize := roundHalf(l.bodySize * 0.72)
 					ui.RichText(c).LineHeight(l.lineHeight).Children(func() {
 						ui.Text(c, "敏捷的棕色狐狸 The quick brown fox，").Font(bodyFont).FontSize(sampleSize)
 						ui.Text(c, "粗体").Font(bodyFont).FontSize(sampleSize).Bold()
 						ui.Text(c, "与").Font(bodyFont).FontSize(sampleSize)
-						ui.Text(c, "代码").Font(monoFontStack(l.monoFont)).FontSize(sampleSize).TextColor(tMuted(c))
+						ui.Text(c, "代码").Font(monoFontStack(a.prefs.Appearance.MonoFont)).FontSize(sampleSize).TextColor(tMuted(c))
 						ui.Text(c, "。").Font(bodyFont).FontSize(sampleSize)
 					})
 					ui.Text(c, descriptions[l.id]).FontSize(10.5).TextColor(tMuted(c))
@@ -267,10 +267,10 @@ func (a *app) markdownThemeCards(c *ui.Context) {
 
 // typographyOverrides 排版覆盖：每项可「跟随 Markdown 主题」（空 = 跟随）。
 func (a *app) typographyOverrides(c *ui.Context) {
-	bodyOptions := []string{"跟随主题", "Sonnet 同款", "系统苹方", "宋体"}
-	bodyKeys := []string{"", "sonnet", "pingfang", "songti"}
-	monoOptions := []string{"跟随主题", "JetBrains Mono", "SF Mono", "Menlo"}
-	monoKeys := []string{"", "sonnet", "sfmono", "menlo"}
+	bodyOptions := []string{"霞鹜文楷（默认）", "系统苹方", "宋体"}
+	bodyKeys := []string{"kai", "pingfang", "songti"}
+	monoOptions := []string{"JetBrains Mono（默认）", "SF Mono", "Menlo"}
+	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
