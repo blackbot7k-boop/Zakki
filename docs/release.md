@@ -4,9 +4,10 @@
 
 - 仓库与更新分发：公开仓库 `gomeen/Zakki` 的 GitHub Releases，无需额外服务器。
 - 应用名与安装包：macOS 为 `Zakki.app` / DMG，Windows 为 `Zakki.exe` / Setup EXE。
-  保留 `com.gomeen.totmd` 标识、Go module 名和原 `Tot MD` 数据目录（macOS 为
-  `~/Library/Application Support/Tot MD/`，Windows 为 `%APPDATA%\Tot MD\`），不改变 JSON 格式。
-- 更新器：MyGo v0.4.8 的 `plugins/updater/native`，全原生 UI，无 webview；应用菜单与托盘
+  应用标识 `com.gomeen.zakki`，Go module 名 `zakki`；数据目录 macOS 为
+  `~/Library/Application Support/Zakki/`，Windows 为 `%APPDATA%\Zakki\`，不改变 JSON 结构。
+  更早版本安装的旧数据目录会在新版首次启动时自动迁移到新目录（整体搬入并按新命名改名文件）。
+- 更新器：MyGo v0.5.1 的 `plugins/updater/native`，全原生 UI，无 webview；应用菜单与托盘
   均提供「检查更新…」，默认只手动检查。用户可查看版本说明、下载安装、跳过或稍后重启。
 - 发布目标固定为 **darwin/universal**（Intel 与 Apple Silicon）和 **windows/amd64**（Windows 10/11 x64）。
   同一个 Release 分别提供 `update-darwin-universal.json` 与 `update-windows-amd64.json`，两种系统不会混用更新。
@@ -139,9 +140,9 @@ https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.js
   不能直接在只读 DMG 内自更新；安装目录必须可写。开发模式也不能自更新。
 - **Windows 首次安装**：下载 `Zakki Setup <version> amd64.exe`，按用户安装到默认目录。
   自定义目录也必须可写，不建议装入需要管理员权限的 Program Files。
-  数据位于 `%APPDATA%\Tot MD\`，不随应用更新替换；不要把数据目录选成程序安装目录（卸载器会删除安装目录）。
-- **旧 Tot MD 用户**：先 ⌘S 备份，再 ⌘Q 完整退出（关窗和 Esc 不等于退出），手动安装一次 Zakki。
-  移除旧 `Tot MD.app`，不要同时启动两版写同一份数据；不删除 `Tot MD` 数据目录。
+  数据位于 `%APPDATA%\Zakki\`，不随应用更新替换；不要把数据目录选成程序安装目录（卸载器会删除安装目录）。
+- **更早版本用户**：先 ⌘S 备份，再 ⌘Q 完整退出（关窗和 Esc 不等于退出），手动安装一次 Zakki。
+  移除旧应用包，不要同时启动两版写同一份数据；旧数据目录无需手动处理，新版首次启动会自动迁移。
 - **以后更新**：Zakki → 检查更新… → 查看说明 → 下载并安装 → 重启。
   更新替换应用包，不删除笔记、偏好和备份；重启经过退出最终保存，保存失败会取消退出并显示错误。
 - **Windows 安全提示**：当前未配置 Authenticode，可能出现 SmartScreen/未知发布者提示；确认下载来源后再决定是否运行。

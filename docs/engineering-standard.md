@@ -33,7 +33,8 @@ MyGo UI 与应用装配整体作为 `internal/app` 一个包；纯逻辑和持�
 解析、格式变换、持久化是纯逻辑，独立成包后可脱离 MyGo 做快速单测。
 
 ```text
-tot-md-mygo/
+zakki/                      # 模块名；工作目录名可与应用不同名
+├── locales/                  # i18n：en.json（源）+ zh-Hans.json；mygo generate 生成 catalog_gen.go
 ├── AGENTS.md                 # agent 硬规则入口
 ├── Makefile                  # 本地/CI 统一检查入口
 ├── go.mod / go.sum
@@ -132,10 +133,10 @@ arch-check:
 		[ -d "$$dir" ] || continue; \
 		if go list -deps "$$dir" | grep -q '^github.com/egoist/mygo'; then \
 			echo "  internal/$$pkg 依赖了 MyGo"; fail=1; fi; \
-		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+		for dep in $$(go list -f '{{join .Imports "\n"}}' "$$dir" | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
-	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^tot-md-mygo/internal/' | sed 's|tot-md-mygo/internal/||'); do \
+	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
 		case " markdown atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 ```
@@ -216,7 +217,7 @@ arch-check:
 
 ### 5.4 数据契约
 
-- 笔记数据文件 `tot-md.json`、`preferences.json` 的格式与迁移语义是对用户的契约。
+- 笔记数据文件 `zakki.json`、`preferences.json` 的格式与迁移语义是对用户的契约。
   结构迁移类提交**禁止**改变它们；需要改格式时单独发 `feat`/`fix` 提交，
   递增版本号、补迁移与回归测试，并同步 [architecture.md](architecture.md) 与 [configuration.md](configuration.md)。
 
@@ -255,14 +256,14 @@ CI（`.github/workflows/ci.yml`，`macos-latest`）执行 `go mod verify`、`go 
 - 一次提交只做一件事。纯结构迁移用 `refactor:`，**禁止**夹带行为变更、格式变更或 lint 清理。
 - 未经用户允许不做 lint 类修改。
 - 文件迁移或职责变化时，**必须**在同一次提交里同步更新 [architecture.md](architecture.md) 的模块表。
-- 禁止提交 `build/`、`.mygo/`、根目录二进制 `tot-md-mygo`、`*.syso`。
+- 禁止提交 `build/`、`.mygo/`、根目录 `go build` 二进制产物、`*.syso`。
 
 ## 7. 分阶段迁移路线
 
 每个阶段交给一个 agent，可拆成多次提交，但阶段结束时必须满足验收标准。
 阶段之间严格按顺序，后一阶段开始前前一阶段的提交必须已落地。
 
-**所有阶段的通用约束**：不改变用户可见行为；不改 `tot-md.json` 与 `preferences.json` 格式和迁移语义；
+**所有阶段的通用约束**：不改变用户可见行为；不改 `zakki.json` 与 `preferences.json` 格式和迁移语义；
 测试只能迁移、不能删除或放宽；每次提交 `make check` 全绿。
 
 ### 阶段 0：提交现有工作

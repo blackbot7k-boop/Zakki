@@ -4,7 +4,7 @@
 
 ## 主题（Sonnet / Sonnet Dark）
 
-**结论：Typora 的 CSS 不能直接加载**——Tot MD 是 MyGo 原生 Go UI（无 DOM/webview/CSS 引擎），
+**结论：Typora 的 CSS 不能直接加载**——Zakki 是 MyGo 原生 Go UI（无 DOM/webview/CSS 引擎），
 但可以把 `sonnet.css` / `sonnet-dark.css` 的视觉参数移植进原生代码：
 
 - 颜色 token 复刻 `:root` 变量：浅色 `#faf9f5` 底 / `#141413` 字 / `#cc785c` 强调，
@@ -13,9 +13,9 @@
 - 字体直接复用本机已装的「Sonnet 主题同款栈」：`JetBrains Mono, LXGW WenKai...`
   （MyGo 的 `Font()` 支持逗号栈并按序回退）。
 - 实现位置：`markdown_theme.go`（`sonnetMarkdownTheme` + `markdownStyle`），
-  在 `view.go` 中只作用于内容区（编辑器 + 实时预览），托盘顶栏/底栏保持 Tot 原色。
-- 菜单：显示 → **Markdown 主题** → Sonnet（Typora，默认）/ Tot 点配色（旧行为）。
-  持久化在 `tots-md.json` 的 `settings.markdownTheme`。
+  在 `view.go` 中只作用于内容区（编辑器 + 实时预览），托盘顶栏/底栏保持主题原色。
+- 菜单：段落/格式两个顶层菜单收纳 Markdown 命令；排版主题在设置窗口选择（Sonnet（Typora，默认）/ 便签等）。
+  持久化在 `zakki.json` 的 `settings.markdownTheme`。
 - 不能移植的部分：`#write`、`md-meta`/`md-expand`「标记常驻+CSS 显隐」行内混排、
   CodeMirror 专属规则、Typora 菜单/侧栏样式——原生 UI 结构不同，无对应 DOM。
 

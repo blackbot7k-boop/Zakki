@@ -17,18 +17,20 @@
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`（内含生产 git runner 装配）。 |
 | `internal/app/backup_mirror.go` | 外部备份目的地：`validateMirrorDir`（拒绝数据目录/备份目录自身 + 可写性探测）、`dirIsGitRepo`、Git 档位展示映射、`chooseMirrorDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「外部备份」卡片的选/换/断开与 Git 分段入口也在这里。 |
-| `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：五步（欢迎/备份文件夹/初始标签数/Git 可选/完成）草稿式确认；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗经 `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
+| `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：六步（语言/欢迎/备份文件夹/初始标签数/Git 可选/完成）草稿式确认，语言步骤即时 `App.SetLocale`；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗经 `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
-| `internal/notes` | `tot-md.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。 |
+| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护/镜像）。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。 |
+| `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
+| `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：目录整体改名或逐文件搬入，数据/暂存/备份文件换新命名；`dataDir()` 内 `sync.Once` 保证只跑一次，迁移失败只告警不阻塞启动。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`）。 |
 | `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
 | `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。 |
 | `internal/app/live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
 | `internal/app/live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
-| `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注 |册新键成功后再注销旧键）。 |
+| `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；常规页含界面语言选择（`appearance.language` 经 `App.SetLocale` 生效）；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注 |册新键成功后再注销旧键）。 |
 | `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。 |
 | `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）、点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
 | `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`。 |
@@ -36,10 +38,10 @@
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
 | `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
-| `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何。 |
+| `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何；非当前标签形状可配置（`tabDotPath` 11 种形状，圆环描边且不参与液态桥接），`TabMotionOff` 关闭补间（与系统 ReduceMotion 同路径）。 |
 | `internal/app/settings_tabs.go` | 设置窗口「标签与外观」页。 |
-| `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Close`，保留笔记与标签，关闭后可由托盘或全局热键重新打开。 |
-| `internal/app/view_live.go` | 实时预览块列表：`livePane`、焦点块 `activeText` 与非焦点块渲染。 |
+| `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Close`，保留笔记与标签，关闭后可由托盘或全局热键重新打开。只有一个标签且不在重命名时隐藏标签区（`tabStripHidden`），并复位标签几何避免恢复多标签时残留补间。 |
+| `internal/app/view_live.go` | 实时预览块列表：`livePane`（`ui.List` 虚拟化，只构建可见块；外层 Column 兜底左右留白与行间空隙的空白点击）、焦点块 `activeText` 与非焦点块渲染。 |
 | `internal/app/live_blocks.go` | 按行切块：`liveBlocks` / `parseLines`。焦点块保留排版并编辑可见文字；Markdown 标记留在源文本中。 |
 | `internal/app/live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存。 |
 | `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块。 |
@@ -71,19 +73,19 @@
 
 ## 持久化生命周期
 
-数据文件：`<数据目录>/tot-md.json`（目录见下节）。
+数据文件：`<数据目录>/zakki.json`（目录见下节）。
 
 ### 保存
 
 1. **防抖**：每次改动调 `scheduleSave`，默认 800ms（`Advanced.AutosaveDelayMS`）内没有新改动才落盘（`time.AfterFunc`）；
    防抖到期由 `notes.Store.flushPending` 在后台取走最新快照写盘（新快照取代旧的排队快照）。
-2. **原子写**：`notes.Store.writeFileLocked` 经 `atomicfile.WriteBytes` 先写 `tot-md.json.tmp` 再 `os.Rename` 替换；
+2. **原子写**：`notes.Store.writeFileLocked` 经 `atomicfile.WriteBytes` 先写 `zakki.json.tmp` 再 `os.Rename` 替换；
    rename 失败如实上报，不装作保存成功。目录自动 `MkdirAll`。
 3. **写保护**：数据文件损坏且无可用备份时 `notes.Store.saveBlocked = true`，此后写入转到暂存文件
-   `tot-md.json.pending`，绝不覆盖原路径；用户在菜单点「写回数据文件」（`confirmWriteBack`）
+   `zakki.json.pending`，绝不覆盖原路径；用户在设置页点「写回数据文件」（`confirmWriteBack`）
    确认后才写回原路径并清理暂存文件（写回失败则维持写保护）。
 
-### 备份（`backups/` 目录，文件名 `tot-md-<时间戳>.json`，同秒多次加序号）
+### 备份（`backups/` 目录，文件名 `zakki-<时间戳>.json`，同秒多次加序号）
 
 | 入口 | 行为 |
 |---|---|
@@ -91,14 +93,14 @@
 | 自动备份 `maybeWritePeriodicBackup` | 距上次备份超过配置间隔（`Backup.IntervalMinutes`，默认 **5 分钟**，常量 `backupInterval`）才写一份，随防抖保存顺带触发。 |
 | 手动备份 `backupNow`（菜单/托盘「立即备份」、⌘S） | **无条件**创建一份（绕过周期节流），先保存当前数据再备份。 |
 | 清空当前标签 `clearActiveTab` | 危险操作：**先强制备份**（`backupNow`），备份失败则取消清空。 |
-| 外部镜像 `writeMirrorLocked` | 本地备份写成功后，同一份内容镜像到 `Backup.MirrorDir`（云盘同步文件夹或 Git 仓库 clone），按同一 `Keep` 修剪且只动 `tot-md-*.json`；**镜像或 Git 失败只记警告与状态，绝不影响本地备份成功**。Git 档位 `Backup.GitMode`（off/commit/commitPush）非 off 且选了仓库目录时，后台 `git add tot-md-*.json` + commit（可选 push，`runGitJob`，runner 经 `Store.RunGit` 注入），忙碌期间合并为一次补跑；`LoadMirrorTime` 启动时从镜像目录恢复最近镜像时间。 |
+| 外部镜像 `writeMirrorLocked` | 本地备份写成功后，同一份内容镜像到 `Backup.MirrorDir`（云盘同步文件夹或 Git 仓库 clone），按同一 `Keep` 修剪且只动本应用备份文件（新前缀 `zakki-*.json`，兼容识别更名前的旧前缀常量，让其随保留策略自然淘汰）；**镜像或 Git 失败只记警告与状态，绝不影响本地备份成功**。Git 档位 `Backup.GitMode`（off/commit/commitPush）非 off 且选了仓库目录时，后台 `git add` 两个前缀的备份文件 + commit（可选 push，`runGitJob`，runner 经 `Store.RunGit` 注入），忙碌期间合并为一次补跑；`LoadMirrorTime` 启动时从镜像目录恢复最近镜像时间。 |
 
 保留策略：`notes.Store.pruneBackupsLocked` 按 `Backup.Keep` 修剪，默认只保留最新 **20 份**；修剪失败只记警告（备份本体已写成功）。
 
 ### 损坏隔离与恢复（`load` → `recoverFromBrokenFile`）
 
 - 文件不存在：首次运行，写入欢迎文本。
-- 解析失败 / 读取失败 / 版本过高：原件**复制隔离**为 `tot-md.json.corrupt-<时间戳>`
+- 解析失败 / 读取失败 / 版本过高：原件**复制隔离**为 `zakki.json.corrupt-<时间戳>`
   （`notes.Store.QuarantineCorruptFile`，绝不删除或覆盖原件）→ 从备份目录新→旧找第一个可用备份恢复
   （`notes.Store.LoadNewestBackup`）→ 都失败则用默认值并进入写保护（见上）。
 - 即使已从备份恢复，`load` 也如实返回错误，状态栏/日志给出提示（`notice`/`slog`）。
@@ -139,7 +141,7 @@
 | `active` | int | 当前激活的标签下标（载入时按标签数 clamp） |
 | `tabs` | [{id,name,text,color}] | 动态标签（1–12 个）：稳定 ID、可选名称、markdown 纯文本、颜色（空/非法回退调色板）；v1 的 `dots` 字段仅为读取保留，新保存不写 |
 | `settings.themeSource` | string | `system` \| `light` \| `dark`，空串按 `system` |
-| `settings.markdownTheme` | string | 空 / `sonnet` 为 Sonnet，`tot` 为 Tot 主题 |
+| `settings.markdownTheme` | string | 空 / `sonnet` 为 Sonnet，`note` 为便签（版本 2 文件里的更名前旧 ID 随载入迁移到新 ID） |
 | `settings.bodyFont` / `settings.monoFont` | string | 正文 / 代码字体预设，空为主题默认 |
 | `settings.bodySize` / `settings.lineHeight` | float32 | 正文字号 / 行高，0 为主题默认 |
 | `settings.alwaysOnTop` | bool | 窗口置顶 |
@@ -172,9 +174,10 @@
 ## 测试接缝
 
 - **路径注入**：`notes.Store` 的 `DataFile` / `BackupDir`。生产由 `newApp` 用 `dataDir()`
-  （`mygo.App.Path(PathAppData)` + `dataDirectoryName`，macOS 为 `~/Library/Application Support/Tot MD/`，Windows 为 `%APPDATA%\Tot MD\`，
-  失败回退 `os.UserHomeDir` + `Library/Application Support`）。改名 Zakki 后保留旧数据目录、文件名与 bundle identifier；
-  启动时 `PathUserData` 也指向旧目录，MyGo 窗口状态与 `updater.json` 更新辅助状态仍在这里。由此拼出 `tot-md.json` 与 `backups/`。
+  （`mygo.App.Path(PathAppData)` + `dataDirectoryName`，macOS 为 `~/Library/Application Support/Zakki/`，Windows 为 `%APPDATA%\Zakki\`，
+  失败回退 `os.UserHomeDir` + `Library/Application Support`）。应用更名后 `datamigrate.go` 在首次启动时把旧数据目录整体迁到新目录
+  （新目录已有数据则不动旧目录、仅告警），内部数据/暂存/备份文件按新命名规则改名；`PathUserData` 指向新目录，
+  MyGo 窗口状态与 `updater.json` 更新辅助状态仍在这里。由此拼出 `zakki.json` 与 `backups/`。
 - **时钟注入**：`app.now func() time.Time`，生产 `time.Now`，测试给假时钟。
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），

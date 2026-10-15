@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Zakki（原 Tot MD）：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS Markdown 便签应用，纯 Go 单二进制。
+Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Windows Markdown 便签应用，纯 Go 单二进制，界面语言英文 + 简体中文（MyGo i18n）。
 
 ## 必读
 
@@ -15,6 +15,7 @@ Zakki（原 Tot MD）：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 
 - 根目录：只有入口 `main.go`（调 `internal/app.Run()`）与工程化文件。
 - `internal/app`：MyGo UI 与应用装配（窗口、菜单、托盘、视图、实时预览、标签、设置），唯一允许依赖 MyGo 的 internal 包。
 - `internal/` 其余：纯逻辑与持久化（`markdown`、`notes`、`prefs`、`legacyconfig`、`atomicfile`），禁止依赖 MyGo 与 `internal/app`。
+- `locales/`：i18n 目录（`en.json` 源 + `zh-Hans.json`），`go tool mygo generate` 生成 `catalog_gen.go`；中英键位一致性有测试。改用户可见文案一律经 `locales.*`，不得写死字面量。
 
 ## 硬规则
 
@@ -22,7 +23,7 @@ Zakki（原 Tot MD）：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 
 - 禁止往 `app` 顶层新增字段；新状态放进对应的领域子结构体或 Store。
 - 禁止把 `ui.Element`、`*ui.Context` 存入状态或传给后台；持久身份用 `ui.Handle`。
 - 后台 goroutine 只碰不可变快照，回主线程只用 `Window.Update`；锁只存在于 Store 类型内部。
-- 不改 `tot-md.json`、`preferences.json` 的格式与迁移语义，除非任务明确要求（需递增版本并补迁移测试）。
+- 不改 `zakki.json`、`preferences.json` 的格式与迁移语义，除非任务明确要求（需递增版本并补迁移测试）。
 - 持久化失败必须如实上报，不得吞掉错误。
 - 测试绝不写真实用户目录：用 `newTestApp(t)` / `t.TempDir()` 和注入的时钟。
 - 结构迁移不夹带行为变更；测试只能迁移，不能删除或放宽。
@@ -46,4 +47,4 @@ go list -m -f '{{.Dir}}' github.com/egoist/mygo   # 查看 MyGo 源码与示例�
 
 - 中文 commitlint：`git commit -m "<type>: <描述>"`，type 取 `feat` / `fix` / `refactor` / `style` / `docs` / `chore` / `test` / `perf`。
 - 一次提交只做一件事；纯结构迁移用 `refactor:`。
-- 禁止提交 `build/`、`.mygo/`、根目录二进制 `tot-md-mygo` / `Zakki`，以及更新签名私钥。
+- 禁止提交 `build/`、`.mygo/`、根目录 `go build` 产生的二进制 / `build/Zakki*` 产物，以及更新签名私钥。
