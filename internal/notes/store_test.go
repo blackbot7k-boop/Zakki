@@ -500,12 +500,16 @@ func TestMirrorBackupCopiesAndPrunes(t *testing.T) {
 		t.Fatalf("镜像状态错误: %+v", st)
 	}
 
-	// keep=2：多备几份后本地与镜像都只留最新 2 份。
+	// keep=2：多备几份后本地与镜像都只留最新 2 份。逐份等待镜像完成，
+	// 排除合并待办跳过中间快照的路径（由 TestMirrorCoalescedJobsDropStaleCopies 覆盖）。
 	for i := 0; i < 3; i++ {
 		clk.advance(time.Second)
 		if err := s.BackupNow(2); err != nil {
 			t.Fatalf("第 %d 次备份报错: %v", i+1, err)
 		}
+		waitForMirror(t, func() bool {
+			return reflect.DeepEqual(backupNames(t, s.BackupDir), backupNames(t, mirror))
+		})
 	}
 	waitForMirror(t, func() bool {
 		return reflect.DeepEqual(backupNames(t, s.BackupDir), backupNames(t, mirror))
@@ -513,6 +517,54 @@ func TestMirrorBackupCopiesAndPrunes(t *testing.T) {
 	if local, mir := backupNames(t, s.BackupDir), backupNames(t, mirror); !reflect.DeepEqual(local, mir) || len(mir) != 2 {
 		t.Fatalf("修剪后本地与镜像应一致且各留 2 份: local=%v mirror=%v", local, mir)
 	}
+}
+
+// 合并待办会跳过中间快照：镜像允许缺席被跳过的快照，但不允许滞留本地已修剪
+// 的旧备份——否则慢 worker 下镜像与本地清单永久发散。
+func TestMirrorCoalescedJobsDropStaleCopies(t *testing.T) {
+	clk := newTestClock()
+	s, mirror := newMirrorStore(t, clk)
+	slow := s.mirrorWrite
+	s.mirrorWrite = func(path string, raw []byte) error {
+		time.Sleep(50 * time.Millisecond) // 放大 worker 滞后，逼迫后续任务合并
+		return slow(path, raw)
+	}
+	if err := s.BackupNow(2); err != nil {
+		t.Fatalf("BackupNow 报错: %v", err)
+	}
+	waitForMirror(t, func() bool { return len(backupNames(t, mirror)) == 1 })
+	for i := 0; i < 3; i++ {
+		clk.advance(time.Second)
+		if err := s.BackupNow(2); err != nil {
+			t.Fatalf("第 %d 次备份报错: %v", i+1, err)
+		}
+	}
+	waitForMirror(t, func() bool {
+		local := backupNames(t, s.BackupDir)
+		mirrored := backupNames(t, mirror)
+		if len(local) == 0 || len(mirrored) == 0 || mirrored[len(mirrored)-1] != local[len(local)-1] {
+			return false
+		}
+		for _, name := range mirrored {
+			if !containsName(local, name) {
+				return false
+			}
+		}
+		return true
+	})
+	local, mirrored := backupNames(t, s.BackupDir), backupNames(t, mirror)
+	if len(local) != 2 || len(mirrored) == 0 || mirrored[len(mirrored)-1] != local[len(local)-1] {
+		t.Fatalf("镜像应只含本地现存备份且包含最新: local=%v mirror=%v", local, mirrored)
+	}
+}
+
+func containsName(names []string, want string) bool {
+	for _, name := range names {
+		if name == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestMirrorFailureDoesNotBlockLocalBackup(t *testing.T) {

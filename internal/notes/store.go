@@ -81,7 +81,7 @@ type mirrorJob struct {
 	mode      string
 	name      string
 	raw       []byte
-	keep      int
+	names     []string
 	stamp     string
 	version   uint64
 	at        time.Time
@@ -371,15 +371,16 @@ func (s *Store) writeBackup(keep int, interval time.Duration, periodic bool) (st
 	at := s.Now()
 	s.mu.Lock()
 	s.lastBackup = at
-	job, ok := s.mirrorJobLocked(name, raw, keep, at)
+	job, ok := s.mirrorJobLocked(name, raw, at)
 	s.mu.Unlock()
 	if ok {
+		job.names = listBackupNames(s.BackupDir)
 		s.enqueueMirrorJob(job)
 	}
 	return name, nil
 }
 
-func (s *Store) mirrorJobLocked(name string, raw []byte, keep int, at time.Time) (mirrorJob, bool) {
+func (s *Store) mirrorJobLocked(name string, raw []byte, at time.Time) (mirrorJob, bool) {
 	if s.mirrorDir == "" {
 		return mirrorJob{}, false
 	}
@@ -392,7 +393,6 @@ func (s *Store) mirrorJobLocked(name string, raw []byte, keep int, at time.Time)
 		mode:      s.gitMode,
 		name:      name,
 		raw:       raw,
-		keep:      keep,
 		stamp:     at.Format("20060102-150405"),
 		version:   s.mirrorVersion,
 		at:        at,
