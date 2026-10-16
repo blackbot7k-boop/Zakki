@@ -63,6 +63,9 @@ jobs:
           fi
 
       - name: 全量检查
+        env:
+          # 与 ci.yml 同理：runner 系统语言是英文，不钉扎会让中文文案断言失真。
+          MYGO_LOCALE: zh-Hans
         run: |
           go mod verify
           make check
