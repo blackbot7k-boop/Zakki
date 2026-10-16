@@ -29,31 +29,60 @@ type mSpan struct {
 // inlineSpans 找出一段文字里的 **粗体**、*斜体*、`代码` 和 [文本](链接)。
 func inlineSpans(s string) []mSpan {
 	rs := []rune(s)
+	n := len(rs)
+	next := func(target rune) []int {
+		out := make([]int, n+1)
+		at := -1
+		for i := n; i >= 0; i-- {
+			if i < n && rs[i] == target {
+				at = i
+			}
+			out[i] = at
+		}
+		return out
+	}
+	nextTick, nextStar := next('`'), next('*')
+	nextUnder, nextRight := next('_'), next(']')
+	nextParen := next(')')
+	nextDoubleStar := make([]int, n+1)
+	doubleAt := -1
+	for i := n; i >= 0; i-- {
+		if i+1 < n && rs[i] == '*' && rs[i+1] == '*' {
+			doubleAt = i
+		}
+		nextDoubleStar[i] = doubleAt
+	}
+
 	var out []mSpan
-	i := 0
-	for i < len(rs) {
+	for i := 0; i < n; {
 		switch {
 		case rs[i] == '`':
-			if j := runeIndexOf(rs, '`', i+1); j > 0 {
+			if j := nextTick[i+1]; j >= 0 {
 				out = append(out, mSpan{Start: i, End: j + 1, Kind: spanCode})
 				i = j + 1
 				continue
 			}
-		case rs[i] == '*' && i+1 < len(rs) && rs[i+1] == '*':
-			if j := runeSeq(rs, '*', 2, i+2); j > 0 {
+		case rs[i] == '*' && i+1 < n && rs[i+1] == '*':
+			if j := nextDoubleStar[i+2]; j >= 0 {
 				out = append(out, mSpan{Start: i, End: j + 2, Kind: spanBold})
 				i = j + 2
 				continue
 			}
-		case rs[i] == '*' || rs[i] == '_':
-			if j := runeIndexOf(rs, rs[i], i+1); j > 0 && j > i+1 {
+		case rs[i] == '*':
+			if j := nextStar[i+1]; j > i+1 {
+				out = append(out, mSpan{Start: i, End: j + 1, Kind: spanItalic})
+				i = j + 1
+				continue
+			}
+		case rs[i] == '_':
+			if j := nextUnder[i+1]; j > i+1 {
 				out = append(out, mSpan{Start: i, End: j + 1, Kind: spanItalic})
 				i = j + 1
 				continue
 			}
 		case rs[i] == '[':
-			if cb := runeIndexOf(rs, ']', i+1); cb > 0 && cb+1 < len(rs) && rs[cb+1] == '(' {
-				if pe := runeIndexOf(rs, ')', cb+2); pe > 0 {
+			if cb := nextRight[i+1]; cb >= 0 && cb+1 < n && rs[cb+1] == '(' {
+				if pe := nextParen[cb+2]; pe >= 0 {
 					out = append(out, mSpan{Start: i, End: pe + 1, Kind: spanLink, Href: string(rs[cb+2 : pe])})
 					i = pe + 1
 					continue
@@ -141,10 +170,18 @@ func toggleTaskLine(src string, lineNo int) string {
 	if lineNo < 0 || lineNo >= len(lines) {
 		return src
 	}
-	if strings.Contains(lines[lineNo], "[ ]") {
-		lines[lineNo] = strings.Replace(lines[lineNo], "[ ]", "[x]", 1)
+	line := lines[lineNo]
+	indent := len(line) - len(strings.TrimLeft(line, " \t"))
+	prefix := line[indent:]
+	if len(prefix) < len("- [ ]") || (prefix[0] != '-' && prefix[0] != '*') || prefix[1] != ' ' || prefix[2] != '[' || prefix[4] != ']' {
+		return src
+	}
+	if prefix[3] == ' ' {
+		lines[lineNo] = line[:indent] + prefix[:3] + "x" + prefix[4:]
+	} else if prefix[3] == 'x' {
+		lines[lineNo] = line[:indent] + prefix[:3] + " " + prefix[4:]
 	} else {
-		lines[lineNo] = strings.Replace(lines[lineNo], "[x]", "[ ]", 1)
+		return src
 	}
 	return strings.Join(lines, "\n")
 }

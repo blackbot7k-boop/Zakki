@@ -48,6 +48,7 @@ func RuneToByte(s string, runeIdx int) int { return runeToByte(s, runeIdx) }
 type TableCell struct {
 	Text       string
 	Start, End int
+	Missing    bool
 }
 
 // Table 是解析后的 Markdown 表格。
@@ -56,7 +57,9 @@ type Table struct {
 	Align []int
 }
 
-func toTableCell(c tableCell) TableCell { return TableCell{Text: c.Text, Start: c.Start, End: c.End} }
+func toTableCell(c tableCell) TableCell {
+	return TableCell{Text: c.Text, Start: c.Start, End: c.End, Missing: c.Missing}
+}
 
 func PipeCells(line string) ([]TableCell, bool) {
 	cells, ok := pipeCells(line)
@@ -87,6 +90,22 @@ func TableStart(lines []string, i, stop int) (Table, bool) {
 
 func EmptyTableRow(n int) string { return emptyTableRow(n) }
 
+func TableRowCells(line string, columns int) ([]TableCell, bool) {
+	cells, ok := tableRowCells(line, columns)
+	if !ok {
+		return nil, false
+	}
+	out := make([]TableCell, len(cells))
+	for i, c := range cells {
+		out[i] = toTableCell(c)
+	}
+	return out, true
+}
+
+func NormalizeTableRow(line string, columns int) (string, bool) {
+	return normalizeTableRow(line, columns)
+}
+
 func TableCellPositions(raw string) []TableCell {
 	cells := tableCellPositions(raw)
 	out := make([]TableCell, len(cells))
@@ -94,6 +113,31 @@ func TableCellPositions(raw string) []TableCell {
 		out[i] = toTableCell(c)
 	}
 	return out
+}
+
+// FenceMarker 标识代码围栏使用的字符与长度。
+type FenceMarker struct {
+	Character byte
+	Size      int
+}
+
+// ParseFenceOpeningLine 解析至少三个反引号或波浪号组成的开栏。
+func ParseFenceOpeningLine(line string) (FenceMarker, bool) {
+	marker, ok := parseFenceOpeningLine(line)
+	return FenceMarker{Character: marker.char, Size: marker.size}, ok
+}
+
+// IsFenceOpeningLine 报告该行是否是有效开栏。
+func IsFenceOpeningLine(line string) bool { return isFenceOpeningLine(line) }
+
+// IsFenceClosingLine 按开栏字符与最短长度判断闭栏。
+func IsFenceClosingLine(line string, opening FenceMarker) bool {
+	return isFenceClosingLine(line, fenceMarker{char: opening.Character, size: opening.Size})
+}
+
+// FenceClosingMarker 返回与开栏匹配的闭栏文本。
+func FenceClosingMarker(opening FenceMarker) string {
+	return fenceClosingMarker(fenceMarker{char: opening.Character, size: opening.Size})
 }
 
 func DocLineCount(doc string) int { return docLineCount(doc) }

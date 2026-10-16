@@ -103,8 +103,8 @@ func toggleInlineSpan(text string, from, to int, kind spanKind) (string, int, in
 			return text, from, to, false
 		}
 		newText := string(rs[:sp.Start]) + string(rs[contentStart:contentEnd]) + string(rs[sp.End:])
-		newFrom := clamp(from, contentStart, contentEnd) - sp.Start
-		newTo := clamp(to, contentStart, contentEnd) - sp.Start
+		newFrom := sp.Start + clamp(from-contentStart, 0, contentEnd-contentStart)
+		newTo := sp.Start + clamp(to-contentStart, 0, contentEnd-contentStart)
 		return newText, newFrom, newTo, true
 	}
 
@@ -208,8 +208,10 @@ func ApplyInlineToLines(doc string, from, to, selStart, selEnd int, kind spanKin
 	if tailStart <= len(doc) {
 		tail = doc[tailStart:]
 	}
+	protected := inlineProtectedBlockLines(doc, selStart, selEnd)
 	var sb strings.Builder
 	mappedStart, mappedEnd := -1, -1
+	changedAny := false
 	outRunes := 0 // 已拼接输出的 rune 数（含换行）
 	for line := from; line <= to; line++ {
 		ls, le := lineByteBounds(doc, line)
@@ -222,16 +224,17 @@ func ApplyInlineToLines(doc string, from, to, selStart, selEnd int, kind spanKin
 			lo = lineRunes
 		}
 		newText, nf, nt := lineText, lo, hi
-		if lo < hi {
+		if lo < hi && !protected[line] {
 			if out, a, b, changed := toggleInlineSpan(lineText, lo, hi, kind); changed {
 				newText, nf, nt = out, a, b
+				changedAny = true
 			}
 		}
 		sb.WriteString(newText)
 		if line < to {
 			sb.WriteByte('\n')
 		}
-		if mappedStart < 0 && (nf != lo || nt != hi || newText != lineText) && (lo < hi) {
+		if mappedStart < 0 && lo < hi {
 			mappedStart = outRunes + nf
 		}
 		if lo < hi {
@@ -239,10 +242,11 @@ func ApplyInlineToLines(doc string, from, to, selStart, selEnd int, kind spanKin
 		}
 		outRunes += utf8.RuneCountInString(newText) + 1
 	}
-	if mappedStart < 0 || mappedEnd < mappedStart {
+	if !changedAny || mappedStart < 0 || mappedEnd < mappedStart {
 		return noChange(doc, selStart, selEnd)
 	}
-	return DocResult{Doc: head + sb.String() + tail, SelStart: mappedStart, SelEnd: mappedEnd, Changed: true}
+	regionStart := utf8.RuneCountInString(head)
+	return DocResult{Doc: head + sb.String() + tail, SelStart: regionStart + mappedStart, SelEnd: regionStart + mappedEnd, Changed: true}
 }
 
 // ---- 标题与正文 ----
@@ -279,9 +283,13 @@ func ApplyHeadingToLines(doc string, from, to, caret int, level int) DocResult {
 	if to < from {
 		from, to = to, from
 	}
-	// toggle：范围内所有非空行都已是目标级别 → 还原正文。
+	protected := protectedBlockLines(doc)
+	// toggle：范围内所有可格式化的非空行都已是目标级别 → 还原正文。
 	allMatch, anyContent := true, false
 	for line := from; line <= to; line++ {
+		if protected[line] {
+			continue
+		}
 		ls, le := lineByteBounds(doc, line)
 		text := doc[ls:le]
 		if strings.TrimSpace(text) == "" {
@@ -316,15 +324,17 @@ func ApplyHeadingToLines(doc string, from, to, caret int, level int) DocResult {
 	for line := from; line <= to; line++ {
 		ls, le := lineByteBounds(doc, line)
 		text := doc[ls:le]
-		body, wasHeading := stripHeadingPrefix(text)
-		if !wasHeading && strings.TrimSpace(text) != "" {
-			body = strings.TrimSpace(text)
-		}
-		var newText string
-		if strings.TrimSpace(text) == "" {
-			newText = text // 空行不动
-		} else {
-			newText = prefix + body
+		newText := text
+		prefixForLine := ""
+		if !protected[line] {
+			body, wasHeading := stripHeadingPrefix(text)
+			if !wasHeading && strings.TrimSpace(text) != "" {
+				body = strings.TrimSpace(text)
+			}
+			if strings.TrimSpace(text) != "" {
+				newText = prefix + body
+				prefixForLine = prefix
+			}
 		}
 		sb.WriteString(newText)
 		if line < to {
@@ -334,7 +344,7 @@ func ApplyHeadingToLines(doc string, from, to, caret int, level int) DocResult {
 			delta := utf8.RuneCountInString(newText) - utf8.RuneCountInString(text)
 			col := caretCol + delta
 			// 光标不得落进新标记内部：收敛到标记之后。
-			if floor := utf8.RuneCountInString(prefix); col < floor {
+			if floor := utf8.RuneCountInString(prefixForLine); col < floor {
 				col = floor
 			}
 			newCaret = outRunes + min(col, utf8.RuneCountInString(newText))
@@ -342,5 +352,6 @@ func ApplyHeadingToLines(doc string, from, to, caret int, level int) DocResult {
 		outRunes += utf8.RuneCountInString(newText) + 1
 	}
 	newDoc := head + sb.String() + tail
-	return DocResult{Doc: newDoc, SelStart: newCaret, SelEnd: newCaret, Changed: newDoc != doc}
+	regionStart := utf8.RuneCountInString(head)
+	return DocResult{Doc: newDoc, SelStart: regionStart + newCaret, SelEnd: regionStart + newCaret, Changed: newDoc != doc}
 }

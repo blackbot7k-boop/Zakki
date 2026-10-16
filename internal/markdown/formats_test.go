@@ -27,6 +27,25 @@ func TestToggleInlineBasic(t *testing.T) {
 	if !res2.Changed || res2.Doc != doc {
 		t.Fatalf("移除加粗应还原: %+v", res2)
 	}
+	if res2.SelStart != start || res2.SelEnd != end {
+		t.Fatalf("移除后选区应精确包住原内容: %d..%d", res2.SelStart, res2.SelEnd)
+	}
+}
+
+func TestToggleInlineUnwrapKeepsDocumentSelection(t *testing.T) {
+	doc := "前置\n**世界**\n**🌏 ok**\n后置"
+	start := indexOf(doc, "世界")
+	end := indexOf(doc, "🌏 ok") + runeLen("🌏 ok")
+	res := ApplyInlineToLines(doc, 1, 2, start, end, spanBold)
+	want := "前置\n世界\n🌏 ok\n后置"
+	if !res.Changed || res.Doc != want {
+		t.Fatalf("跨行移除加粗: %+v", res)
+	}
+	wantStart := indexOf(want, "世界")
+	wantEnd := indexOf(want, "🌏 ok") + runeLen("🌏 ok")
+	if res.SelStart != wantStart || res.SelEnd != wantEnd {
+		t.Fatalf("跨行 Unicode 选区映射=%d..%d, want %d..%d", res.SelStart, res.SelEnd, wantStart, wantEnd)
+	}
 }
 
 func TestToggleInlineChineseAndEmoji(t *testing.T) {
@@ -158,7 +177,7 @@ func TestPrefixListKinds(t *testing.T) {
 		t.Fatalf("无序列表: %+v", res)
 	}
 	res2 := ApplyPrefixToLines(res.Doc, 0, 1, 0, PrefixOrdered)
-	if res2.Doc != "1. 买牛奶\n2. 写周报" {
+	if res2.Doc != "1. 买牛奶\n2. 写周报" || !res2.Changed {
 		t.Fatalf("有序列表编号: %+v", res2)
 	}
 	res3 := ApplyPrefixToLines(res2.Doc, 0, 1, 0, PrefixTask)
@@ -168,6 +187,21 @@ func TestPrefixListKinds(t *testing.T) {
 	res4 := ApplyPrefixToLines(res3.Doc, 0, 1, 0, PrefixTask)
 	if res4.Doc != doc {
 		t.Fatalf("移除任务标记不丢内容: %+v", res4)
+	}
+}
+
+func TestPrefixSwitchesOrderedAndBulletKinds(t *testing.T) {
+	bullet := ApplyPrefixToLines("1. item", 0, 0, 3, PrefixBullet)
+	if !bullet.Changed || bullet.Doc != "- item" {
+		t.Fatalf("有序列表切无序列表: %+v", bullet)
+	}
+	ordered := ApplyPrefixToLines("1. item", 0, 0, 3, PrefixOrdered)
+	if !ordered.Changed || ordered.Doc != "item" {
+		t.Fatalf("已有有序列表再次切换应移除标记: %+v", ordered)
+	}
+	zero := ApplyPrefixToLines("0. item", 0, 0, 3, PrefixOrdered)
+	if !zero.Changed || zero.Doc != "item" {
+		t.Fatalf("零序号也应识别为有序列表: %+v", zero)
 	}
 }
 
@@ -185,7 +219,7 @@ func TestPrefixConvertsHeadingToBullet(t *testing.T) {
 func TestCodeBlockWrapAndUnwrap(t *testing.T) {
 	doc := "# 代码\nprint(1)\nprint(2)"
 	res := ApplyCodeBlockToggle(doc, 1, 2, indexOf(doc, "print(1)"))
-	if res.Doc != "# 代码\n```\nprint(1)\nprint(2)\n```\n" {
+	if res.Doc != "# 代码\n```\nprint(1)\nprint(2)\n```" {
 		t.Fatalf("包裹所选行: %+v", res)
 	}
 	if res.SelStart != runeLen("# 代码\n```\n") {
@@ -195,6 +229,9 @@ func TestCodeBlockWrapAndUnwrap(t *testing.T) {
 	if res2.Doc != doc {
 		t.Fatalf("还原为正文: %+v", res2)
 	}
+	if res2.SelStart != indexOf(doc, "print(1)") || res2.SelEnd != res2.SelStart {
+		t.Fatalf("解除围栏后光标应使用全文 rune 坐标: %+v", res2)
+	}
 }
 
 func TestCodeBlockWithLanguageFenceUnwraps(t *testing.T) {
@@ -202,6 +239,39 @@ func TestCodeBlockWithLanguageFenceUnwraps(t *testing.T) {
 	res := ApplyCodeBlockToggle(doc, 0, 2, 6)
 	if res.Doc != "fmt.Println()" {
 		t.Fatalf("带语言围栏应能还原: %+v", res)
+	}
+}
+
+func TestCodeBlockWithVariableFenceUnwraps(t *testing.T) {
+	for _, doc := range []string{
+		"````go\n```\nvalue\n````",
+		"~~~~go\n~~~\nvalue\n~~~~",
+	} {
+		res := ApplyCodeBlockToggle(doc, 0, docLineCount(doc)-1, 0)
+		if res.Doc != strings.Join(strings.Split(doc, "\n")[1:docLineCount(doc)-1], "\n") {
+			t.Fatalf("可变围栏应按开栏字符与长度还原: %q -> %q", doc, res.Doc)
+		}
+	}
+}
+
+func TestCodeBlockTogglePreservesDocumentNewlines(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		doc  string
+		line int
+	}{
+		{name: "后续段落", doc: "before\nselected\nafter", line: 1},
+		{name: "后续空行", doc: "before\nselected\n\nafter", line: 1},
+		{name: "尾部单换行", doc: "before\nselected\n", line: 1},
+		{name: "尾部多个换行", doc: "before\nselected\n\n", line: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wrapped := ApplyCodeBlockToggle(tc.doc, tc.line, tc.line, 0)
+			unwrapped := ApplyCodeBlockToggle(wrapped.Doc, tc.line, tc.line+2, wrapped.SelStart)
+			if unwrapped.Doc != tc.doc {
+				t.Fatalf("包裹再解除必须逐字还原: got=%q want=%q", unwrapped.Doc, tc.doc)
+			}
+		})
 	}
 }
 
@@ -260,5 +330,178 @@ func TestInlineMultiLineSourceSelection(t *testing.T) {
 	}
 	if res.SelStart != runeLen("**") || res.SelEnd != runeLen(want)-runeLen("**") {
 		t.Fatalf("选区映射: %d..%d", res.SelStart, res.SelEnd)
+	}
+}
+
+func TestFormatResultsUseDocumentRuneCoordinates(t *testing.T) {
+	doc := "前置段\n\n第二段"
+	start := indexOf(doc, "第二")
+	end := start + runeLen("第二")
+	inline := ApplyInlineToLines(doc, 2, 2, start, end, spanBold)
+	if inline.SelStart != runeLen("前置段\n\n**") || inline.SelEnd != inline.SelStart+runeLen("第二") {
+		t.Fatalf("行内格式选区不是全文 rune 坐标: %+v", inline)
+	}
+	heading := ApplyHeadingToLines(doc, 2, 2, start, 2)
+	if heading.SelStart < runeLen("前置段\n\n## ") {
+		t.Fatalf("标题选区不是全文 rune 坐标: %+v", heading)
+	}
+	prefix := ApplyPrefixToLines(doc, 2, 2, start, PrefixBullet)
+	if prefix.SelStart < runeLen("前置段\n\n- ") {
+		t.Fatalf("列表选区不是全文 rune 坐标: %+v", prefix)
+	}
+	fenced := "前置段\n\n```\n第二段\n```"
+	codeStart := indexOf(fenced, "第二段")
+	unwrapped := ApplyCodeBlockToggle(fenced, 2, 4, codeStart)
+	if unwrapped.SelStart != indexOf(unwrapped.Doc, "第二段") || unwrapped.SelEnd != unwrapped.SelStart {
+		t.Fatalf("解除围栏光标不是全文 rune 坐标: %+v", unwrapped)
+	}
+}
+
+func TestLineFormatsSkipFencesAndTables(t *testing.T) {
+	doc := "first\n\n```go\n```not a closing fence\nfmt.Println(`code`)\n```\n\n| head | value |\n| --- | --- |\n| **cell** | 1 |\n\nlast"
+	protected := "```go\n```not a closing fence\nfmt.Println(`code`)\n```\n\n| head | value |\n| --- | --- |\n| **cell** | 1 |"
+
+	inline := ApplyInlineToLines(doc, 0, 11, 0, runeLen(doc), spanBold)
+	if !inline.Changed || !strings.Contains(inline.Doc, protected) ||
+		!strings.HasPrefix(inline.Doc, "**first**") || !strings.HasSuffix(inline.Doc, "**last**") {
+		t.Fatalf("全文加粗必须跳过围栏与表格: %q", inline.Doc)
+	}
+	heading := ApplyHeadingToLines(doc, 0, 11, 0, 2)
+	if !heading.Changed || !strings.Contains(heading.Doc, protected) ||
+		!strings.HasPrefix(heading.Doc, "## first") || !strings.HasSuffix(heading.Doc, "## last") {
+		t.Fatalf("全文标题必须跳过围栏与表格: %q", heading.Doc)
+	}
+	list := ApplyPrefixToLines(doc, 0, 11, 0, PrefixBullet)
+	if !list.Changed || !strings.Contains(list.Doc, protected) ||
+		!strings.HasPrefix(list.Doc, "- first") || !strings.HasSuffix(list.Doc, "- last") {
+		t.Fatalf("全文列表必须跳过围栏与表格: %q", list.Doc)
+	}
+}
+
+func TestLineFormatsSkipVariableLengthFences(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		doc       string
+		protected string
+	}{
+		{
+			name:      "四反引号围栏保留内部三反引号",
+			doc:       "before\n\n````go\n```\n**code**\n````\n\nafter",
+			protected: "````go\n```\n**code**\n````",
+		},
+		{
+			name:      "波浪号围栏保留较短闭栏",
+			doc:       "before\n\n~~~~go\n~~~\n**code**\n~~~~\n\nafter",
+			protected: "~~~~go\n~~~\n**code**\n~~~~",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			last := docLineCount(tc.doc) - 1
+			for name, result := range map[string]DocResult{
+				"inline":  ApplyInlineToLines(tc.doc, 0, last, 0, runeLen(tc.doc), spanBold),
+				"heading": ApplyHeadingToLines(tc.doc, 0, last, 0, 2),
+				"list":    ApplyPrefixToLines(tc.doc, 0, last, 0, PrefixBullet),
+			} {
+				if !result.Changed || !strings.Contains(result.Doc, tc.protected) {
+					t.Fatalf("%s 改写了围栏内容: %q", name, result.Doc)
+				}
+			}
+		})
+	}
+}
+
+func TestFenceIndentationUsesCommonMarkLimit(t *testing.T) {
+	for _, line := range []string{"```go", "   ~~~~ go"} {
+		if _, ok := parseFenceOpeningLine(line); !ok {
+			t.Fatalf("合法围栏未识别: %q", line)
+		}
+	}
+	for _, line := range []string{"    ```", "\t```", "   \t```"} {
+		if _, ok := parseFenceOpeningLine(line); ok {
+			t.Fatalf("过度缩进围栏被识别: %q", line)
+		}
+	}
+	opening, ok := parseFenceOpeningLine("```")
+	if !ok {
+		t.Fatal("测试开栏未识别")
+	}
+	for _, line := range []string{"```", "   ````  \t"} {
+		if !isFenceClosingLine(line, opening) {
+			t.Fatalf("合法闭栏未识别: %q", line)
+		}
+	}
+	for _, line := range []string{"    ```", "\t```"} {
+		if isFenceClosingLine(line, opening) {
+			t.Fatalf("过度缩进闭栏被识别: %q", line)
+		}
+	}
+}
+
+func TestLineFormatsKeepCodeProtectedAfterOverIndentedFence(t *testing.T) {
+	for _, overIndentedClose := range []string{"    ```", "\t```"} {
+		doc := "before\n\n```\ncode\n" + overIndentedClose + "\nstill code\n```\n\nafter"
+		protected := "```\ncode\n" + overIndentedClose + "\nstill code\n```"
+		last := docLineCount(doc) - 1
+		for name, result := range map[string]DocResult{
+			"inline":  ApplyInlineToLines(doc, 0, last, 0, runeLen(doc), spanBold),
+			"heading": ApplyHeadingToLines(doc, 0, last, 0, 2),
+			"list":    ApplyPrefixToLines(doc, 0, last, 0, PrefixBullet),
+		} {
+			if !result.Changed || !strings.Contains(result.Doc, protected) {
+				t.Fatalf("%s 把过度缩进闭栏后的代码暴露为正文: %q", name, result.Doc)
+			}
+		}
+	}
+}
+
+func TestLineFormatsProtectIndentedTableWithoutTrailingNewline(t *testing.T) {
+	doc := "before\n  | head | value |\n  | --- | --- |\n  | **cell** | 1 |\nafter"
+	protected := "  | head | value |\n  | --- | --- |\n  | **cell** | 1 |"
+	last := docLineCount(doc) - 1
+	for name, result := range map[string]DocResult{
+		"inline":  ApplyInlineToLines(doc, 0, last, 0, runeLen(doc), spanBold),
+		"heading": ApplyHeadingToLines(doc, 0, last, 0, 2),
+		"list":    ApplyPrefixToLines(doc, 0, last, 0, PrefixBullet),
+	} {
+		if !result.Changed || !strings.Contains(result.Doc, protected) {
+			t.Fatalf("%s 改写了缩进表格: %q", name, result.Doc)
+		}
+	}
+}
+
+func TestInlineFormatWithinSingleTableCell(t *testing.T) {
+	doc := "  | hello | world |\n  | --- | --- |\n  | row | value |"
+	start := runeLen("  | ")
+	end := start + runeLen("hello")
+	for _, tc := range []struct {
+		name   string
+		kind   spanKind
+		want   string
+		marker int
+	}{
+		{name: "粗体", kind: spanBold, want: "  | **hello** | world |\n  | --- | --- |\n  | row | value |", marker: 2},
+		{name: "斜体", kind: spanItalic, want: "  | *hello* | world |\n  | --- | --- |\n  | row | value |", marker: 1},
+		{name: "行内代码", kind: spanCode, want: "  | `hello` | world |\n  | --- | --- |\n  | row | value |", marker: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ApplyInlineToLines(doc, 0, 0, start, end, tc.kind)
+			if !result.Changed || result.Doc != tc.want {
+				t.Fatalf("单元格格式化 = %q, changed=%v", result.Doc, result.Changed)
+			}
+			if result.SelStart != start+tc.marker || result.SelEnd != end+tc.marker {
+				t.Fatalf("单元格格式化选区 = %d..%d", result.SelStart, result.SelEnd)
+			}
+		})
+	}
+}
+
+func TestInlineFormatAcrossTableCellsIsRejected(t *testing.T) {
+	doc := "  | hello | world |\n  | --- | --- |\n  | row | value |"
+	start := runeLen("  | ")
+	end := start + runeLen("hello | world")
+
+	result := ApplyInlineToLines(doc, 0, 0, start, end, spanBold)
+	if result.Changed || result.Doc != doc {
+		t.Fatalf("跨单元格格式化不应改写表格: %q", result.Doc)
 	}
 }

@@ -28,6 +28,10 @@ func lineMarkerKind(text string) PrefixKind {
 	case taskPrefixLen(t) > 0:
 		return PrefixTask
 	case listMarkerLen(t) > 0:
+		marker := t[:listMarkerLen(t)]
+		if strings.HasSuffix(marker, ". ") {
+			return PrefixOrdered
+		}
 		return PrefixBullet
 	}
 	return PrefixNone
@@ -95,8 +99,12 @@ func ApplyPrefixToLines(doc string, from, to, caret int, kind PrefixKind) DocRes
 	if to < from {
 		from, to = to, from
 	}
+	protected := protectedBlockLines(doc)
 	allMatch, anyContent := true, false
 	for line := from; line <= to; line++ {
+		if protected[line] {
+			continue
+		}
 		ls, le := lineByteBounds(doc, line)
 		text := doc[ls:le]
 		if strings.TrimSpace(stripBlockMarker(text)) == "" && strings.TrimSpace(text) == "" {
@@ -127,7 +135,7 @@ func ApplyPrefixToLines(doc string, from, to, caret int, kind PrefixKind) DocRes
 		ls, le := lineByteBounds(doc, line)
 		text := doc[ls:le]
 		newText := text
-		if strings.TrimSpace(text) != "" {
+		if !protected[line] && strings.TrimSpace(text) != "" {
 			body := stripBlockMarker(text)
 			if removing {
 				newText = body
@@ -155,7 +163,8 @@ func ApplyPrefixToLines(doc string, from, to, caret int, kind PrefixKind) DocRes
 		outRunes += utf8.RuneCountInString(newText) + 1
 	}
 	newDoc := head + sb.String() + tail
-	return DocResult{Doc: newDoc, SelStart: newCaret, SelEnd: newCaret, Changed: newDoc != doc}
+	regionStart := utf8.RuneCountInString(head)
+	return DocResult{Doc: newDoc, SelStart: regionStart + newCaret, SelEnd: regionStart + newCaret, Changed: newDoc != doc}
 }
 
 // ---- 代码块 ----
@@ -173,27 +182,20 @@ func ApplyCodeBlockToggle(doc string, from, to, caret int) DocResult {
 	region := doc[ls:le]
 	lines := strings.Split(region, "\n")
 	base := byteToRune(doc, ls)
-	if len(lines) >= 2 && isFenceLine(strings.TrimSpace(lines[0])) &&
-		isFenceLine(strings.TrimSpace(lines[len(lines)-1])) {
-		// 还原为正文：去掉两行围栏，光标跟随上移一行。
-		// 闭栏行自身后面的换行属于围栏结构，一并去掉。
+	opening, isFenced := parseFenceOpeningLine(lines[0])
+	if len(lines) >= 2 && isFenced && isFenceClosingLine(lines[len(lines)-1], opening) {
+		// 还原为正文：只移除围栏行，围栏之外的内容逐字保留。
 		inner := strings.Join(lines[1:len(lines)-1], "\n")
-		out := doc[:ls] + inner
-		if rest := doc[le:]; strings.Trim(rest, "\n") != "" {
-			out += rest // 闭栏之后还有正文：原样保留
-		}
-		newCaret := caret - (base + utf8.RuneCountInString(lines[0]) + 1)
-		return DocResult{Doc: out, SelStart: max(newCaret, 0), SelEnd: max(newCaret, 0), Changed: true}
+		out := doc[:ls] + inner + doc[le:]
+		openingLen := utf8.RuneCountInString(lines[0]) + 1
+		innerLen := utf8.RuneCountInString(inner)
+		newCaret := clamp(caret-openingLen, base, base+innerLen)
+		return DocResult{Doc: out, SelStart: newCaret, SelEnd: newCaret, Changed: true}
 	}
-	// 包裹：插入前后围栏，光标落到内容首。
+	// 包裹：只在所选行两侧插入围栏，原有后缀（含换行）逐字保留。
 	const fence = "```\n"
-	wrapped := fence + region + "\n```\n"
-	var out string
-	if le >= len(doc) {
-		out = doc[:ls] + wrapped
-	} else {
-		out = doc[:ls] + wrapped + doc[le:]
-	}
+	wrapped := fence + region + "\n```"
+	out := doc[:ls] + wrapped + doc[le:]
 	newCaret := base + len(fence)
 	return DocResult{Doc: out, SelStart: newCaret, SelEnd: newCaret, Changed: true}
 }

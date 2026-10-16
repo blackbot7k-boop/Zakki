@@ -324,8 +324,8 @@ func TestToggleTaskLine(t *testing.T) {
 		{"大写 X 不翻转", "- [X] a", 0, "- [X] a"},
 		{"行号越界", "- [ ] a", 3, "- [ ] a"},
 		{"行号负数", "- [ ] a", -1, "- [ ] a"},
-		// Contains 语义：行内任意位置的 "[ ]" 都翻，不限待办前缀。
-		{"非待办行也翻", "see [ ] here", 0, "see [x] here"},
+		// 正文中的方框不是任务标记，不能被点击/切换。
+		{"非待办行保持原样", "see [ ] here", 0, "see [ ] here"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -7,7 +7,8 @@ import (
 
 type tableCell struct {
 	Text       string
-	Start, End int // rune 偏移，相对所在行，去掉两侧空白
+	Start, End int  // rune 偏移，相对所在行，去掉两侧空白
+	Missing    bool // 源行缺少该语义列；编辑前需要先补成真实单元格
 }
 
 type markdownTable struct {
@@ -89,13 +90,67 @@ func tableStart(lines []string, i, stop int) (markdownTable, bool) {
 
 func emptyTableRow(n int) string { return "|" + strings.Repeat("   |", n) }
 
+// tableRowCells 按表头列数返回可见单元格。宽行截掉不可见的额外列，
+// 短行补虚拟单元格；虚拟位置落在闭合竖线前，调用方不能直接回写该范围。
+func tableRowCells(line string, columns int) ([]tableCell, bool) {
+	cells, ok := pipeCells(line)
+	if !ok || columns <= 0 {
+		return nil, false
+	}
+	if len(cells) > columns {
+		cells = cells[:columns]
+	}
+	at := tableRowInsertOffset(line)
+	for len(cells) < columns {
+		cells = append(cells, tableCell{Start: at, End: at, Missing: true})
+	}
+	return cells, true
+}
+
+func tableRowInsertOffset(line string) int {
+	rs := []rune(line)
+	i := len(rs)
+	for i > 0 && (rs[i-1] == ' ' || rs[i-1] == '\t') {
+		i--
+	}
+	if i > 0 && rs[i-1] == '|' {
+		return i - 1
+	}
+	return i
+}
+
+// normalizeTableRow 把短行补到表头列数。它只在用户开始编辑缺失格时使用；
+// 已经足够宽的源行原样保留，避免无关的 Markdown 格式化。
+func normalizeTableRow(line string, columns int) (string, bool) {
+	cells, ok := pipeCells(line)
+	if !ok || columns <= 0 {
+		return line, false
+	}
+	if len(cells) >= columns {
+		return line, true
+	}
+	values := make([]string, columns)
+	for i, cell := range cells {
+		values[i] = cell.Text
+	}
+	return "| " + strings.Join(values, " | ") + " |", true
+}
+
 func tableCellPositions(raw string) []tableCell {
 	lines := strings.Split(raw, "\n")
-	var out []tableCell
+	table, ok := tableStart(lines, 0, len(lines))
+	if !ok {
+		return nil
+	}
+	columns := len(table.Align)
+	out := make([]tableCell, 0, (len(lines)-1)*columns)
 	off := 0
 	for row, line := range lines {
 		if row != 1 {
-			cells, _ := pipeCells(line)
+			cells, ok := tableRowCells(line, columns)
+			if !ok {
+				break
+			}
 			for _, cell := range cells {
 				cell.Start += off
 				cell.End += off

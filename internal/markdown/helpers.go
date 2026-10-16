@@ -42,4 +42,56 @@ func listMarkerLen(trimmed string) int {
 	return 0
 }
 
-func isFenceLine(s string) bool { return strings.HasPrefix(strings.TrimSpace(s), "```") }
+type fenceMarker struct {
+	char byte
+	size int
+}
+
+func fenceLineContent(s string) (string, bool) {
+	s = strings.TrimSuffix(s, "\r")
+	indent := 0
+	for indent < len(s) && s[indent] == ' ' {
+		indent++
+		if indent > 3 {
+			return "", false
+		}
+	}
+	return s[indent:], true
+}
+
+func parseFenceOpeningLine(s string) (fenceMarker, bool) {
+	content, ok := fenceLineContent(s)
+	if !ok || len(content) < 3 || content[0] != '`' && content[0] != '~' {
+		return fenceMarker{}, false
+	}
+	char := content[0]
+	size := 1
+	for size < len(content) && content[size] == char {
+		size++
+	}
+	if size < 3 || char == '`' && strings.Contains(content[size:], "`") {
+		return fenceMarker{}, false
+	}
+	return fenceMarker{char: char, size: size}, true
+}
+
+func isFenceOpeningLine(s string) bool {
+	_, ok := parseFenceOpeningLine(s)
+	return ok
+}
+
+func isFenceClosingLine(s string, opening fenceMarker) bool {
+	content, ok := fenceLineContent(s)
+	if !ok || opening.size < 3 || len(content) < opening.size || content[0] != opening.char {
+		return false
+	}
+	size := 1
+	for size < len(content) && content[size] == opening.char {
+		size++
+	}
+	return size >= opening.size && strings.Trim(content[size:], " \t") == ""
+}
+
+func fenceClosingMarker(opening fenceMarker) string {
+	return strings.Repeat(string(opening.char), opening.size)
+}
