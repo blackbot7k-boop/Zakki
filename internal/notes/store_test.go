@@ -442,9 +442,10 @@ func (g *gitLog) has(cmd string) bool {
 }
 
 // waitForGit 轮询等待后台 Git 任务结束（BackupNow 返回时任务可能仍在跑）。
+// 上限 15 秒：race 与共享 CI runner 下文件操作可能远慢于本地。
 func waitForGit(t *testing.T, g *gitLog, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
@@ -456,7 +457,7 @@ func waitForGit(t *testing.T, g *gitLog, cond func() bool) {
 
 func waitForMirror(t *testing.T, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
