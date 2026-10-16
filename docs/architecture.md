@@ -21,10 +21,10 @@
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
-| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护/镜像）。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
+| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责本地持久化与镜像快照提交，`mirror_worker.go` 负责外部镜像/Git 的单 worker 调度。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
 | `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
-| `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：目录整体改名或逐文件搬入，数据/暂存/备份文件换新命名；`dataDir()` 内 `sync.Once` 保证只跑一次，迁移失败只告警不阻塞启动。 |
+| `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`）。 |
 | `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
 | `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。 |
@@ -59,14 +59,13 @@
 ## 线程模型（MyGo 硬约束，违反会在运行期出错或被 `go tool mygo vet` 拦下）
 
 - **app 状态只在主线程改**。`view` 每帧在主线程读状态构建 UI；菜单/托盘/热键回调经
-  `withWindow` 回主线程改状态并触发重绘。
+  `withWindow` 回主线程改状态并触发重绘；后台完成回调只经原子发布的活窗口 `Window.Update` 投递，窗口关闭后直接丢弃。
 - **后台写盘只接触不可变快照**。笔记经 `snapshotFile`、偏好经 `prefs.Store.TakeSnapshot`，
   均在主线程拍值拷贝；后台定时器只写快照，绝不读写 `app` 的可变字段；
   协调状态在 `notes.Store` / `prefs.Store` 内部 mutex 中，偏好另用修订号防旧覆盖新。
 - **每帧构建的 UI 元素（`ui.*` 控件）不存入 `app`**。`app` 里只保留窗口/菜单这类桌面集成句柄
   （`*mygo.Window`、`*mygo.Menu`、`*mygo.MenuItem`），普通跨帧状态一律存普通字段。
-- **跨线程刷新用 `Window.Update`**。`scheduleSave` 把 `win.Update(func(){})` 放进写完后的 `after` 回调，
-  回主线程刷新状态栏（备份时间/错误提示）；窗口失效时 Update 自然空转。
+- **跨线程刷新用 `Window.Update`**。`runOnMain` 只读取原子发布的活窗口并投递；窗口不存在时不执行回调，绝不退回后台 goroutine 直接改 `app` 状态。
 - 退出流程（`finishQuit` → `shutdownForQuit`，主线程）：停防抖定时器 → 置 `stopped` → 最终快照保存并等它完成。
   笔记与偏好均成功后才退出（更新器的重启也经过此流程）；任一保存失败则取消退出、恢复笔记 Store 接收保存，
   重开主窗口显示错误，允许继续编辑与重试。
@@ -81,9 +80,10 @@
    防抖到期由 `notes.Store.flushPending` 在后台取走最新快照写盘（新快照取代旧的排队快照）。
 2. **原子写**：`notes.Store.writeFileLocked` 经 `atomicfile.WriteBytes` 先写 `zakki.json.tmp` 再 `os.Rename` 替换；
    rename 失败如实上报，不装作保存成功。目录自动 `MkdirAll`。
-3. **写保护**：数据文件损坏且无可用备份时 `notes.Store.saveBlocked = true`，此后写入转到暂存文件
-   `zakki.json.pending`，绝不覆盖原路径；用户在设置页点「写回数据文件」（`confirmWriteBack`）
-   确认后才写回原路径并清理暂存文件（写回失败则维持写保护）。
+3. **写保护**：数据文件损坏、版本高于当前支持，或恢复到这两类文件关联的暂存内容时，
+   `notes.Store.saveBlocked = true`；此后写入转到暂存文件 `zakki.json.pending`，绝不覆盖原路径。启动时先验证并恢复
+   `.pending`，仍保持写保护；用户在设置页点「写回数据文件」（`confirmWriteBack`）确认后才写回原路径并清理暂存文件
+   （写回失败则维持写保护）。
 
 ### 备份（`backups/` 目录，文件名 `zakki-<时间戳>.json`，同秒多次加序号）
 
@@ -93,7 +93,7 @@
 | 自动备份 `maybeWritePeriodicBackup` | 距上次备份超过配置间隔（`Backup.IntervalMinutes`，默认 **5 分钟**，常量 `backupInterval`）才写一份，随防抖保存顺带触发。 |
 | 手动备份 `backupNow`（菜单/托盘「立即备份」、⌘S） | **无条件**创建一份（绕过周期节流），先保存当前数据再备份。 |
 | 清空当前标签 `clearActiveTab` | 危险操作：**先强制备份**（`backupNow`），备份失败则取消清空。 |
-| 外部镜像 `writeMirrorLocked` | 本地备份写成功后，同一份内容镜像到 `Backup.MirrorDir`（云盘同步文件夹或 Git 仓库 clone），按同一 `Keep` 修剪且只动本应用备份文件（新前缀 `zakki-*.json`，兼容识别更名前的旧前缀常量，让其随保留策略自然淘汰）；**镜像或 Git 失败只记警告与状态，绝不影响本地备份成功**。Git 档位 `Backup.GitMode`（off/commit/commitPush）非 off 且选了仓库目录时，后台 `git add` 两个前缀的备份文件 + commit（可选 push，`runGitJob`，runner 经 `Store.RunGit` 注入），忙碌期间合并为一次补跑；`LoadMirrorTime` 启动时从镜像目录恢复最近镜像时间。 |
+| 外部镜像 `runMirrorJob` | 本地备份成功后立即返回；后台单 worker 持有不可变 `mirrorJob` 快照，把同一份内容镜像到 `Backup.MirrorDir`，按同一 `Keep` 修剪且只动本应用备份文件。worker 忙碌时仅保留最新快照补跑一次；镜像/Git 配置变更会清除旧待办，已取出的陈旧任务也会在外部 I/O 前复核版本并跳过。`mirrorMu` 串行镜像与 Git，`Store.mu` 不覆盖外部文件系统或 Git I/O；任务完成后仅在配置版本仍一致时更新状态，再经 `Window.Update` 刷新 UI。镜像或 Git 失败只记警告与状态，绝不影响本地备份成功。Git 档位 `Backup.GitMode`（off/commit/commitPush）使用磁盘文件与 `git ls-files -z` 得出的精确路径执行 scoped commit（可选 push）。 |
 
 保留策略：`notes.Store.pruneBackupsLocked` 按 `Backup.Keep` 修剪，默认只保留最新 **20 份**；修剪失败只记警告（备份本体已写成功）。
 
@@ -101,7 +101,7 @@
 
 - 文件不存在：首次运行，写入欢迎文本。
 - 解析失败 / 读取失败 / 版本过高：原件**复制隔离**为 `zakki.json.corrupt-<时间戳>`
-  （`notes.Store.QuarantineCorruptFile`，绝不删除或覆盖原件）→ 从备份目录新→旧找第一个可用备份恢复
+  （`notes.Store.QuarantineCorruptFile`，绝不删除或覆盖原件）→ 从备份目录按时间戳及同秒序号数值由新到旧找第一个可用备份恢复
   （`notes.Store.LoadNewestBackup`）→ 都失败则用默认值并进入写保护（见上）。
 - 即使已从备份恢复，`load` 也如实返回错误，状态栏/日志给出提示（`notice`/`slog`）。
 
@@ -154,7 +154,7 @@
 
 ## 偏好生命周期
 
-`newApp` 内置默认偏好 → `load` 恢复笔记数据（含编辑会话状态）→ `loadPreferences`
+`Run` 先调用 `resolveDataDir()` 完成目录迁移；成功后才把同一个显式目录传给 `newAppAt` 构造 Store，失败则不构造 Store，在 `WhenReady` 显示原生错误后退出。随后 `load` 恢复笔记数据（含编辑会话状态）→ `loadPreferences`
 读取 `preferences.json`（缺失时执行一次性迁移：默认值 → 笔记内旧设置 →
 旧 config.toml / config.json 显式值，TOML 优先；结果原子写入，旧文件原样保留）→
 `WhenReady` 里创建窗口、应用主题并注册全局热键（`a.ready` 之后偏好变更才触达原生 API）。
@@ -163,11 +163,11 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **3**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **4**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`（空串 = 未配置）与 Git 自动化档位 `gitMode`
-（off/commit/commitPush，缺键按 off）。旧版本文件在 `Decode` 里升级：缺键按未配置处理，
-行为与升级前一致；写回后即为版本 3。升级带来的兼容代价：旧版本程序读到版本 3 会按
+（off/commit/commitPush，缺键按 off）；版本 4 把更名前的主题 ID 映射为 `classic` / `note`。
+旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 4。旧版本程序读到版本 4 会按
 「版本超前」拒绝并保留原文件。
 退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
 失败返回 `finishQuit`，阻止退出或更新重启。
@@ -176,11 +176,7 @@
 
 ## 测试接缝
 
-- **路径注入**：`notes.Store` 的 `DataFile` / `BackupDir`。生产由 `newApp` 用 `dataDir()`
-  （`mygo.App.Path(PathAppData)` + `dataDirectoryName`，macOS 为 `~/Library/Application Support/Zakki/`，Windows 为 `%APPDATA%\Zakki\`，
-  失败回退 `os.UserHomeDir` + `Library/Application Support`）。应用更名后 `datamigrate.go` 在首次启动时把旧数据目录整体迁到新目录
-  （新目录已有数据则不动旧目录、仅告警），内部数据/暂存/备份文件按新命名规则改名；`PathUserData` 指向新目录，
-  MyGo 窗口状态与 `updater.json` 更新辅助状态仍在这里。由此拼出 `zakki.json` 与 `backups/`。
+- **路径注入**：生产 `Run` 只调用一次 `resolveDataDir()`；迁移成功后把结果同时传给 `mygo.App.SetPath(PathUserData, dir)` 与 `newAppAt(dir)`，由此构造 `notes.Store` 的 `DataFile` / `BackupDir`。迁移失败不会构造 Store。系统数据根目录由 `mygoAppDataBase` 解析（macOS 为 `~/Library/Application Support/`，Windows 为 `%APPDATA%`），`datamigrate.go` 用 staging 复制、校验并发布旧目录内容，源文件保留供重试或人工确认。
 - **时钟注入**：`app.now func() time.Time`，生产 `time.Now`，测试给假时钟。
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），

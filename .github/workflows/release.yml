@@ -16,6 +16,8 @@ jobs:
     if: github.repository == 'gomeen/Zakki'
     runs-on: macos-latest
     timeout-minutes: 30
+    outputs:
+      previous-version: ${{ steps.previous-release.outputs.version }}
     defaults:
       run:
         shell: bash
@@ -25,6 +27,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: 解析增量更新基线
+        id: previous-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Latest Release 不是正式版本: $tag" >&2
+            exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: 校验版本与更新私钥配置
         env:
@@ -97,12 +112,15 @@ jobs:
       - name: 核查产物并生成平台校验和
         env:
           TARGET: ${{ matrix.target }}
+          PREVIOUS_VERSION: ${{ needs.check.outputs.previous-version }}
         run: |
           set -euo pipefail
           version="$(jq -r .version mygo.json)"
           cd "build/$TARGET"
           archive="zakki-$version-$TARGET.tar.gz"
           manifest="update-$TARGET.json"
+          delta="zakki-$PREVIOUS_VERSION-to-$version-$TARGET.delta"
+          test "$PREVIOUS_VERSION" != "$version"
           case "$TARGET" in
             darwin-universal)
               installer="Zakki $version.dmg"
@@ -124,6 +142,19 @@ jobs:
             (.signature | length > 0) and .size > 0
           ' "$manifest" > /dev/null
           test "$(wc -c < "$archive" | tr -d ' ')" = "$(jq -r .size "$manifest")"
+          jq -e --arg previous "$PREVIOUS_VERSION" --arg delta "$delta" '
+            [.deltas[]? | select(
+              .from == $previous and
+              (.url | endswith("/" + $delta)) and
+              (.signature | length > 0) and .size > 0
+            )] | length == 1
+          ' "$manifest" > /dev/null
+          test -s "$delta"
+          test "$(wc -c < "$delta" | tr -d ' ')" = "$(
+            jq -r --arg previous "$PREVIOUS_VERSION" --arg delta "$delta" '
+              .deltas[] | select(.from == $previous and (.url | endswith("/" + $delta))) | .size
+            ' "$manifest"
+          )"
           shopt -s nullglob
           files=("$installer" "$archive" "$manifest" *.delta)
           if [[ "$TARGET" == darwin-universal ]]; then
@@ -146,7 +177,7 @@ jobs:
             build/${{ matrix.target }}/SHA256SUMS-*
 
   release:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -164,20 +195,37 @@ jobs:
 
       - name: 核查两个平台的发行文件
         working-directory: release-artifacts
+        env:
+          PREVIOUS_VERSION: ${{ needs.check.outputs.previous-version }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          test "$PREVIOUS_VERSION" != "$version"
           test -s "Zakki $version.dmg"
           test -s "Zakki Setup $version amd64.exe"
           for target in darwin-universal windows-amd64; do
             archive="zakki-$version-$target.tar.gz"
+            manifest="update-$target.json"
+            delta="zakki-$PREVIOUS_VERSION-to-$version-$target.delta"
             test -s "$archive"
-            jq -e --arg version "$version" --arg archive "$archive" '
+            jq -e --arg version "$version" --arg archive "$archive" \
+              --arg previous "$PREVIOUS_VERSION" --arg delta "$delta" '
               .version == $version and
               .url == ("https://github.com/gomeen/Zakki/releases/download/v" + $version + "/" + $archive) and
-              (.signature | length > 0) and .size > 0
-            ' "update-$target.json" > /dev/null
-            test "$(wc -c < "$archive" | tr -d ' ')" = "$(jq -r .size "update-$target.json")"
+              (.signature | length > 0) and .size > 0 and
+              ([.deltas[]? | select(
+                .from == $previous and
+                (.url | endswith("/" + $delta)) and
+                (.signature | length > 0) and .size > 0
+              )] | length == 1)
+            ' "$manifest" > /dev/null
+            test "$(wc -c < "$archive" | tr -d ' ')" = "$(jq -r .size "$manifest")"
+            test -s "$delta"
+            test "$(wc -c < "$delta" | tr -d ' ')" = "$(
+              jq -r --arg previous "$PREVIOUS_VERSION" --arg delta "$delta" '
+                .deltas[] | select(.from == $previous and (.url | endswith("/" + $delta))) | .size
+              ' "$manifest"
+            )"
             sha256sum -c "SHA256SUMS-$target"
           done
 

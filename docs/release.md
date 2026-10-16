@@ -12,6 +12,7 @@
 - 发布目标固定为 **darwin/universal**（Intel 与 Apple Silicon）和 **windows/amd64**（Windows 10/11 x64）。
   同一个 Release 分别提供 `update-darwin-universal.json` 与 `update-windows-amd64.json`，两种系统不会混用更新。
   每种架构独立订阅清单，后续不要随意切换目标，否则已有版本会收不到更新；目前不发布 Windows ARM64 原生包。
+- 除首次发行外，发布工作流读取当前 Latest 作为增量基线；macOS 与 Windows 都必须生成该版本到新版本的签名 delta，任一缺失、清单不匹配或大小不符都会阻止草稿上传。
 - **没有 Apple 开发者账号**：`macos.signingIdentity` 为 `-`，仅 ad-hoc 签名，不做公证。
   Windows 尚无 Authenticode 代码签名，SmartScreen 可能显示未知发布者。
   两个平台共用 Ed25519 更新签名密钥；它验证更新包来源，不代替 Apple 或 Windows 的系统代码签名。
@@ -71,6 +72,7 @@ gh secret set MYGO_UPDATER_PRIVATE_KEY --repo gomeen/Zakki \
    - 核对 tag、版本、仓库与私钥 Secret；缺私钥直接失败，不生成不完整的发行包。
    - 执行 `go mod verify`、完整 `make check`；macOS runner 构建 universal 包，Ubuntu runner 安装 NSIS 并交叉构建 Windows x64 安装器。
    - 检查安装器、清单版本/URL、归档大小；额外核对 macOS 双架构与 ad-hoc 签名、Windows PE x64 可执行文件。
+   - 读取当前 Latest 版本，要求两个平台的清单和附件均包含该版本到新版本的有效 delta，并核对签名字段与实际文件大小。
    - 各平台分别生成 `SHA256SUMS-darwin-universal`、`SHA256SUMS-windows-amd64`，避免汇总时同名覆盖。
    - 保留两个平台的 Actions 附件；全部成功后汇总、再次校验，再上传至草稿 Release，两个更新清单最后上传。
    - 拒绝覆盖已公开的同号 Release；修复已公开版本必须递增版本号。
@@ -121,6 +123,8 @@ MYGO_UPDATER_PRIVATE_KEY="$(< "$HOME/Library/Application Support/mygo/update-key
 | `*.delta`（有可用旧版本时） | Windows 增量更新 |
 | `SHA256SUMS-windows-amd64`（工作流生成） | Windows 发布附件的 SHA-256 校验和 |
 
+除首次发行外，正式工作流要求两个平台都生成“当前 Latest → 新版本”的 delta；MyGo 默认为最近 3 个版本保留增量来源。应用优先使用匹配 delta，但补丁缺失、无体积优势、校验失败或本地应用被修改时，会自动回退完整签名归档，这一安全兜底不能关闭。
+
 MyGo 缺私钥时只警告并跳过 macOS/Windows 更新文件，所以本地普通构建仍可用，但不能拿其安装包当作完整的更新发布。
 工作流会检查私钥与产物，公私钥不匹配时构建失败。生成 DMG 需要 macOS；Windows 可从 macOS/Linux 交叉构建，安装器需要 NSIS。
 
@@ -159,6 +163,6 @@ https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.js
 - [ ] macOS 与 Windows 构建 job 均成功，草稿包含 DMG、Setup EXE、两份签名归档、两份更新清单与两个平台的 SHA256SUMS。
 - [ ] Intel / Apple Silicon 安装可启动；对真实下载文件验证 Gatekeeper 行为，不以本机无隔离标记的包代替。
 - [ ] Windows 10/11 x64 按用户安装、启动、中文输入法、托盘、快捷键与退出通过实机验收，确认 SmartScreen 提示；不能仅凭交叉编译宣布已验证。
-- [ ] 旧版检查更新可下载安装并重启；取消、失败、无写权限时提示准确。
+- [ ] 旧版检查更新可下载安装并重启；两个平台的清单均包含从上一 Latest 版本出发的 delta，附件存在且大小一致。
 - [ ] 更新前后笔记/偏好/备份保留；保存失败不静默重启。
 - [ ] 公开 Release 并设为 Latest 后，清单和归档均可匿名下载。
