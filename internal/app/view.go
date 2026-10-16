@@ -296,7 +296,7 @@ func (a *app) findStep(dir int) {
 // findOpenOrStep 菜单「查找下一个/上一个」入口：查找条未开时先打开，否则跳匹配。
 func (a *app) findOpenOrStep(dir int) {
 	if !a.findOpen {
-		a.findOpen, a.query, a.matchIdx = true, "", 0
+		a.findOpen, a.query, a.matchIdx, a.findFocus = true, "", 0, 1
 		return
 	}
 	a.findStep(dir)
@@ -306,14 +306,18 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(44).Background(a.chromeColor(headerBackground(dark), dark, c.Vibrancy())).
 		Padding(0, 14).Gap(8).AlignItems(ui.Center).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
-		sf := ui.SearchField(c.Key("find-query"), &a.query).Grow(1)
-		if sf.Changed() {
+		in := ui.TextInputBase(c.Key("find-query"), &a.query).
+			Label(locales.FixedFind()).Placeholder(locales.FixedFind()).Grow(1).
+			MinWidth(120).Height(30).PaddingX(10).Radius(6).
+			Background(t.Background).Border(1, t.Border).
+			FocusBind(&a.findFocus, 1)
+		if in.Changed() {
 			a.matchIdx = 0
 			// 输入查询本身不强制定位：预览态不该因为打关键词就把命中行变成源码。
 			a.jumpPending = false
 		}
 		// Enter 跳到下一个命中。
-		if sf.Submitted() {
+		if in.Submitted() {
 			a.findStep(1)
 		}
 		matches := a.docMatches(a.activeTab().Text, a.query)
@@ -353,7 +357,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 
 	// TextAreaBase 无自带样式：背景/内边距自己给，聚焦时不会有任何边框。
 	a.captureClipboardService(c)
-	ta := ui.TextAreaBase(c.Key("source-editor"), text).
+	ta := ui.TextAreaBase(c.Key(fmt.Sprintf("source-editor-%d", a.activeTab().ID)), text).
 		Bind(&a.editorHandle).
 		ContextMenu(a.editorContextMenu).
 		Label(locales.EditorContent()).
@@ -363,9 +367,20 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		FocusRing(false).
 		Background(a.paperBackground(md.background, dark, c.Vibrancy())).
 		AutoFocus().
+		OnPaste(func(text string) bool {
+			if text != "" {
+				a.nextEditIsPaste = true
+			}
+			return false
+		}).
 		HandleInput(func(ev ui.InputEvent) bool { return a.recordSourceKey(ev) })
 
 	ta.TextRanges(a.sourceRanges(*text, a.query, t, accent)...)
+	wasComposing := a.srcComposing
+	a.srcComposing = ta.Composing()
+	if !wasComposing && a.srcComposing {
+		a.srcComposeBefore = a.srcPrev
+	}
 
 	// 查找跳转：把选区移到当前命中处（编辑器会滚动到选区）。
 	if a.jumpPending {
@@ -393,13 +408,22 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		c.Invalidate()
 		return
 	}
-	if ta.Changed() {
+	if ta.Changed() && !a.srcComposing {
+		before := a.srcPrev
 		kind := a.consumePendingEditKind()
-		a.rememberLiveEdit(a.srcPrev, kind)
+		if a.nextEditIsPaste {
+			kind, a.nextEditIsPaste = editPaste, false
+		} else if wasComposing {
+			kind, before = editIME, a.srcComposeBefore
+		}
+		a.rememberLiveEdit(before, kind)
 		a.onEdited()
 	}
-	// 记录本帧结束时的快照，作为下一帧编辑的“before”。
-	a.srcPrev = a.liveSnapshot()
+	// 组合文本只存在原生控件缓冲中；确认后再推进撤销基线。
+	if !a.srcComposing {
+		a.srcPrev = a.liveSnapshot()
+		a.srcComposeBefore = liveSnapshot{}
+	}
 }
 
 // ---- 底栏（36pt，随点的 status 色，Tot 同布局）----
@@ -443,7 +467,7 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 		a.iconStatusToggle(c, "sb-find", iconSearch, locales.StatusSearch(), a.findOpen, t, dark, func() {
 			a.findOpen = !a.findOpen
 			if a.findOpen {
-				a.query, a.matchIdx = "", 0
+				a.query, a.matchIdx, a.findFocus = "", 0, 1
 			}
 		})
 	})
@@ -466,13 +490,53 @@ func (a *app) iconStatusToggle(c *ui.Context, key string, svg *ui.SVG, label str
 
 // ---- 状态流转 ----
 
+// saveSourceSession 必须在 active 改变前调用；restoreSourceSession 在改变后调用。
+// 源码切换路径恢复后不能再清空 liveUndo/liveRedo，否则会丢失该标签会话。
+func (a *app) saveSourceSession() {
+	if !a.cfg.Source || len(a.tabs) == 0 {
+		return
+	}
+	if a.srcSessions == nil {
+		a.srcSessions = make(map[uint64]sourceSession)
+	}
+	a.srcSessions[a.activeTab().ID] = sourceSession{
+		caret: a.srcCaret, selEnd: a.srcSelEnd,
+		selSyncStart: a.srcSelSyncStart, selSyncEnd: a.srcSelSyncEnd,
+		prev: a.srcPrev,
+		undo: append([]liveEdit(nil), a.liveUndo...),
+		redo: append([]liveEdit(nil), a.liveRedo...),
+	}
+}
+
+func (a *app) restoreSourceSession() {
+	a.srcCaret, a.srcSelEnd = 0, 0
+	a.srcSelSyncStart, a.srcSelSyncEnd = -1, -1
+	a.srcPrev, a.srcComposeBefore = liveSnapshot{}, liveSnapshot{}
+	a.srcComposing = false
+	a.liveUndo, a.liveRedo = nil, nil
+	if session, ok := a.srcSessions[a.activeTab().ID]; ok {
+		a.srcCaret, a.srcSelEnd = session.caret, session.selEnd
+		a.srcSelSyncStart, a.srcSelSyncEnd = session.selSyncStart, session.selSyncEnd
+		a.srcPrev = session.prev
+		a.liveUndo = append([]liveEdit(nil), session.undo...)
+		a.liveRedo = append([]liveEdit(nil), session.redo...)
+	}
+}
+
 // toggleSourceMode 切换源码/实时预览（编辑会话状态，随笔记持久化）。
 func (a *app) toggleSourceMode() {
-	a.commitDraft(-1)
+	if a.cfg.Source {
+		a.saveSourceSession()
+	} else {
+		a.commitDraft(-1)
+	}
+	a.clearFenceDraft()
 	a.cfg.Source = !a.cfg.Source
 	if a.cfg.Source {
+		undo, redo := a.liveUndo, a.liveRedo
+		a.restoreSourceSession()
+		a.liveUndo, a.liveRedo = undo, redo
 		a.srcPrev = a.liveSnapshot()
-		a.srcSelSyncStart, a.srcSelSyncEnd = -1, -1
 	} else {
 		a.resyncLive(-1)
 	}

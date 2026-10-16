@@ -155,6 +155,10 @@ func (a *app) editorSelection() (text string, lo, hi int) {
 }
 
 func (a *app) replaceEditorSelection(text string, kind editKind) {
+	if !a.cfg.Source && a.mdActive < 0 && text != "" {
+		a.appendToUnfocusedPreview(text, kind)
+		return
+	}
 	if a.selDoc {
 		a.spliceDocSelection(text)
 		return
@@ -172,9 +176,27 @@ func (a *app) replaceEditorSelection(text string, kind editKind) {
 	} else {
 		a.mdDraft, caret = a.mdProjection.replaceSelection(next, caret, lo, hi)
 		a.publishDraft(caret)
+		a.scrollActive = true
+		a.liveList.ScrollIntoView(a.mdActive)
 		a.onEdited()
 	}
 	a.rememberLiveEdit(before, kind)
+}
+
+func (a *app) appendToUnfocusedPreview(text string, kind editKind) {
+	doc := a.activeTab().Text
+	at := utf8.RuneCountInString(doc)
+	before := liveSnapshot{doc: doc, start: at, end: at}
+	separator := ""
+	if doc != "" && !strings.HasSuffix(doc, "\n") && !strings.HasPrefix(text, "\n") {
+		separator = "\n"
+	}
+	a.activeTab().Text = doc + separator + text
+	a.lowerDoc = ""
+	a.invalidateMdCache()
+	a.focusBlockEnd(len(a.mdBlocks()) - 1)
+	a.rememberLiveEdit(before, kind)
+	a.onEdited()
 }
 
 func (a *app) editorContextMenu(m *ui.Menu) {

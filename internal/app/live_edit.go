@@ -56,6 +56,22 @@ func (a *app) invalidateMdCache() {
 	a.mdCacheValid = false
 }
 
+func (a *app) clearFenceDraft() {
+	if !a.fenceDraft {
+		return
+	}
+	a.fenceDraft = false
+	a.fenceDraftLine = 0
+	a.spliceHintDoc, a.spliceHintLines = "", nil
+	a.invalidateMdCache()
+}
+
+func (a *app) startFenceDraft(line int) {
+	a.fenceDraft = true
+	a.fenceDraftLine = line
+	a.invalidateMdCache()
+}
+
 // mdBlocks 返回当前标签文档的块列表（按文档串缓存，编辑处增量重切）。
 func (a *app) mdBlocks() []liveBlock {
 	doc := a.activeTab().Text
@@ -64,18 +80,26 @@ func (a *app) mdBlocks() []liveBlock {
 	}
 	var blocks []liveBlock
 	var lines []string
-	switch {
-	case a.spliceHintDoc == doc && a.spliceHintLines != nil && a.mdCacheDoc != "" && a.mdCacheLines != nil:
-		// 提交管线刚拼好的新文档：行切分已由 spliceDoc 备好，直接复用。
-		// 注意 applyDocEditAt 已先行 invalidate（mdCacheValid=false），
-		// 但旧代缓存数据仍在，正是拼接所需的基线。
-		blocks, _, _ = spliceBlocksLines(a.mdCacheDoc, a.mdCacheLines, a.mdCacheBlocks, doc, a.spliceHintLines)
-		lines = a.spliceHintLines
-	case a.mdCacheValid && a.mdCacheDoc != "" && a.mdCacheDoc != doc:
-		blocks, lines, _ = spliceBlocks(a.mdCacheDoc, a.mdCacheLines, a.mdCacheBlocks, doc)
-	default:
-		blocks = liveBlocks(doc)
+	if a.fenceDraft {
 		lines = strings.Split(doc, "\n")
+		line := clamp(a.fenceDraftLine, 0, len(lines)-1)
+		blocks = append(blocks, parseLines(lines, 0, line)...)
+		blocks = append(blocks, parseLines(lines, line, line+1)...)
+		blocks = append(blocks, parseLines(lines, line+1, len(lines))...)
+	} else {
+		switch {
+		case a.spliceHintDoc == doc && a.spliceHintLines != nil && a.mdCacheDoc != "" && a.mdCacheLines != nil:
+			// 提交管线刚拼好的新文档：行切分已由 spliceDoc 备好，直接复用。
+			// 注意 applyDocEditAt 已先行 invalidate（mdCacheValid=false），
+			// 但旧代缓存数据仍在，正是拼接所需的基线。
+			blocks, _, _ = spliceBlocksLines(a.mdCacheDoc, a.mdCacheLines, a.mdCacheBlocks, doc, a.spliceHintLines)
+			lines = a.spliceHintLines
+		case a.mdCacheValid && a.mdCacheDoc != "" && a.mdCacheDoc != doc:
+			blocks, lines, _ = spliceBlocks(a.mdCacheDoc, a.mdCacheLines, a.mdCacheBlocks, doc)
+		default:
+			blocks = liveBlocks(doc)
+			lines = strings.Split(doc, "\n")
+		}
 	}
 	a.spliceHintDoc, a.spliceHintLines = "", nil
 	a.mdCacheDoc = doc
@@ -272,8 +296,8 @@ func prefixSeamContinuation(lines []string, pb liveBlock, pre int) bool {
 		if pb.end+1 != pre {
 			return false
 		}
-		line := strings.TrimSpace(lines[pre])
-		return line != "" && !mdLineSpecial(line) && !isFenceLine(line)
+		line := lines[pre]
+		return strings.TrimSpace(line) != "" && !mdLineSpecial(line)
 	}
 }
 
@@ -283,20 +307,20 @@ func blockAbsorbsNextLine(lines []string, b liveBlock, next int) bool {
 	if b.end+1 != next || next >= len(lines) {
 		return false
 	}
-	line := strings.TrimSpace(lines[next])
+	line := lines[next]
 	switch b.kind {
 	case bkCode:
-		// 单行围栏块是未闭合的 opener，必然延续；多行块以末行是否为围栏行
-		// 判定闭合（末行是围栏 = 已闭合，后续围栏行开启新围栏，不合并）。
+		// 单行围栏块是未闭合的 opener，必然延续；多行块按匹配开栏判断闭合。
 		if b.end == b.start {
 			return true
 		}
-		return !isFenceLine(lines[b.end])
+		opening, ok := parseFenceOpeningLine(lines[b.start])
+		return !ok || !isFenceClosingLine(lines[b.end], opening)
 	case bkTable:
 		_, ok := pipeCells(line)
 		return ok
 	default:
-		return line != "" && !mdLineSpecial(line) && !isFenceLine(line)
+		return strings.TrimSpace(line) != "" && !mdLineSpecial(line)
 	}
 }
 
@@ -311,7 +335,8 @@ func blockComplete(lines []string, blocks []liveBlock, i int, stop int) bool {
 	}
 	switch b.kind {
 	case bkCode:
-		if b.end+1 < len(lines) && isFenceLine(lines[b.end+1]) {
+		opening, ok := parseFenceOpeningLine(lines[b.start])
+		if ok && b.end+1 < len(lines) && isFenceClosingLine(lines[b.end+1], opening) {
 			return true
 		}
 		return false
@@ -323,8 +348,8 @@ func blockComplete(lines []string, blocks []liveBlock, i int, stop int) bool {
 		return false
 	default:
 		if b.end+1 < stop {
-			line := strings.TrimSpace(lines[b.end+1])
-			if line == "" {
+			line := lines[b.end+1]
+			if strings.TrimSpace(line) == "" {
 				return true // 空行终止一切非围栏块
 			}
 			if mdLineSpecial(line) {
@@ -338,7 +363,34 @@ func blockComplete(lines []string, blocks []liveBlock, i int, stop int) bool {
 	}
 }
 
+func isFenceDraftLine(raw string) bool {
+	if raw == "" || strings.ContainsAny(raw, "\r\n") {
+		return false
+	}
+	indent := 0
+	for indent < len(raw) && raw[indent] == ' ' {
+		indent++
+		if indent > 3 {
+			return false
+		}
+	}
+	if indent == len(raw) || raw[indent] != '`' && raw[indent] != '~' {
+		return false
+	}
+	marker := raw[indent]
+	run := 1
+	for indent+run < len(raw) && raw[indent+run] == marker {
+		run++
+	}
+	if run < 3 {
+		return indent+run == len(raw)
+	}
+	_, ok := parseFenceOpeningLine(raw)
+	return ok
+}
+
 func (a *app) resyncLive(caret int) {
+	a.clearFenceDraft()
 	blocks := a.mdBlocks()
 	if len(blocks) == 0 {
 		a.mdActive, a.mdDraft = -1, ""
@@ -402,15 +454,6 @@ func (a *app) commitDraftSel(caret int, syncSel bool) {
 	if newDoc == doc && draft == blk.raw {
 		return
 	}
-	// 整块草稿是单行围栏（用户键入 ``` 新建代码块）：闭合成对围栏，
-	// 与空块上执行「代码块」命令的结果一致，光标落到内容行首。
-	// 代码块内的围栏是正文内容，表格单元格草稿另有语义，均不转换。
-	if blk.kind != bkCode && blk.kind != bkTable &&
-		!strings.Contains(draft, "\n") && isFenceLine(draft) {
-		draft += "\n\n```"
-		newDoc = a.spliceDoc(doc, blk.start, blk.end, draft)
-		caret = utf8.RuneCountInString(draft) - 4
-	}
 	if caret < 0 {
 		if a.selSyncStart >= 0 {
 			caret = a.selSyncStart
@@ -472,11 +515,35 @@ func (a *app) focusBlock(idx int, start, end int) {
 			a.commitDraft(-1)
 		}
 	}
+	docStart, docEnd := -1, -1
+	if a.fenceDraft {
+		blocks := a.mdBlocks()
+		if len(blocks) > 0 {
+			target := clamp(idx, 0, len(blocks)-1)
+			n := utf8.RuneCountInString(blocks[target].raw)
+			localStart, localEnd := start, end
+			if localStart < 0 {
+				localStart = n
+			}
+			if localEnd < 0 {
+				localEnd = n
+			}
+			off := a.blockRuneOffset(target)
+			docStart = off + clamp(localStart, 0, n)
+			docEnd = off + clamp(localEnd, 0, n)
+		}
+	}
+	a.clearFenceDraft()
 	a.clearDocSelection()
 	blocks := a.mdBlocks()
 	if len(blocks) == 0 {
 		a.mdActive, a.mdDraft = -1, ""
 		return
+	}
+	if docStart >= 0 {
+		var off int
+		idx, off = a.blockOfRuneOffset(docStart)
+		start, end = docStart-off, docEnd-off
 	}
 	idx = clamp(idx, 0, len(blocks)-1)
 	a.mdActive = idx

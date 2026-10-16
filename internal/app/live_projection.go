@@ -48,12 +48,15 @@ func projectBlock(b liveBlock) liveProjection {
 			lo++
 		}
 	case bkCode:
+		openingLine := b.raw
 		if i := strings.IndexRune(b.raw, '\n'); i >= 0 {
+			openingLine = b.raw[:i]
 			lo = utf8.RuneCountInString(b.raw[:i+1])
 		} else {
 			lo = hi
 		}
-		if i := strings.LastIndexByte(b.raw, '\n'); i >= 0 && isFenceLine(b.raw[i+1:]) {
+		opening, _ := parseFenceOpeningLine(openingLine)
+		if i := strings.LastIndexByte(b.raw, '\n'); i >= 0 && isFenceClosingLine(b.raw[i+1:], opening) {
 			hi = utf8.RuneCountInString(b.raw[:i])
 			if hi < lo {
 				hi = lo
@@ -132,6 +135,21 @@ func (p liveProjection) visibleOffset(source int) int {
 		n++
 	}
 	return n
+}
+
+// nativeCaretAfterEdit 规范一次原生文本编辑后的光标。原生的插入/替换总把光标
+// 推进到新内容之后；AX 等整值写入却会原样保留旧光标。旧可见文本是新文本的
+// 严格前缀（纯追加）而光标仍停在旧文本长度之内时，与该文本状态一致的唯一
+// 插入边界就是新文本末尾——把光标吸到末尾，避免下一个字符插进文本中间。
+func nativeCaretAfterEdit(old, neu string, caret int) int {
+	oldRunes, neuRunes := utf8.RuneCountInString(old), utf8.RuneCountInString(neu)
+	if caret < 0 || caret > neuRunes || neuRunes <= oldRunes || !strings.HasPrefix(neu, old) {
+		return caret
+	}
+	if caret <= oldRunes {
+		return neuRunes
+	}
+	return caret
 }
 
 // replace preserves wrappers around surviving characters, including link URLs.
@@ -317,10 +335,11 @@ type liveSnapshot struct {
 type editKind uint8
 
 const (
-	editInput   editKind = iota // 连续输入（同光标连续插入可合并）
-	editPaste                   // 粘贴
-	editIME                     // 输入法一次确认
-	editCommand                 // 格式命令/表格工具等结构化编辑
+	editInput     editKind = iota // 连续输入（同光标连续插入可合并）
+	editPaste                     // 粘贴
+	editIME                       // 输入法一次确认
+	editCommand                   // 格式命令/表格工具等结构化编辑
+	editFencePair                 // 围栏逐键输入与 Enter 配对合并成一个事务
 )
 
 type liveEdit struct {
@@ -364,6 +383,15 @@ func (a *app) rememberLiveEdit(before liveSnapshot, kind editKind) {
 	}
 	if len(a.liveUndo) > 0 && a.liveUndo[len(a.liveUndo)-1].after.doc != before.doc {
 		a.liveUndo = nil
+	}
+	if n := len(a.liveUndo); n > 0 && kind == editFencePair {
+		last := &a.liveUndo[n-1]
+		if last.kind == editInput && last.after.doc == before.doc {
+			last.after = after
+			last.kind = editCommand
+			a.liveRedo = nil
+			return
+		}
 	}
 	// 合并：上一事务也是输入、光标连续且都是插入（不合并删除）。
 	if n := len(a.liveUndo); n > 0 && kind == editInput {

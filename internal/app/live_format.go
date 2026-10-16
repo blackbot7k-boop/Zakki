@@ -65,6 +65,9 @@ func (a *app) execFormatCommand(id string) {
 
 // editorCaret 当前编辑光标与选区（文档 rune 偏移）。
 func (a *app) editorCaret() (start, end int) {
+	if a.selDoc {
+		return max(a.selDocStart, 0), max(a.selDocEnd, 0)
+	}
 	if a.cfg.Source {
 		start, end = a.srcCaret, a.srcSelEnd
 		if a.srcSelSyncStart >= 0 {
@@ -103,17 +106,25 @@ func (a *app) applyDocResult(res docResult) {
 	if !res.changed {
 		return
 	}
+	wasDocSelection := a.selDoc
 	a.activeTab().Text = res.doc
 	if a.cfg.Source {
 		a.srcSelSyncStart, a.srcSelSyncEnd = res.selStart, res.selEnd
 		a.onEdited()
 		return
 	}
+	a.clearDocSelection()
 	blocks := a.mdBlocks()
 	idx, off := a.blockOfRuneOffset(res.selStart)
 	a.mdActive = idx
 	a.mdDraft = blocks[idx].raw
-	a.selSyncStart, a.selSyncEnd = res.selStart-off, res.selEnd-off
+	a.selSyncStart = res.selStart - off
+	a.selSyncEnd = res.selEnd - off
+	blockEnd := off + utf8.RuneCountInString(blocks[idx].raw)
+	if res.selEnd > blockEnd || wasDocSelection && res.selStart != res.selEnd {
+		a.selDoc, a.selDocStart, a.selDocEnd = true, res.selStart, res.selEnd
+		a.selSyncEnd = a.selSyncStart
+	}
 	a.liveFocus, a.scrollActive = 1, true
 	a.onEdited()
 }
@@ -143,9 +154,9 @@ func (a *app) execInline(kind spanKind) {
 		a.syncMenus()
 		return
 	}
-	// 实时预览限制在焦点块内（选区不会跨块）；源码模式覆盖全文行。
+	// 普通实时预览选区限制在焦点块内；文档级选区覆盖全文行。
 	from, to := 0, docLineCount(a.activeTab().Text)-1
-	if !a.cfg.Source {
+	if !a.cfg.Source && !a.selDoc {
 		blocks := a.mdBlocks()
 		if a.mdActive < 0 || a.mdActive >= len(blocks) {
 			return
@@ -298,7 +309,7 @@ func applyMarkerWrap(raw string, at, caret int, pre, post string) (string, int) 
 // execHeading level 0=正文，1-6=标题。代码块/表格内不适用（菜单禁用理由见 Tooltip）。
 func (a *app) execHeading(level int) {
 	a.ensureFocusBlock()
-	if !a.cfg.Source && a.blockKindAtActive().disallowBlockFormat() {
+	if !a.cfg.Source && !a.selDoc && a.blockKindAtActive().disallowBlockFormat() {
 		return
 	}
 	from, to, caret := a.commandLineRange()
@@ -309,7 +320,7 @@ func (a *app) execHeading(level int) {
 
 func (a *app) execPrefix(kind prefixKind) {
 	a.ensureFocusBlock()
-	if !a.cfg.Source && a.blockKindAtActive().disallowBlockFormat() {
+	if !a.cfg.Source && !a.selDoc && a.blockKindAtActive().disallowBlockFormat() {
 		return
 	}
 	from, to, caret := a.commandLineRange()
@@ -340,7 +351,7 @@ func (a *app) commandLineRange() (from, to, caret int) {
 	start, end := a.editorCaret()
 	from, _ = caretLineCol(doc, start)
 	to, _ = caretLineCol(doc, max(end, start))
-	if !a.cfg.Source {
+	if !a.cfg.Source && !a.selDoc {
 		blocks := a.mdBlocks()
 		if a.mdActive >= 0 && a.mdActive < len(blocks) {
 			blk := blocks[a.mdActive]
@@ -362,7 +373,7 @@ func (a *app) commandLineRange() (from, to, caret int) {
 func (a *app) execCodeBlock() {
 	a.ensureFocusBlock()
 	from, to, caret := a.commandLineRange()
-	if !a.cfg.Source {
+	if !a.cfg.Source && !a.selDoc {
 		blocks := a.mdBlocks()
 		if a.mdActive >= 0 && a.mdActive < len(blocks) {
 			blk := blocks[a.mdActive]

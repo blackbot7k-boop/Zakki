@@ -75,14 +75,21 @@ func (a *app) validateMirrorDir(path string) (string, error) {
 	if abs == backupDir || strings.HasPrefix(abs, backupDir+string(filepath.Separator)) {
 		return "", fmt.Errorf("%s", locales.MirrorErrLocalBackup())
 	}
-	if abs == dataDir {
+	if abs == dataDir || strings.HasPrefix(abs, dataDir+string(filepath.Separator)) {
 		return "", fmt.Errorf("%s", locales.MirrorErrAppData())
 	}
-	probe := filepath.Join(abs, ".zakki-backup-probe")
-	if err := os.WriteFile(probe, []byte("ok"), 0o644); err != nil {
+	probe, err := os.CreateTemp(abs, ".zakki-backup-probe-*")
+	if err != nil {
 		return "", fmt.Errorf("%s", locales.MirrorErrNotWritable())
 	}
-	_ = os.Remove(probe)
+	probeName := probe.Name()
+	if err := probe.Close(); err != nil {
+		_ = os.Remove(probeName)
+		return "", fmt.Errorf("%s", locales.MirrorErrNotWritable())
+	}
+	if err := os.Remove(probeName); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("%s", locales.MirrorErrNotWritable())
+	}
 	return abs, nil
 }
 

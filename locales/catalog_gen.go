@@ -168,6 +168,26 @@ func (msgs Messages) CommonUntitled() string {
 	return Catalog.Format(msgs.locale, "commonUntitled", nil)
 }
 
+// StartupMigrationTitle says "Couldn't migrate Zakki data"
+// in the language the app shows.
+func StartupMigrationTitle() string { return In(i18n.Locale()).StartupMigrationTitle() }
+
+// StartupMigrationTitle says "Couldn't migrate Zakki data"
+// in the language of msgs.
+func (msgs Messages) StartupMigrationTitle() string {
+	return Catalog.Format(msgs.locale, "startupMigrationTitle", nil)
+}
+
+// StartupMigrationMessage says "Zakki stopped before opening your notes to keep the original files intact. Fix the problem below, then start Zakki ag…"
+// in the language the app shows.
+func StartupMigrationMessage() string { return In(i18n.Locale()).StartupMigrationMessage() }
+
+// StartupMigrationMessage says "Zakki stopped before opening your notes to keep the original files intact. Fix the problem below, then start Zakki ag…"
+// in the language of msgs.
+func (msgs Messages) StartupMigrationMessage() string {
+	return Catalog.Format(msgs.locale, "startupMigrationMessage", nil)
+}
+
 // CloseWindow says "Close Window"
 // in the language the app shows.
 //

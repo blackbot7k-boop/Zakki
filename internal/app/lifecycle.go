@@ -24,10 +24,14 @@ func Run() {
 		return
 	}
 
-	mygo.App.SetPath(mygo.PathUserData, dataDir())
+	dir, a, err := startupApp()
+	if err != nil {
+		runStartupFailure(err)
+		return
+	}
+	mygo.App.SetPath(mygo.PathUserData, dir)
 	mygo.Use(updatePlugin())
 
-	a := newApp()
 	if err := a.load(); err != nil {
 		slog.Error("数据载入异常（已隔离原件并采用可用数据，未覆盖原文件）", "error", err)
 	}
@@ -98,6 +102,37 @@ func Run() {
 	}
 }
 
+// startupApp 在创建任何 Store 前完成目录迁移；迁移失败时调用方必须停止启动。
+func startupApp() (string, *app, error) {
+	dir, err := resolveDataDir()
+	if err != nil {
+		return dir, nil, err
+	}
+	return dir, newAppAt(dir), nil
+}
+
+// runStartupFailure 等原生事件循环就绪后显示错误，再退出且不创建 Store。
+func runStartupFailure(cause error) {
+	slog.Error("数据目录迁移失败，已停止启动并保留原文件", "error", cause)
+	mygo.App.WhenReady(func() {
+		_, err := mygo.Dialog.Message(mygo.MessageOptions{
+			Type:    mygo.MessageError,
+			Title:   locales.StartupMigrationTitle(),
+			Message: locales.StartupMigrationMessage(),
+			Detail:  cause.Error(),
+			Buttons: []string{locales.CommonClose()},
+		})
+		if err != nil {
+			slog.Error("显示启动迁移错误失败", "error", err)
+		}
+		mygo.App.Quit()
+	})
+	if err := mygo.App.Run(); err != nil {
+		slog.Error("应用运行失败", "error", err)
+		os.Exit(1)
+	}
+}
+
 // setupLogging 把 slog 落到日志目录（控制台同步输出），
 // 持久化等错误统一记 INFO/WARN/ERROR。
 func setupLogging() {
@@ -132,6 +167,7 @@ func applyTheme(src string) {
 func (a *app) createWindow() {
 	win := mygo.NewWindow(a.windowOptions())
 	a.win = win
+	a.mainWindow.Store(win)
 	a.winOpen = true
 	a.hidden = false
 	win.OnShow(func() { a.hidden = false })
@@ -139,11 +175,12 @@ func (a *app) createWindow() {
 	win.OnFocus(func() { win.Update(func() {}) })
 	win.OnBlur(func() { a.setDocumentMenu(false) })
 	win.OnClosed(func() {
+		a.mainWindow.CompareAndSwap(win, nil)
 		a.winOpen, a.win, a.hidden = false, nil, true
 		a.syncMenus() // Markdown 命令随主窗口关闭禁用
 	})
 	// 后台镜像/Git 任务结束后回主线程刷新状态栏；窗口关闭后 Update 自然空转。
-	a.notes.OnMirrorSettled = func() { win.Update(func() {}) }
+	a.notes.SetOnMirrorSettled(func() { win.Update(func() {}) })
 	a.syncMenus() // 重新打开后恢复可用
 }
 
@@ -167,6 +204,20 @@ func (a *app) windowOptions() mygo.WindowOptions {
 		AlwaysOnTop: a.cfg.AlwaysOnTop,
 		Content:     ui.View(a.view),
 	}
+}
+
+// runOnMain 只通过仍存活的主窗口投递；关闭竞态由主线程二次校验后丢弃。
+func (a *app) runOnMain(fn func()) {
+	win := a.mainWindow.Load()
+	if win == nil {
+		return
+	}
+	win.Update(func() {
+		if a.win != win || !a.winOpen {
+			return
+		}
+		fn()
+	})
 }
 
 // withWindow 在主线程改状态；窗口开着就触发重绘。
@@ -248,7 +299,7 @@ func (a *app) createMenu() *mygo.Menu {
 		Label:       locales.MenuFind(),
 		Accelerator: "CmdOrCtrl+F",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.withWindow(func() { a.findOpen, a.query, a.matchIdx = true, "", 0 })
+			a.withWindow(func() { a.findOpen, a.query, a.matchIdx, a.findFocus = true, "", 0, 1 })
 		},
 	}
 	a.miFindNext = &mygo.MenuItem{

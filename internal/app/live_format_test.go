@@ -55,6 +55,82 @@ func TestExecInlineWithSelectionLive(t *testing.T) {
 	}
 }
 
+func TestExecInlineWithinTableCell(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	original := "| hello | world |\n| --- | --- |\n| row | value |"
+	a.tabs[0].Text = original
+	a.resyncLive(0)
+	cells := tableCellPositions(a.mdBlocks()[0].raw)
+	if len(cells) != 4 {
+		t.Fatalf("表格单元格 = %d", len(cells))
+	}
+
+	a.focusBlock(0, cells[0].start, cells[0].end)
+	a.execFormatCommand(cmdBold)
+	want := "| **hello** | world |\n| --- | --- |\n| row | value |"
+	if a.tabs[0].Text != want {
+		t.Fatalf("单元格加粗: %q", a.tabs[0].Text)
+	}
+	a.undoLive(false)
+	if a.tabs[0].Text != original {
+		t.Fatalf("单次撤销应还原表格: %q", a.tabs[0].Text)
+	}
+
+	cells = tableCellPositions(a.mdBlocks()[0].raw)
+	a.focusBlock(0, cells[0].start, cells[1].end)
+	a.execFormatCommand(cmdBold)
+	if a.tabs[0].Text != original {
+		t.Fatalf("跨单元格格式化不应改写表格: %q", a.tabs[0].Text)
+	}
+}
+
+func TestExecInlineUnwrapKeepsExactSelection(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	a.tabs[0].Text = "前文\n\nhello **world**"
+	a.resyncLive(0)
+	a.focusBlock(2, runeLen("hello **"), runeLen("hello **world"))
+	a.execFormatCommand(cmdBold)
+	if got, want := a.tabs[0].Text, "前文\n\nhello world"; got != want {
+		t.Fatalf("移除加粗: %q", got)
+	}
+	if a.selSyncStart != runeLen("hello ") || a.selSyncEnd != runeLen("hello world") {
+		t.Fatalf("移除后块内选区=%d..%d", a.selSyncStart, a.selSyncEnd)
+	}
+}
+
+func TestDocWideInlineFormatThenTypeAndUndo(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	original := "first\n\nsecond"
+	a.tabs[0].Text = original
+	a.resyncLive(0)
+	a.focusBlock(2, 0, 0)
+	a.selectDocWide()
+	a.execFormatCommand(cmdBold)
+	formatted := "**first**\n\n**second**"
+	if a.tabs[0].Text != formatted {
+		t.Fatalf("文档级全选加粗: %q", a.tabs[0].Text)
+	}
+	if !a.selDoc || a.selDocStart != 2 || a.selDocEnd != runeLen(formatted)-2 {
+		t.Fatalf("格式化后文档选区=%v %d..%d", a.selDoc, a.selDocStart, a.selDocEnd)
+	}
+
+	a.spliceDocSelection("X")
+	if a.tabs[0].Text != "**X**" || a.selDoc {
+		t.Fatalf("格式后输入应替换选中内容: %q selDoc=%v", a.tabs[0].Text, a.selDoc)
+	}
+	a.undoLive(false)
+	if a.tabs[0].Text != formatted || !a.selDoc || a.selDocStart != 2 || a.selDocEnd != runeLen(formatted)-2 {
+		t.Fatalf("撤销输入应恢复格式化选区: %q %v %d..%d", a.tabs[0].Text, a.selDoc, a.selDocStart, a.selDocEnd)
+	}
+	a.undoLive(false)
+	if a.tabs[0].Text != original || !a.selDoc || a.selDocStart != 0 || a.selDocEnd != runeLen(original) {
+		t.Fatalf("撤销格式应恢复全文选区: %q %v %d..%d", a.tabs[0].Text, a.selDoc, a.selDocStart, a.selDocEnd)
+	}
+}
+
 func TestPendingInlineFormatToggleAndApply(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
@@ -131,6 +207,27 @@ func TestExecCodeBlockInCodeDisabled(t *testing.T) {
 	a.undoLive(false)
 	if a.tabs[0].Text != before {
 		t.Fatalf("撤销还原代码块: %q", a.tabs[0].Text)
+	}
+}
+
+func TestExecCodeBlockRoundTripPreservesDocumentNewlines(t *testing.T) {
+	for _, doc := range []string{
+		"before\n\nselected\n\nafter",
+		"before\n\nselected\n\n",
+	} {
+		a := newTestApp(t)
+		a.winOpen = true
+		a.tabs[0].Text = doc
+		a.resyncLive(0)
+		a.focusBlock(2, 0, 0)
+		a.execFormatCommand(cmdCodeBlock)
+		if !strings.Contains(a.tabs[0].Text, "```\nselected\n```") {
+			t.Fatalf("代码块命令未包裹选中段落: %q", a.tabs[0].Text)
+		}
+		a.execFormatCommand(cmdCodeBlock)
+		if a.tabs[0].Text != doc {
+			t.Fatalf("代码块命令往返必须逐字还原: got=%q want=%q", a.tabs[0].Text, doc)
+		}
 	}
 }
 

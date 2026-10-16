@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,14 +29,8 @@ func newTestApp(tb testing.TB) *app {
 	// 手账字体栈先本地注册，文本布局永不触达系统按需字体下载。
 	registerHandFont()
 	dir := tb.TempDir()
-	a := newApp()
+	a := newAppAt(dir)
 	a.mdActive = 0 // 编辑机制测试默认从首个焦点块开始（生产环境启动是预览态 -1）
-	a.notes = newNotesStore(
-		filepath.Join(dir, "zakki.json"),
-		filepath.Join(dir, "backups"),
-		a.now,
-	)
-	a.prefsStore = newPrefsStore(filepath.Join(dir, "preferences.json"))
 	base := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 	a.setTestNow(func() time.Time { return base })
 	a.invalidateMdCache()
@@ -244,6 +237,17 @@ func TestSpliceBlocksConsistent(t *testing.T) {
 	// 都由本测试抓出；多种子大量随机编辑是它唯一的正确性保障，勿缩减规模。
 	for _, seed := range []int64{42, 1, 2026} {
 		t.Run("", func(t *testing.T) { runSpliceFuzz(t, seed, 6000) })
+	}
+}
+
+func TestSpliceBlocksTreatsOverIndentedFenceAsParagraphContinuation(t *testing.T) {
+	oldDoc := "first\n\nparagraph\n\nlast"
+	newDoc := "first\n\nparagraph\n    ```\n\nlast"
+	oldLines := strings.Split(oldDoc, "\n")
+	got, _, _ := spliceBlocks(oldDoc, oldLines, liveBlocks(oldDoc), newDoc)
+	want := liveBlocks(newDoc)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("过度缩进围栏在接缝处必须仍是段落续行:\n增量=%+v\n全量=%+v", got, want)
 	}
 }
 

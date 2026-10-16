@@ -13,6 +13,8 @@
   "commonGitRepo": "Git 仓库",
   "commonNotSet": "未设置",
   "commonUntitled": "未命名",
+  "startupMigrationTitle": "无法迁移 Zakki 数据",
+  "startupMigrationMessage": "为保留原始文件，Zakki 已在打开笔记前停止启动。请修复下方问题后重新启动 Zakki。",
   "closeWindow": "关闭窗口",
   "renameTabField": "重命名标签",
   "pinTop": "置顶",

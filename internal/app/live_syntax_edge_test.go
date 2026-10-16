@@ -87,6 +87,28 @@ func TestParseBlocksListMarkers(t *testing.T) {
 	}
 }
 
+func TestParseBlocksFenceIndentLimit(t *testing.T) {
+	valid := parseBlocks("   ```go\nx\n   ```")
+	if len(valid) != 1 || valid[0].kind != bkCode || !reflect.DeepEqual(valid[0].lines, []string{"x"}) {
+		t.Fatalf("三空格缩进围栏应有效: %+v", valid)
+	}
+	for _, doc := range []string{"    ```\nx\n    ```", "\t```\nx\n\t```"} {
+		for _, block := range parseBlocks(doc) {
+			if block.kind == bkCode {
+				t.Fatalf("四空格或 Tab 缩进不得打开围栏: %q => %+v", doc, block)
+			}
+		}
+	}
+	for _, overIndentedClose := range []string{"    ```", "\t```"} {
+		doc := "```\nx\n" + overIndentedClose + "\ny\n```"
+		blocks := parseBlocks(doc)
+		want := []string{"x", overIndentedClose, "y"}
+		if len(blocks) != 1 || blocks[0].kind != bkCode || !reflect.DeepEqual(blocks[0].lines, want) {
+			t.Fatalf("过度缩进闭栏不得结束代码块: %q => %+v", doc, blocks)
+		}
+	}
+}
+
 // TestParseBlocksCodeFences 代码围栏：未闭合、语言名、围栏内 markdown 逐字、多段。
 func TestParseBlocksCodeFences(t *testing.T) {
 	cases := []struct {
@@ -97,20 +119,29 @@ func TestParseBlocksCodeFences(t *testing.T) {
 		wantT []string
 	}{
 		{
-			// 未闭合围栏到文档尾（raw 保留全部行）；但现实现把区域末行当
-			// 潜在闭栏行，lines 少收最后一行——属于 live_blocks.go 的 parseLines，
-			// 不在本次可改范围，此处按现状锁定。
 			name: "未闭合围栏", src: "```\nx\ny",
-			wantK: []blockKind{bkCode}, wantL: [][]string{{"x"}}, wantT: []string{""},
+			wantK: []blockKind{bkCode}, wantL: [][]string{{"x", "y"}}, wantT: []string{""},
 		},
 		{
 			name: "未闭合仅一行内容", src: "```\nx",
-			wantK: []blockKind{bkCode}, wantL: [][]string{nil}, wantT: []string{""},
+			wantK: []blockKind{bkCode}, wantL: [][]string{{"x"}}, wantT: []string{""},
 		},
 		{
 			// "```go" 的语言名只留在 raw，块上没有语言字段。
 			name: "围栏带语言名", src: "```go\nx\n```",
 			wantK: []blockKind{bkCode}, wantL: [][]string{{"x"}}, wantT: []string{""},
+		},
+		{
+			name: "内容行以反引号开头", src: "```go\n```not a closing fence\nx\n```",
+			wantK: []blockKind{bkCode}, wantL: [][]string{{"```not a closing fence", "x"}}, wantT: []string{""},
+		},
+		{
+			name: "四反引号围栏包含三反引号", src: "````go\n```\nx\n````",
+			wantK: []blockKind{bkCode}, wantL: [][]string{{"```", "x"}}, wantT: []string{""},
+		},
+		{
+			name: "波浪号围栏要求闭栏不短于开栏", src: "~~~~go\n~~~\nx\n~~~~",
+			wantK: []blockKind{bkCode}, wantL: [][]string{{"~~~", "x"}}, wantT: []string{""},
 		},
 		{
 			// 围栏内标题/列表/行内标记一律逐字保留，不再解析。

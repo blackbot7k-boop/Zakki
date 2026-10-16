@@ -5,6 +5,7 @@ package app
 // 全局热键变更先注册新键，成功后再注销旧键；失败保留旧绑定并提示。
 
 import (
+	"runtime"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -173,7 +174,7 @@ func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 	if ev.Key == ui.KeyUnknown {
 		return true // 仅修饰键按下：等待完整组合
 	}
-	b := keyBinding{mods: ev.Mods, key: ev.Key}
+	b := keyBindingFromInput(ev.Mods, ev.Key, runtime.GOOS)
 	acc := b.accelerator()
 	if err := a.setCommandBinding(def.id, acc); err != nil {
 		a.settingsUI.keyErr = commandDisplayName(def) + "：" + err.Error()

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -39,6 +40,7 @@ type findState struct {
 	query       string
 	matchIdx    int
 	jumpPending bool
+	findFocus   int
 }
 
 // liveEditorState Typora 式实时预览编辑（live_edit.go / live_blocks.go）。
@@ -52,6 +54,8 @@ type liveEditorState struct {
 	editMenuPending    string
 	mdActive           int
 	mdDraft            string
+	fenceDraft         bool
+	fenceDraftLine     int
 	mdCaret            int
 	mdSelEnd           int
 	keyHint            ui.Key
@@ -118,16 +122,27 @@ type formatState struct {
 
 // sourceEditorState 源码模式选区与撤销快照。
 type sourceEditorState struct {
-	srcCaret        int
-	srcSelEnd       int
-	srcSelSyncStart int
-	srcSelSyncEnd   int
-	srcPrev         liveSnapshot
+	srcCaret         int
+	srcSelEnd        int
+	srcSelSyncStart  int
+	srcSelSyncEnd    int
+	srcPrev          liveSnapshot
+	srcComposing     bool
+	srcComposeBefore liveSnapshot
+	srcSessions      map[uint64]sourceSession
+}
+
+type sourceSession struct {
+	caret, selEnd            int
+	selSyncStart, selSyncEnd int
+	prev                     liveSnapshot
+	undo, redo               []liveEdit
 }
 
 // desktopRefs 窗口、菜单、全局热键与状态栏提示。
 type desktopRefs struct {
 	win          *mygo.Window
+	mainWindow   atomic.Pointer[mygo.Window]
 	winOpen      bool
 	hidden       bool
 	menu         *mygo.Menu

@@ -70,7 +70,8 @@ func (a *app) languageRow(c *ui.Context) {
 	settingsRow(c, locales.LanguageRow(), locales.LanguageRowHint(), func() {
 		if ui.Select(c, &a.settingsUI.languageSel, displays).Changed() {
 			tag := languageTagOfDisplay(a.settingsUI.languageSel)
-			a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
+			a.settingsUI.draft.Appearance.Language = tag
+			_ = a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
 		}
 	}).PaddingX(14)
 }
@@ -450,34 +451,55 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	})
 }
 
-// commitFloatField 解析字号/行高输入：合法才提交，非法保留输入并报错。
+// commitFloatField 解析字号/行高输入：合法才提交，非法文本和错误跨帧保留。
 func (a *app) commitFloatField(field string) {
-	var text string
+	var text *string
 	var errField *string
+	var dirty *bool
 	var target *float32
 	switch field {
 	case "bodySize":
-		text, errField, target = a.settingsUI.bodySizeText, &a.settingsUI.bodySizeErr, &a.settingsUI.draft.Appearance.BodySize
+		text = &a.settingsUI.bodySizeText
+		errField = &a.settingsUI.bodySizeErr
+		dirty = &a.settingsUI.bodySizeDirty
+		target = &a.settingsUI.draft.Appearance.BodySize
 	case "lineHeight":
-		text, errField, target = a.settingsUI.lineHeightText, &a.settingsUI.lineHeightErr, &a.settingsUI.draft.Appearance.LineHeight
+		text = &a.settingsUI.lineHeightText
+		errField = &a.settingsUI.lineHeightErr
+		dirty = &a.settingsUI.lineHeightDirty
+		target = &a.settingsUI.draft.Appearance.LineHeight
+	default:
+		return
 	}
+
+	*dirty = true
 	*errField = ""
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		*target = 0 // 跟随主题
-		a.pushAppearance()
-		return
+	trimmed := strings.TrimSpace(*text)
+	var value float32
+	if trimmed != "" {
+		v, err := strconv.ParseFloat(trimmed, 32)
+		if err != nil {
+			*errField = locales.ErrNotNumber()
+			return
+		}
+		value = float32(v)
 	}
-	v, err := strconv.ParseFloat(trimmed, 32)
+	*target = value
+
+	err := a.updatePreferences(func(p *preferences) {
+		if field == "bodySize" {
+			p.Appearance.BodySize = value
+		} else {
+			p.Appearance.LineHeight = value
+		}
+	})
 	if err != nil {
-		*errField = locales.ErrNotNumber()
+		*errField = err.Error()
 		return
 	}
-	*target = float32(v)
-	if err := a.updatePreferences(func(p *preferences) { p.Appearance = a.settingsUI.draft.Appearance }); err != nil {
-		*errField = err.Error()
-		a.settingsUI.syncDraftFromPrefs(a.prefs)
-	}
+	*dirty = false
+	*errField = ""
+	a.settingsUI.syncDraftBindings()
 }
 
 func displayOf(keys, options []string, key string) string {

@@ -63,7 +63,15 @@ func (a *app) loadPreferences() error {
 		}
 		return nil
 	case err != nil:
-		return fmt.Errorf("%s: %w", locales.PrefsReadErr(path), err)
+		readErr := fmt.Errorf("%s: %w", locales.PrefsReadErr(path), err)
+		a.prefs = defaultPreferences()
+		a.applyPreferencesToRuntime()
+		a.setPrefsIssue(prefsIssue{
+			Kind:    prefsIssuePrefsBroken,
+			Message: locales.PrefsBrokenMessage(readErr.Error()),
+		})
+		a.setPrefsSaveError(errors.New(locales.PrefsSaveBlockedPending()))
+		return readErr
 	}
 	prefs, err := decodePreferences(raw)
 	if err != nil {
@@ -117,8 +125,15 @@ func (a *app) confirmContinueWithoutLegacyConfig() error {
 	if a.currentPrefsIssue().Kind != prefsIssueLegacyBroken {
 		return nil
 	}
+	// WriteInitial 是确认动作专用写入；异常门在写成功前保持，防止恢复
+	// 失败后定时保存或 shutdown 覆盖旧配置对应的迁移机会。
+	if err := a.prefsStore.WriteInitial(a.prefs); err != nil {
+		a.setPrefsSaveError(err)
+		return err
+	}
 	a.setPrefsIssue(prefsIssue{})
-	return a.savePreferencesNow()
+	a.prefsStore.BumpRev()
+	return nil
 }
 
 // confirmRecoverPreferences 用户确认后另存原件并恢复默认设置写盘。
@@ -127,16 +142,24 @@ func (a *app) confirmRecoverPreferences() error {
 		return nil
 	}
 	path := a.preferencesPath()
-	if raw, err := os.ReadFile(path); err == nil {
-		backup := path + ".bad-" + a.now().Format("20060102-150405")
-		if err := os.WriteFile(backup, raw, 0o644); err != nil {
-			return fmt.Errorf("%s: %w", locales.PrefsBackupCopyErr(), err)
-		}
-		slog.Info("损坏偏好文件已另存", "backup", backup)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", locales.PrefsBackupCopyErr(), err)
+	}
+	backup := path + ".bad-" + a.now().Format("20060102-150405")
+	if err := os.WriteFile(backup, raw, 0o644); err != nil {
+		return fmt.Errorf("%s: %w", locales.PrefsBackupCopyErr(), err)
+	}
+	slog.Info("损坏偏好文件已另存", "backup", backup)
+	// 先在异常门仍关闭时完成确认写入；失败则保留原 issue，shutdown 与
+	// 自动保存继续被拦截。只有成功后才开放正常保存。
+	if err := a.prefsStore.WriteInitial(a.prefs); err != nil {
+		a.setPrefsSaveError(err)
+		return err
 	}
 	a.setPrefsIssue(prefsIssue{})
 	a.prefsStore.BumpRev()
-	return a.savePreferencesNow()
+	return nil
 }
 
 // shutdownPreferences 退出流程：等待最终偏好保存并报告失败。
@@ -156,6 +179,7 @@ func (a *app) updatePreferences(mutate func(p *preferences)) error {
 		return err
 	}
 	a.prefs = next
+	a.settingsUI.mergeDraftFromPrefs(next)
 	a.applyPreferencesToRuntime()
 	a.syncMenus()
 	a.refreshSettingsWindow()

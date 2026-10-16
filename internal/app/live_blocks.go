@@ -39,29 +39,25 @@ func liveBlocks(src string) []liveBlock {
 func mdLineSpecial(line string) bool {
 	t := strings.TrimSpace(line)
 	s := strings.TrimLeft(line, " \t")
-	return t == "" || isFenceLine(s) || t == "---" || t == "***" || isHeading(t) ||
+	return t == "" || isFenceOpeningLine(line) || t == "---" || t == "***" || isHeading(t) ||
 		strings.HasPrefix(t, ">") || taskPrefixLen(s) > 0 || listMarkerLen(s) > 0
 }
-
-// isFenceLine 报告一行是否围栏标记。
-func isFenceLine(s string) bool { return strings.HasPrefix(strings.TrimSpace(s), "```") }
 
 func parseLines(lines []string, from, stop int) []liveBlock {
 	out := make([]liveBlock, 0, stop-from)
 
-	isFence := isFenceLine
-	isSpecial := mdLineSpecial
 	for i := from; i < stop; {
 		line := lines[i]
 		t := strings.TrimSpace(line)
 		// 列表/待办标记需要尾部空格（如 "- "），用仅去左缩进的原文检查。
 		s := strings.TrimLeft(line, " \t")
+		opening, isFence := parseFenceOpeningLine(line)
 		table, isTable := tableStart(lines, i, stop)
 		switch {
 		case isTable:
 			j := i + 2
 			for j < stop {
-				cells, ok := pipeCells(lines[j])
+				cells, ok := tableRowCells(lines[j], len(table.align))
 				if !ok {
 					break
 				}
@@ -71,20 +67,24 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			out = append(out, liveBlock{kind: bkTable, start: i, end: j - 1,
 				raw: strings.Join(lines[i:j], "\n"), table: table})
 			i = j
-		case isFence(t):
+		case isFence:
 			j := i + 1
-			for j < stop && !isFence(lines[j]) {
+			for j < stop && !isFenceClosingLine(lines[j], opening) {
 				j++
 			}
-			if j >= stop {
-				j = stop - 1 // 未闭合：到区域尾
+			closed := j < stop
+			end := j
+			if !closed {
+				end = stop - 1
 			}
-			blk := liveBlock{kind: bkCode, start: i, end: j, raw: strings.Join(lines[i:j+1], "\n")}
-			if j > i+1 {
+			blk := liveBlock{kind: bkCode, start: i, end: end, raw: strings.Join(lines[i:end+1], "\n")}
+			if closed {
 				blk.lines = lines[i+1 : j]
+			} else if i+1 < stop {
+				blk.lines = lines[i+1 : stop]
 			}
 			out = append(out, blk)
-			i = j + 1
+			i = end + 1
 		case t == "":
 			out = append(out, liveBlock{kind: bkBlank, start: i, end: i, raw: line})
 			i++
@@ -122,7 +122,7 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			i++
 		default: // 段落：吸收连续普通行
 			j := i
-			for j+1 < stop && !isSpecial(lines[j+1]) {
+			for j+1 < stop && !mdLineSpecial(lines[j+1]) {
 				if _, ok := tableStart(lines, j+1, stop); ok {
 					break
 				}

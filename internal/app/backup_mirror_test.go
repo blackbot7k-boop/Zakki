@@ -11,6 +11,26 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+func nextMirrorSettlement(a *app) <-chan struct{} {
+	settled := make(chan struct{}, 1)
+	a.notes.SetOnMirrorSettled(func() {
+		select {
+		case settled <- struct{}{}:
+		default:
+		}
+	})
+	return settled
+}
+
+func waitForMirrorSettlement(t *testing.T, settled <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-settled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("等待外部镜像完成超时")
+	}
+}
+
 func TestValidateMirrorDir(t *testing.T) {
 	a := newTestApp(t)
 	dataDir := filepath.Dir(a.notes.BackupDir)
@@ -22,12 +42,15 @@ func TestValidateMirrorDir(t *testing.T) {
 	if _, err := a.validateMirrorDir(filepath.Join(a.notes.BackupDir, "sub")); err == nil {
 		t.Fatal("本地备份目录的子目录应被拒绝")
 	}
-	// 应用数据目录拒绝。
+	// 应用数据目录及其子目录拒绝。
 	if _, err := a.validateMirrorDir(dataDir); err == nil {
 		t.Fatal("应用数据目录应被拒绝")
 	}
-	// 正常目录通过并返回绝对路径。
-	ok := filepath.Join(dataDir, "elsewhere", "bak")
+	if _, err := a.validateMirrorDir(filepath.Join(dataDir, "elsewhere", "bak")); err == nil {
+		t.Fatal("应用数据目录的子目录应被拒绝")
+	}
+	// 同级外部目录通过并返回绝对路径。
+	ok := filepath.Join(filepath.Dir(dataDir), "external", "bak")
 	if err := os.MkdirAll(ok, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -66,10 +89,61 @@ func TestValidateMirrorDirRejectsSymlinkIntoDataDir(t *testing.T) {
 	}
 }
 
+func TestValidateMirrorDirDoesNotTouchPreexistingProbeFile(t *testing.T) {
+	a := newTestApp(t)
+	dir := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "probe-file")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	probe := filepath.Join(dir, ".zakki-backup-probe")
+	want := []byte("must survive")
+	if err := os.WriteFile(probe, want, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.validateMirrorDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(probe)
+	if err != nil {
+		t.Fatalf("预存探针文件不得被删除: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("预存探针文件不得被截断: %q", got)
+	}
+}
+
+func TestValidateMirrorDirDoesNotFollowPreexistingProbeSymlink(t *testing.T) {
+	a := newTestApp(t)
+	dir := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "probe-link")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(filepath.Dir(dir), "probe-target")
+	want := []byte("target must survive")
+	if err := os.WriteFile(target, want, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	probe := filepath.Join(dir, ".zakki-backup-probe")
+	if err := os.Symlink(target, probe); err != nil {
+		t.Skip("当前环境无法创建符号链接:", err)
+	}
+	if _, err := a.validateMirrorDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil || string(got) != string(want) {
+		t.Fatalf("探针不得跟随 symlink 改写目标: %q, %v", got, err)
+	}
+	info, err := os.Lstat(probe)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("预存探针 symlink 不得被删除或替换: info=%v err=%v", info, err)
+	}
+}
+
 func TestApplyMirrorDirLinksGitMode(t *testing.T) {
 	a := newTestApp(t)
 	// 普通（非 Git）目录：应用为外部备份并联动关闭 Git。
-	plain := filepath.Join(filepath.Dir(a.notes.BackupDir), "plain")
+	plain := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "plain")
 	if err := os.MkdirAll(plain, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +159,7 @@ func TestApplyMirrorDirLinksGitMode(t *testing.T) {
 		t.Fatalf("非 Git 目录应联动关闭 Git 自动化: %q", a.prefs.Backup.GitMode)
 	}
 	// Git 仓库目录：保留用户选择的档位（默认 off）。
-	repo := filepath.Join(filepath.Dir(a.notes.BackupDir), "repo")
+	repo := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "repo")
 	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +184,7 @@ func TestApplyMirrorDirLinksGitMode(t *testing.T) {
 
 func TestPushMirrorGitModeRequiresGitRepo(t *testing.T) {
 	a := newTestApp(t)
-	plain := filepath.Join(filepath.Dir(a.notes.BackupDir), "plain2")
+	plain := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "plain2")
 	if err := os.MkdirAll(plain, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -162,9 +236,11 @@ func TestMirrorLabel(t *testing.T) {
 	if err := a.notes.SaveNow(a.snapshotFile()); err != nil {
 		t.Fatal(err)
 	}
+	settled := nextMirrorSettlement(a)
 	if err := a.notes.BackupNow(a.prefs.Backup.Keep); err != nil {
 		t.Fatal(err)
 	}
+	waitForMirrorSettlement(t, settled)
 	if label, warn := a.mirrorLabel(); label != "刚刚镜像" || warn {
 		t.Fatalf("备份后 = %q warn=%v, want 刚刚镜像 false", label, warn)
 	}
@@ -176,9 +252,11 @@ func TestMirrorLabel(t *testing.T) {
 	if err := a.updatePreferences(func(p *preferences) { p.Backup.MirrorDir = blocker }); err != nil {
 		t.Fatal(err)
 	}
+	settled = nextMirrorSettlement(a)
 	if err := a.notes.BackupNow(a.prefs.Backup.Keep); err != nil {
 		t.Fatalf("镜像失败不得影响本地备份: %v", err)
 	}
+	waitForMirrorSettlement(t, settled)
 	if label, warn := a.mirrorLabel(); label != "镜像失败" || !warn {
 		t.Fatalf("镜像失败 = %q warn=%v, want 镜像失败 true", label, warn)
 	}
@@ -237,9 +315,11 @@ func TestStatusBarShowsMirrorLabel(t *testing.T) {
 	if err := a.notes.SaveNow(a.snapshotFile()); err != nil {
 		t.Fatal(err)
 	}
+	settled := nextMirrorSettlement(a)
 	if err := a.notes.BackupNow(a.prefs.Backup.Keep); err != nil {
 		t.Fatal(err)
 	}
+	waitForMirrorSettlement(t, settled)
 	tt := ui.NewTester(a.view, 400, 540)
 	tt.Frame()
 	if !tt.HasText("刚刚镜像") || !tt.HasText("刚刚备份") {
@@ -260,9 +340,11 @@ func TestMirrorLastUsesInjectedClock(t *testing.T) {
 	if err := a.notes.SaveNow(a.snapshotFile()); err != nil {
 		t.Fatal(err)
 	}
+	settled := nextMirrorSettlement(a)
 	if err := a.notes.BackupNow(a.prefs.Backup.Keep); err != nil {
 		t.Fatal(err)
 	}
+	waitForMirrorSettlement(t, settled)
 	if st := a.notes.MirrorStatus(); !st.Last.Equal(time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("lastMirror 应用注入时钟 %v, got %v", time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC), st.Last)
 	}

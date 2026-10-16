@@ -166,3 +166,84 @@ func TestSettingsFontSplitPersists(t *testing.T) {
 		t.Fatalf("中西文字体应分别落盘: %+v", saved.Appearance)
 	}
 }
+
+func TestSettingsDraftMergesExternalUpdatesByField(t *testing.T) {
+	a := newTestApp(t)
+	a.settingsUI.syncDraftFromPrefs(a.prefs)
+
+	// 非模态窗口打开期间，其他入口更新同一 section 的另一个字段。
+	if err := a.updatePreferences(func(p *preferences) {
+		p.Window.AlwaysOnTop = true
+		p.Appearance.Language = "en"
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !a.settingsUI.draft.Window.AlwaysOnTop || a.settingsUI.draft.Appearance.Language != "en" {
+		t.Fatalf("未编辑字段应同步外部更新: %+v %+v", a.settingsUI.draft.Window, a.settingsUI.draft.Appearance)
+	}
+
+	// 用户随后只编辑 RememberBounds 和 ColorTheme，不得用陈旧草稿覆盖外部值。
+	a.settingsUI.draft.Window.RememberBounds = false
+	a.pushWindow()
+	a.settingsUI.draft.Appearance.ColorTheme = "paper"
+	a.pushAppearance()
+	if !a.prefs.Window.AlwaysOnTop || a.prefs.Window.RememberBounds {
+		t.Fatalf("窗口字段级合并失败: %+v", a.prefs.Window)
+	}
+	if a.prefs.Appearance.Language != "en" || a.prefs.Appearance.ColorTheme != "paper" {
+		t.Fatalf("外观字段级合并失败: %+v", a.prefs.Appearance)
+	}
+}
+
+func TestSettingsInvalidNumericTextAndErrorSurviveFrames(t *testing.T) {
+	a := newTestApp(t)
+	a.settingsPage = pageAppearance
+	a.settingsUI.syncDraftFromPrefs(a.prefs)
+	a.settingsUI.bodySizeText = "99"
+	a.commitFloatField("bodySize")
+	if a.settingsUI.bodySizeErr == "" || !a.settingsUI.bodySizeDirty {
+		t.Fatalf("越界值必须保持 dirty 与行内错误: %+v", a.settingsUI)
+	}
+	if a.prefs.Appearance.BodySize != 0 {
+		t.Fatalf("越界值不得提交: %v", a.prefs.Appearance.BodySize)
+	}
+
+	tt := ui.NewTester(a.settingsView, 900, 900)
+	for frame := 1; frame <= 2; frame++ {
+		tt.Frame()
+		if a.settingsUI.bodySizeText != "99" || a.settingsUI.bodySizeErr == "" || !a.settingsUI.bodySizeDirty {
+			t.Fatalf("第 %d 帧清掉了非法输入: text=%q err=%q dirty=%v", frame,
+				a.settingsUI.bodySizeText, a.settingsUI.bodySizeErr, a.settingsUI.bodySizeDirty)
+		}
+	}
+
+	if err := a.updatePreferences(func(p *preferences) { p.Appearance.ColorTheme = "paper" }); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.settingsUI.bodySizeText != "99" || a.settingsUI.bodySizeErr == "" || !a.settingsUI.bodySizeDirty {
+		t.Fatalf("外部更新不得清掉非法数字草稿: text=%q err=%q dirty=%v",
+			a.settingsUI.bodySizeText, a.settingsUI.bodySizeErr, a.settingsUI.bodySizeDirty)
+	}
+
+	a.settingsUI.bodySizeText = "18"
+	a.commitFloatField("bodySize")
+	tt.Frame()
+	if a.settingsUI.bodySizeDirty || a.settingsUI.bodySizeErr != "" {
+		t.Fatalf("合法修正后才应清 dirty/error: err=%q dirty=%v", a.settingsUI.bodySizeErr, a.settingsUI.bodySizeDirty)
+	}
+	if a.prefs.Appearance.BodySize != 18 || a.settingsUI.bodySizeText != "18" {
+		t.Fatalf("合法修正未提交或未规范化: prefs=%v text=%q", a.prefs.Appearance.BodySize, a.settingsUI.bodySizeText)
+	}
+}
+
+func TestResetPageAfterConfirmationDropsWhenWindowClosed(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Window.AlwaysOnTop = true
+
+	a.resetPageAfterConfirmation(pageGeneral)
+
+	if !a.prefs.Window.AlwaysOnTop {
+		t.Fatal("后台对话框结果不得在没有存活窗口时直接修改偏好")
+	}
+}

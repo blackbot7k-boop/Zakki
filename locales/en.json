@@ -13,6 +13,8 @@
   "commonGitRepo": "Git repository",
   "commonNotSet": "Not set",
   "commonUntitled": "Untitled",
+  "startupMigrationTitle": "Couldn't migrate Zakki data",
+  "startupMigrationMessage": "Zakki stopped before opening your notes to keep the original files intact. Fix the problem below, then start Zakki again.",
   "closeWindow": "Close Window",
   "renameTabField": "Rename Tab",
   "pinTop": "Keep on Top",

@@ -65,8 +65,5 @@ func migrateToggleWindow(raw string) (string, error) {
 	if raw == "" {
 		return "", nil
 	}
-	if b, err := parseAccelerator(raw); err == nil {
-		return b.accelerator(), nil
-	}
 	return normalizeLegacyAccelerator(raw)
 }

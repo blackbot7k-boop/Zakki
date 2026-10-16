@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,6 +178,9 @@ func TestPrefsBrokenFileRecovery(t *testing.T) {
 	if a.currentPrefsIssue().Kind != prefsIssuePrefsBroken {
 		t.Fatalf("应进入待恢复状态: %+v", a.currentPrefsIssue())
 	}
+	if a.prefsSaveError() == "" {
+		t.Fatal("待恢复状态必须显示未保存错误")
+	}
 	if a.prefs.Appearance != defaultPreferences().Appearance {
 		t.Fatal("待恢复状态用默认偏好运行")
 	}
@@ -192,6 +197,9 @@ func TestPrefsBrokenFileRecovery(t *testing.T) {
 	}
 	if a.currentPrefsIssue().Kind != prefsIssueNone {
 		t.Fatalf("恢复后应清除状态: %+v", a.currentPrefsIssue())
+	}
+	if got := a.prefsSaveError(); got != "" {
+		t.Fatalf("恢复写入成功后应清除未保存错误: %q", got)
 	}
 	prefs, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
 	if err != nil {
@@ -328,4 +336,119 @@ func TestPrefsSaveFailureReported(t *testing.T) {
 		t.Fatal("保存失败时已生效值继续可用")
 	}
 	_ = os.Remove(prefsPath)
+}
+
+func TestPrefsReadErrorBlocksAutomaticAndShutdownWrites(t *testing.T) {
+	a := newTestApp(t)
+	path := a.preferencesPath()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.loadPreferences(); err == nil {
+		t.Fatal("非 NotExist 读取错误必须上报")
+	}
+	if a.currentPrefsIssue().Kind != prefsIssuePrefsBroken {
+		t.Fatalf("读取错误必须建立持久写门: %+v", a.currentPrefsIssue())
+	}
+	if err := a.updatePreferences(func(p *preferences) { p.Appearance.ColorTheme = "paper" }); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.shutdownPreferences(); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(path)
+	if err != nil || !st.IsDir() {
+		t.Fatalf("shutdown 不得覆盖造成读取错误的原路径: stat=%v err=%v", st, err)
+	}
+}
+
+func TestPrefsReadErrorRecoveryRemainsExplicit(t *testing.T) {
+	a := newTestApp(t)
+	path := a.preferencesPath()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.loadPreferences(); err == nil {
+		t.Fatal("目录占位必须造成读取错误")
+	}
+	if err := a.confirmRecoverPreferences(); err == nil {
+		t.Fatal("原件仍不可读时确认恢复必须失败")
+	}
+	if a.currentPrefsIssue().Kind != prefsIssuePrefsBroken {
+		t.Fatal("恢复失败不得清除写门")
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	persistWriteRaw(t, path, `{"version":1, bad`)
+	if err := a.confirmRecoverPreferences(); err != nil {
+		t.Fatalf("原件恢复可读后应可明确确认: %v", err)
+	}
+	if a.currentPrefsIssue().Kind != prefsIssueNone {
+		t.Fatal("确认写入成功后才应清除写门")
+	}
+}
+
+func TestLegacyConfigIssueBlocksFirstWriteAndFailedConfirmation(t *testing.T) {
+	a := newTestApp(t)
+	dir := filepath.Dir(a.notes.DataFile)
+	persistWriteRaw(t, filepath.Join(dir, "config.toml"), "[broken")
+	if err := a.loadPreferences(); err == nil {
+		t.Fatal("损坏 legacy 配置必须上报")
+	}
+	if err := a.updatePreferences(func(p *preferences) { p.Appearance.ColorTheme = "paper" }); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.savePreferencesNow(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(a.preferencesPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("确认前首次写入必须被门控: %v", err)
+	}
+
+	originalPath := a.prefsStore.Path
+	blocker := filepath.Join(dir, "not-a-directory")
+	persistWriteRaw(t, blocker, "preserve")
+	a.prefsStore.Path = filepath.Join(blocker, "preferences.json")
+	if err := a.confirmContinueWithoutLegacyConfig(); err == nil {
+		t.Fatal("确认写入失败必须返回错误")
+	}
+	if a.currentPrefsIssue().Kind != prefsIssueLegacyBroken {
+		t.Fatal("确认写入失败不得清除 legacy 写门")
+	}
+	a.prefsStore.Path = originalPath
+	if err := a.confirmContinueWithoutLegacyConfig(); err != nil {
+		t.Fatalf("修复写入路径后应可重试确认: %v", err)
+	}
+	raw := prefsReadRaw(t, originalPath)
+	var saved preferences
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if got := saved.Appearance.ColorTheme; got != "paper" {
+		t.Fatalf("确认写入应包含门控期间的用户修改: %q", got)
+	}
+}
+
+func TestPrefsMigrationKeepsNormalizedNoteThemeFromRealNotesLoad(t *testing.T) {
+	a := newTestApp(t)
+	a.cfg.MarkdownTheme = "note"
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := newTestApp(t)
+	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir, b.now)
+	if err := b.load(); err != nil {
+		t.Fatal(err)
+	}
+	if b.cfg.MarkdownTheme != "note" {
+		t.Fatalf("笔记载入应先得到规范化 note，实际 %q", b.cfg.MarkdownTheme)
+	}
+	if err := b.loadPreferences(); err != nil {
+		t.Fatal(err)
+	}
+	if b.prefs.Appearance.MarkdownTheme != "note" {
+		t.Fatalf("note 基线迁入 preferences 后不得回退 sonnet: %q", b.prefs.Appearance.MarkdownTheme)
+	}
 }

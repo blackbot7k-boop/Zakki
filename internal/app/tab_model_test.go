@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"zakki/locales"
 )
 
 // ---- 数据模型：新增/删除/排序/命名 ----
@@ -123,6 +124,92 @@ func TestTabDeleteMinAndBackup(t *testing.T) {
 			t.Fatalf("active = %d, want %d", a.active, len(a.tabs)-1)
 		}
 	})
+}
+
+func TestDeleteConfirmedTabUsesStableIDAndRequiresOpenWindow(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	targetID := a.tabs[1].ID
+	a.tabs[1].Text = ""
+	before := len(a.tabs)
+
+	action := a.confirmedDeleteAction(targetID)
+	a.winOpen = false
+	action()
+	if len(a.tabs) != before || a.tabIndexByID(targetID) < 0 {
+		t.Fatal("窗口已关闭时不应执行确认删除")
+	}
+
+	if !a.moveTab(1, 1) {
+		t.Fatal("准备稳定 ID 场景时移动标签失败")
+	}
+	a.winOpen = true
+	action() // 模拟 runOnMain 在 editor lane 执行已投递 action。
+	if len(a.tabs) != before-1 {
+		t.Fatalf("确认删除后标签数 = %d，要 %d", len(a.tabs), before-1)
+	}
+	if a.tabIndexByID(targetID) >= 0 {
+		t.Fatal("重排后应按稳定 ID 删除原目标")
+	}
+}
+
+func TestSourceSessionSurvivesAddAndCurrentDelete(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.cfg.Source = true
+	a.active = len(a.tabs) - 1
+	originalID := a.activeTab().ID
+	originalUndo := liveEdit{
+		before: liveSnapshot{doc: "before", start: 2, end: 2},
+		after:  liveSnapshot{doc: "after", start: 5, end: 5},
+		kind:   editInput,
+	}
+	a.srcCaret, a.srcSelEnd = 2, 5
+	a.srcSelSyncStart, a.srcSelSyncEnd = 2, 5
+	a.srcPrev = liveSnapshot{doc: "before", start: 2, end: 2}
+	a.liveUndo = []liveEdit{originalUndo}
+
+	originalIndex := a.active
+	a.switchTab(originalIndex - 1)
+	if a.srcCaret != 0 || a.srcSelEnd != 0 || len(a.liveUndo) != 0 {
+		t.Fatalf("首次切换目标继承了源码会话: caret=%d end=%d undo=%d", a.srcCaret, a.srcSelEnd, len(a.liveUndo))
+	}
+	a.srcCaret, a.srcSelEnd = 7, 7
+	a.liveUndo = []liveEdit{{before: liveSnapshot{doc: "other"}, kind: editInput}}
+	a.switchTab(originalIndex)
+	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 1 || a.liveUndo[0] != originalUndo {
+		t.Fatalf("切回原标签未恢复源码会话: caret=%d end=%d undo=%+v", a.srcCaret, a.srcSelEnd, a.liveUndo)
+	}
+
+	if !a.addTab() {
+		t.Fatal("新增标签失败")
+	}
+	addedID := a.activeTab().ID
+	if addedID == originalID {
+		t.Fatal("新增标签未切换到新 ID")
+	}
+	if a.srcCaret != 0 || a.srcSelEnd != 0 || len(a.liveUndo) != 0 {
+		t.Fatalf("新标签继承了源码会话: caret=%d end=%d undo=%d", a.srcCaret, a.srcSelEnd, len(a.liveUndo))
+	}
+	saved := a.srcSessions[originalID]
+	if saved.caret != 2 || saved.selEnd != 5 || len(saved.undo) != 1 || saved.undo[0] != originalUndo {
+		t.Fatalf("新增前未保存原标签源码会话: %+v", saved)
+	}
+
+	a.srcCaret, a.srcSelEnd = 1, 1
+	a.liveUndo = []liveEdit{{before: liveSnapshot{doc: "new"}, kind: editInput}}
+	if !a.deleteTabNow(a.active) {
+		t.Fatal("删除当前新增标签失败")
+	}
+	if a.activeTab().ID != originalID {
+		t.Fatalf("删除后活动标签 ID = %d, want %d", a.activeTab().ID, originalID)
+	}
+	if _, ok := a.srcSessions[addedID]; ok {
+		t.Fatal("已删除标签的源码会话未清理")
+	}
+	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 1 || a.liveUndo[0] != originalUndo {
+		t.Fatalf("删除当前标签后未恢复目标会话: caret=%d end=%d undo=%+v", a.srcCaret, a.srcSelEnd, a.liveUndo)
+	}
 }
 
 func TestTabRenameAndMove(t *testing.T) {
@@ -635,6 +722,68 @@ func TestTabsSettingsPage(t *testing.T) {
 	}
 	if a.addTab() {
 		t.Fatal("上限应拒绝新增")
+	}
+}
+
+func TestTabsSettingsDeleteEmptyTabThroughUI(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.settingsPage = pageTabs
+	target := 1
+	a.tabs[target].Text = ""
+	targetID := a.tabs[target].ID
+	before := len(a.tabs)
+	tt := ui.NewTester(a.settingsView, 760, 600)
+
+	if err := tt.Click(locales.TabDelete(a.menuTitle(target))); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.tabs) != before-1 {
+		t.Fatalf("点击删除后标签数 = %d，要 %d", len(a.tabs), before-1)
+	}
+	if a.tabIndexByID(targetID) >= 0 {
+		t.Fatal("点击删除后目标标签仍存在")
+	}
+}
+
+func TestTabsSettingsPaletteToggleAndSelectThroughUI(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.settingsPage = pageTabs
+	tabID := a.tabs[0].ID
+	a.tabs[0].Color = tabPaletteColors[0]
+	tt := ui.NewTester(a.settingsView, 760, 600)
+
+	if err := tt.Click(locales.TabColorOf(tabPaletteColors[0])); err != nil {
+		t.Fatal(err)
+	}
+	if a.settingsUI.expandedColor != tabID {
+		t.Fatalf("点击调色板图标后 expandedColor = %d，要 %d", a.settingsUI.expandedColor, tabID)
+	}
+	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
+		t.Fatal(err)
+	}
+	if a.tabs[0].Color != tabPaletteColors[1] {
+		t.Fatalf("点击色块后颜色 = %q，要 %q", a.tabs[0].Color, tabPaletteColors[1])
+	}
+	if a.settingsUI.expandedColor != 0 {
+		t.Fatalf("选择颜色后调色板应收起: %d", a.settingsUI.expandedColor)
+	}
+
+	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
+		t.Fatal(err)
+	}
+	if a.settingsUI.expandedColor != tabID {
+		t.Fatal("调色板应可再次展开")
+	}
+	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
+		t.Fatal(err)
+	}
+	if a.settingsUI.expandedColor != 0 {
+		t.Fatal("再次点击调色板图标应收起")
+	}
+	if a.tabs[0].Color != tabPaletteColors[1] {
+		t.Fatal("收起调色板不应改变颜色")
 	}
 }
 

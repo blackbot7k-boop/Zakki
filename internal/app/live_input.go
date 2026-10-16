@@ -94,7 +94,37 @@ func (a *app) applyKeyHint(key ui.Key, start, end int) {
 	}
 }
 
+func (a *app) completeFenceDraft(start, end int) bool {
+	if !a.fenceDraft || start != end || end != utf8.RuneCountInString(a.mdDraft) {
+		return false
+	}
+	opening, ok := parseFenceOpeningLine(a.mdDraft)
+	if !ok {
+		return false
+	}
+	blocks := a.mdBlocks()
+	if a.mdActive < 0 || a.mdActive >= len(blocks) {
+		return false
+	}
+	blk := blocks[a.mdActive]
+	closing := fenceClosingMarker(opening)
+	draft := a.mdDraft + "\n\n" + closing
+	caret := utf8.RuneCountInString(a.mdDraft) + 1
+	docCaret := a.blockRuneOffset(a.mdActive) + caret
+	newDoc := spliceDocLines(a.activeTab().Text, blk.start, blk.end, draft)
+	a.pendingEditKind = editFencePair
+	a.clearFenceDraft()
+	a.applyDocEditAt(newDoc, docCaret, true)
+	return true
+}
+
 func (a *app) afterEnter(start, end int) {
+	if a.fenceDraft {
+		if a.completeFenceDraft(start, end) {
+			return
+		}
+		a.clearFenceDraft()
+	}
 	blocks := a.mdBlocks()
 	if a.mdActive < 0 || a.mdActive >= len(blocks) {
 		return
@@ -165,8 +195,8 @@ func (a *app) afterEnter(start, end int) {
 			if at > len(lines) {
 				at = len(lines)
 			}
-			newLines := append(append(lines[:at], ""), lines[at:]...)
-			a.applyDocEditAt(strings.Join(newLines, "\n"), a.blockRuneOffset(a.mdActive), true)
+			doc, _ := spliceLines(lines, at, at-1, "")
+			a.applyDocEditAt(doc, a.blockRuneOffset(a.mdActive), true)
 			return
 		}
 	case bkPara, bkHeading:
@@ -177,8 +207,8 @@ func (a *app) afterEnter(start, end int) {
 				if at > len(lines) {
 					at = len(lines)
 				}
-				newLines := append(append(lines[:at], ""), lines[at:]...)
-				a.applyDocEditAt(strings.Join(newLines, "\n"), a.blockRuneOffset(a.mdActive), true)
+				doc, _ := spliceLines(lines, at, at-1, "")
+				a.applyDocEditAt(doc, a.blockRuneOffset(a.mdActive), true)
 				return
 			}
 			a.mdDraft = "\n\n" + a.mdDraft
@@ -296,6 +326,7 @@ func (a *app) backspaceAtBlockStart() {
 // blurLive 退出块编辑，回到全块预览态。
 func (a *app) blurLive() {
 	a.commitDraft(-1)
+	a.clearFenceDraft()
 	a.mdActive = -1
 	a.mdDraft = ""
 	a.mdVisible = ""

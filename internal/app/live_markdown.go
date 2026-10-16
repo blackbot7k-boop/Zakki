@@ -45,6 +45,20 @@ func defaultTableBlock() string { return markdown.DefaultTableBlock() }
 
 func docLineCount(doc string) int { return markdown.DocLineCount(doc) }
 
+type fenceMarker = markdown.FenceMarker
+
+func parseFenceOpeningLine(line string) (fenceMarker, bool) {
+	return markdown.ParseFenceOpeningLine(line)
+}
+
+func isFenceOpeningLine(line string) bool { return markdown.IsFenceOpeningLine(line) }
+
+func isFenceClosingLine(line string, opening fenceMarker) bool {
+	return markdown.IsFenceClosingLine(line, opening)
+}
+
+func fenceClosingMarker(opening fenceMarker) string { return markdown.FenceClosingMarker(opening) }
+
 func caretLineCol(doc string, caret int) (int, int) { return markdown.CaretLineCol(doc, caret) }
 
 func inlineMarkers(kind spanKind) (string, string) {
@@ -98,6 +112,7 @@ func runeToByte(s string, runeIdx int) int { return markdown.RuneToByte(s, runeI
 type tableCell struct {
 	text       string
 	start, end int
+	missing    bool
 }
 
 type markdownTable struct {
@@ -106,7 +121,7 @@ type markdownTable struct {
 }
 
 func fromMDCell(c markdown.TableCell) tableCell {
-	return tableCell{text: c.Text, start: c.Start, end: c.End}
+	return tableCell{text: c.Text, start: c.Start, end: c.End, missing: c.Missing}
 }
 
 func fromMDTable(t markdown.Table) markdownTable {
@@ -123,7 +138,7 @@ func fromMDTable(t markdown.Table) markdownTable {
 func toMDCells(cells []tableCell) []markdown.TableCell {
 	out := make([]markdown.TableCell, len(cells))
 	for i, c := range cells {
-		out[i] = markdown.TableCell{Text: c.text, Start: c.start, End: c.end}
+		out[i] = markdown.TableCell{Text: c.text, Start: c.start, End: c.end, Missing: c.missing}
 	}
 	return out
 }
@@ -149,6 +164,22 @@ func tableStart(lines []string, i, stop int) (markdownTable, bool) {
 }
 
 func emptyTableRow(n int) string { return markdown.EmptyTableRow(n) }
+
+func tableRowCells(line string, columns int) ([]tableCell, bool) {
+	cells, ok := markdown.TableRowCells(line, columns)
+	if !ok {
+		return nil, false
+	}
+	out := make([]tableCell, len(cells))
+	for i, c := range cells {
+		out[i] = fromMDCell(c)
+	}
+	return out, true
+}
+
+func normalizeTableRow(line string, columns int) (string, bool) {
+	return markdown.NormalizeTableRow(line, columns)
+}
 
 func tableCellPositions(raw string) []tableCell {
 	cells := markdown.TableCellPositions(raw)

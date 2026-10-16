@@ -270,6 +270,9 @@ func tableAlignment(align int) ui.Align {
 func (a *app) focusTableCell(block, row, col int) {
 	a.focusBlock(block, 0, 0)
 	b := a.mdBlocks()[a.mdActive]
+	if a.materializeMissingTableCell(b, row, col) {
+		return
+	}
 	cells := tableCellPositions(b.raw)
 	index := col
 	for i := 0; i < row; i++ {

@@ -151,6 +151,101 @@ func TestFindBindingConflict(t *testing.T) {
 	}
 }
 
+func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
+	winPrimary, err := parseAcceleratorForPlatform("CmdOrCtrl+Alt+1", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winPrimary.mods != ui.Ctrl|ui.Alt || !winPrimary.primary {
+		t.Fatalf("Windows CmdOrCtrl 解析错误: %+v", winPrimary)
+	}
+	if got := winPrimary.displayNameForPlatform("windows"); got != "Ctrl+Alt+1" {
+		t.Fatalf("Windows 显示名 = %q", got)
+	}
+	if got := winPrimary.acceleratorForPlatform("windows"); got != "CmdOrCtrl+Alt+1" {
+		t.Fatalf("Windows accelerator = %q", got)
+	}
+	winSuper, err := parseAcceleratorForPlatform("Super+Alt+1", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winSuper.mods != ui.Super|ui.Alt || winSuper.primary || sameBinding(winPrimary, winSuper) {
+		t.Fatalf("Windows 显式 Super 未与 CmdOrCtrl 区分: primary=%+v super=%+v", winPrimary, winSuper)
+	}
+	if got := winSuper.displayNameForPlatform("windows"); got != "Win+Alt+1" {
+		t.Fatalf("Windows Super 显示名 = %q", got)
+	}
+
+	macPrimary, err := parseAcceleratorForPlatform("CmdOrCtrl+1", "darwin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if macPrimary.mods != ui.Super || !macPrimary.primary || macPrimary.displayNameForPlatform("darwin") != "⌘1" {
+		t.Fatalf("macOS CmdOrCtrl 解析或显示错误: %+v %q", macPrimary, macPrimary.displayNameForPlatform("darwin"))
+	}
+
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if got := a.commandBindingForPlatform(cmdH1, "darwin"); got != "CmdOrCtrl+1" {
+		t.Fatalf("macOS H1 默认键 = %q", got)
+	}
+	if got := a.commandBindingForPlatform(cmdH1, "windows"); got != "CmdOrCtrl+Alt+1" {
+		t.Fatalf("Windows H1 默认键 = %q", got)
+	}
+	colliding, _ := parseAcceleratorForPlatform("CmdOrCtrl+1", "windows")
+	if name := a.findBindingConflictForPlatform(cmdH1, colliding, "windows"); name == "" {
+		t.Fatal("Windows CmdOrCtrl+1 应与固定切换标签键冲突")
+	}
+
+	type physicalBinding struct {
+		mods ui.Modifiers
+		key  ui.Key
+	}
+	seen := map[physicalBinding]string{}
+	for _, fixed := range fixedBindings {
+		b, parseErr := parseAcceleratorForPlatform(fixed.acc, "windows")
+		if parseErr != nil {
+			t.Fatalf("固定键 %s: %v", fixed.acc, parseErr)
+		}
+		seen[physicalBinding{mods: b.mods, key: b.key}] = fixed.key
+	}
+	for _, def := range commandRegistry {
+		acc := a.commandBindingForPlatform(def.id, "windows")
+		if acc == "" {
+			continue
+		}
+		b, parseErr := parseAcceleratorForPlatform(acc, "windows")
+		if parseErr != nil {
+			t.Fatalf("命令 %s 默认键 %s: %v", def.id, acc, parseErr)
+		}
+		key := physicalBinding{mods: b.mods, key: b.key}
+		if other, exists := seen[key]; exists {
+			t.Fatalf("Windows 默认键冲突: %s 与 %s 都是 %s", def.id, other, acc)
+		}
+		seen[key] = def.id
+	}
+}
+
+func TestResetCommandBindingRejectsConflictAndKeepsOverride(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if err := a.setCommandBinding(cmdBold, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.setCommandBinding(cmdItalic, "CmdOrCtrl+B"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.resetCommandBinding(cmdBold); err == nil {
+		t.Fatal("默认绑定与其他命令冲突时，单项恢复应失败")
+	}
+	if got, ok := a.prefs.Keymap.Overrides[cmdBold]; !ok || got != "" {
+		t.Fatalf("恢复失败后应保留解除绑定覆盖: value=%q exists=%v", got, ok)
+	}
+	if got := a.commandBinding(cmdItalic); got != "CmdOrCtrl+B" {
+		t.Fatalf("冲突命令绑定被意外改写: %q", got)
+	}
+}
+
 func TestGlobalKeymapHotkeyToggle(t *testing.T) {
 	a := newTestApp(t)
 	// 解除全局热键：托盘仍可唤起（toggleWindow 不依赖热键）。

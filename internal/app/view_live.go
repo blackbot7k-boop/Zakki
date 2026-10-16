@@ -90,6 +90,12 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 // activeBlock keeps the block's rendered structure while editing visible contents.
 func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 	blk := a.mdBlocks()[a.mdActive]
+	projection := projectBlock(blk)
+	if a.fenceDraft && isFenceDraftLine(blk.raw) {
+		projection = projectRegion(blk.raw, 0, utf8.RuneCountInString(blk.raw), false, false)
+		// 回车确认前保持原生输入框层级不变，避免重挂到代码卡片时重复输入或错位光标。
+		blk.kind = bkPara
+	}
 	md := a.resolveStyle(-1, themeIsDark(t), true)
 	row := ui.Row(c.Key("blk-" + strconv.Itoa(a.mdActive))).Gap(8).FillWidth()
 	// 文档级全选：焦点块与其余块呈现一致的选区底色。
@@ -102,24 +108,24 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 			a.editTable(c, t, blk)
 		case bkTask:
 			a.taskCheckbox(c, blk, md)
-			a.activeText(c, t, blk, projectBlock(blk))
+			a.activeText(c, t, blk, projection)
 		case bkList:
 			listMarker(c, md, blk)
-			a.activeText(c, t, blk, projectBlock(blk))
+			a.activeText(c, t, blk, projection)
 		case bkQuote:
 			quoteBar(c, md, uint32(blk.start))
-			a.activeText(c, t, blk, projectBlock(blk))
+			a.activeText(c, t, blk, projection)
 		case bkCode:
 			codeCard(c, md, t, uint32(blk.start)).FillWidth().Children(func() {
-				a.activeText(c, t, blk, projectBlock(blk))
+				a.activeText(c, t, blk, projection)
 			})
 		case bkRule:
 			ui.Column(c).FillWidth().Children(func() {
 				ruleLine(c, md, uint32(blk.start))
-				a.activeText(c, t, blk, projectBlock(blk))
+				a.activeText(c, t, blk, projection)
 			})
 		default:
-			a.activeText(c, t, blk, projectBlock(blk))
+			a.activeText(c, t, blk, projection)
 		}
 	})
 }
@@ -147,8 +153,17 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		Lines(1, 4096).
 		FillWidth().Grow(1).MinWidth(0).
 		Font(md.bodyFont).FontSize(md.bodySize).LineHeight(md.lineHeight).
-		FocusRing(false).
-		AutoFocus().
+		FocusRing(false)
+	if !a.findOpen && !a.linkTool.open {
+		ta = ta.AutoFocus()
+	}
+	ta = ta.
+		OnPaste(func(text string) bool {
+			if text != "" {
+				a.nextEditIsPaste = true
+			}
+			return false
+		}).
 		HandleInput(func(ev ui.InputEvent) bool { return a.recordProjectedKey(ev, p) })
 	// 文本框是滚动容器的子控件；标记已处理，避免父容器把同一次点击
 	// 当作空白点击，从而将光标重置到文末。
@@ -206,11 +221,18 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 			c.Invalidate()
 			return
 		}
+		// 原生编辑应把光标推进到新内容之后，但 AX 整值替换会保留旧光标；
+		// 纯追加而光标仍停在前缀内时先吸附到末尾，否则下一个字符会插进中间。
+		if cs == ce {
+			if n := nativeCaretAfterEdit(p.text, a.mdVisible, cs); n != cs {
+				cs, ce = n, n
+			}
+		}
 		// 退化的未闭合围栏（整块只有一行围栏，如刚键入的 ```）：可编辑区域
 		// 是围栏行末尾的零宽区间，直接插入会改写围栏行（变成语言标识）。
 		// 换用带合成内容行的投影，让输入落到围栏之后。
 		if p.start == p.end && p.end == utf8.RuneCountInString(p.raw) && p.end > 0 {
-			if i := strings.LastIndexByte(p.raw, '\n'); isFenceLine(p.raw[i+1:]) {
+			if i := strings.LastIndexByte(p.raw, '\n'); isFenceOpeningLine(p.raw[i+1:]) {
 				p = projectRegion(p.raw+"\n", p.end+1, p.end+1, false, false)
 			}
 		}
@@ -228,8 +250,20 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 			a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
 			a.pendingEditKind = editCommand
 		}
+		startFence := !a.fenceDraft && kind == editInput && strings.Trim(p.raw, " ") == "" && isFenceDraftLine(raw)
+		clearFence := a.fenceDraft && !isFenceDraftLine(raw)
+		if startFence {
+			a.startFenceDraft(blk.start)
+		}
 		a.mdDraft = raw
 		a.commitDraft(caret)
+		if clearFence {
+			a.clearFenceDraft()
+		}
+		if kind == editPaste {
+			a.scrollActive = true
+			a.liveList.ScrollIntoView(a.mdActive)
+		}
 		if a.selSyncStart < 0 {
 			a.selSyncStart, a.selSyncEnd = caret, caret
 		}
@@ -256,7 +290,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		a.keyHint = 0
 		before, beforeDoc, beforeActive := a.mdDraft, a.activeTab().Text, a.mdActive
 		a.applyProjectedHint(hint, p, cs, ce)
-		if hint == ui.KeyEnter && a.activeTab().Text != beforeDoc {
+		if a.activeTab().Text != beforeDoc {
 			a.onEdited()
 		}
 		// 表格编辑改变草稿后照常走重建流程（无早退返回）。

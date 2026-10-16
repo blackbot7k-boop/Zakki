@@ -10,6 +10,7 @@ package app
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -44,10 +45,19 @@ const (
 
 // ---- 绑定（规范化组合键） ----
 
-// keyBinding 是一组规范化的单组组合键（不支持 chord）。
+// keyBinding 是一组规范化的单组组合键（不支持 chord）。primary 标记
+// accelerator 使用逻辑 CmdOrCtrl；mods 始终保存目标平台解析后的物理修饰键。
 type keyBinding struct {
-	mods ui.Modifiers
-	key  ui.Key
+	mods    ui.Modifiers
+	key     ui.Key
+	primary bool
+}
+
+func primaryModifier(goos string) ui.Modifiers {
+	if goos == "darwin" {
+		return ui.Super
+	}
+	return ui.Ctrl
 }
 
 // keyName 是 ui.Key 与 accelerator 名称的互查表（与 MyGo 的 keyName 一致）。
@@ -99,9 +109,14 @@ func init() {
 // acceleratorKey 返回 accelerator 字符串里的键名（字母小写、命名词首字母大写）。
 func acceleratorKey(k ui.Key) string { return keyNameByKey[k] }
 
-// parseAccelerator 解析 MyGo 格式 accelerator（如 "CmdOrCtrl+Shift+Space"）
-// 为规范化绑定。CmdOrCtrl 按 macOS 语义解析为 Super。
+// parseAccelerator 解析当前平台的 MyGo accelerator。
 func parseAccelerator(s string) (keyBinding, error) {
+	return parseAcceleratorForPlatform(s, runtime.GOOS)
+}
+
+// parseAcceleratorForPlatform 将 CmdOrCtrl 解析为目标平台的物理修饰键，
+// 同时保留逻辑标记；显式 Super/Win 始终解析为 ui.Super。
+func parseAcceleratorForPlatform(s, goos string) (keyBinding, error) {
 	parts := strings.Split(s, "+")
 	if strings.TrimSpace(s) == "" {
 		return keyBinding{}, fmt.Errorf("%s", locales.AccEmpty())
@@ -115,7 +130,11 @@ func parseAccelerator(s string) (keyBinding, error) {
 		last := i == len(parts)-1
 		if !last {
 			switch p {
-			case "cmdorctrl", "commandorcontrol", "cmd", "command", "super", "meta", "win":
+			case "cmdorctrl", "commandorcontrol":
+				b.primary = true
+				b.mods |= primaryModifier(goos)
+				continue
+			case "cmd", "command", "super", "meta", "win":
 				b.mods |= ui.Super
 				continue
 			case "ctrl", "control":
@@ -146,24 +165,36 @@ func parseAccelerator(s string) (keyBinding, error) {
 	return b, nil
 }
 
-// accelerator 输出规范化 accelerator：修饰键顺序 CmdOrCtrl+Ctrl+Alt+Shift，
-// 主键字母大写（与菜单/GlobalShortcut 的书写习惯一致）。
+func keyBindingFromInput(mods ui.Modifiers, key ui.Key, goos string) keyBinding {
+	return keyBinding{mods: mods, key: key, primary: mods&primaryModifier(goos) != 0}
+}
+
+// accelerator 输出当前平台的规范化 accelerator。
 func (b keyBinding) accelerator() string {
+	return b.acceleratorForPlatform(runtime.GOOS)
+}
+
+func (b keyBinding) acceleratorForPlatform(goos string) string {
 	name := acceleratorKey(b.key)
 	if name == "" {
 		return ""
 	}
+	mods := b.mods
 	var parts []string
-	if b.mods&ui.Super != 0 {
+	if b.primary {
 		parts = append(parts, "CmdOrCtrl")
+		mods &^= primaryModifier(goos)
 	}
-	if b.mods&ui.Ctrl != 0 {
+	if mods&ui.Super != 0 {
+		parts = append(parts, "Super")
+	}
+	if mods&ui.Ctrl != 0 {
 		parts = append(parts, "Ctrl")
 	}
-	if b.mods&ui.Alt != 0 {
+	if mods&ui.Alt != 0 {
 		parts = append(parts, "Alt")
 	}
-	if b.mods&ui.Shift != 0 {
+	if mods&ui.Shift != 0 {
 		parts = append(parts, "Shift")
 	}
 	if len(name) == 1 {
@@ -180,31 +211,76 @@ func normalizeLegacyAccelerator(s string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if b.mods&ui.Super != 0 && !b.primary {
+		b.mods &^= ui.Super
+		b.mods |= primaryModifier(runtime.GOOS)
+		b.primary = true
+	}
 	return b.accelerator(), nil
 }
 
-// sameBinding 比较两个绑定的规范化形态（修饰键集合 + 主键）。
+// sameBinding 按目标平台解析后的物理修饰键和主键比较。
 func sameBinding(a, b keyBinding) bool { return a.mods == b.mods && a.key == b.key }
 
-// ---- 显示名（macOS 符号） ----
+// ---- 显示名 ----
 
-// displayName 输出面向用户的符号，如 "⌘B"、"⌘⇧空格"、"⌘⌥1"。
 func (b keyBinding) displayName() string {
+	return b.displayNameForPlatform(runtime.GOOS)
+}
+
+func (b keyBinding) displayNameForPlatform(goos string) string {
 	var sb strings.Builder
+	if goos == "darwin" {
+		if b.mods&ui.Super != 0 {
+			sb.WriteRune('⌘')
+		}
+		if b.mods&ui.Ctrl != 0 {
+			sb.WriteRune('⌃')
+		}
+		if b.mods&ui.Alt != 0 {
+			sb.WriteRune('⌥')
+		}
+		if b.mods&ui.Shift != 0 {
+			sb.WriteRune('⇧')
+		}
+		sb.WriteString(displayKeyName(b.key))
+		return sb.String()
+	}
 	if b.mods&ui.Super != 0 {
-		sb.WriteRune('⌘')
+		sb.WriteString("Win+")
 	}
 	if b.mods&ui.Ctrl != 0 {
-		sb.WriteRune('⌃')
+		sb.WriteString("Ctrl+")
 	}
 	if b.mods&ui.Alt != 0 {
-		sb.WriteRune('⌥')
+		sb.WriteString("Alt+")
 	}
 	if b.mods&ui.Shift != 0 {
-		sb.WriteRune('⇧')
+		sb.WriteString("Shift+")
 	}
-	sb.WriteString(displayKeyName(b.key))
+	sb.WriteString(displayKeyNameForPlatform(b.key, goos))
 	return sb.String()
+}
+
+func displayKeyNameForPlatform(k ui.Key, goos string) string {
+	if goos == "darwin" {
+		return displayKeyName(k)
+	}
+	switch k {
+	case ui.KeySpace:
+		return locales.KeySpace()
+	case ui.KeyEnter:
+		return locales.KeyEnter()
+	case ui.KeyEscape:
+		return "Esc"
+	case ui.KeyBackspace:
+		return locales.KeyBackspace()
+	case ui.KeyTab:
+		return "Tab"
+	case ui.KeyDelete:
+		return "Delete"
+	}
+	return displayKeyName(k)
 }
 
 func displayKeyName(k ui.Key) string {
@@ -443,24 +519,42 @@ func fixedBindingName(key string) string {
 
 // ---- 绑定解析与冲突校验 ----
 
-// commandBinding 返回命令的当前生效绑定（""=未绑定）。
+// commandBinding 返回当前平台的生效绑定（""=未绑定）。
 func (a *app) commandBinding(id string) string {
+	return a.commandBindingForPlatform(id, runtime.GOOS)
+}
+
+func (a *app) commandBindingForPlatform(id, goos string) string {
 	if over, ok := a.prefs.Keymap.Overrides[id]; ok {
 		return over
 	}
 	if def, ok := commandDefByID(id); ok {
-		return def.def
+		return defaultBindingForPlatform(def, goos)
 	}
 	return ""
 }
 
-// parsedCommandBinding 返回解析后的绑定；未绑定或解析失败返回 false。
+func defaultBindingForPlatform(def commandDef, goos string) string {
+	if goos == "windows" {
+		switch def.id {
+		case cmdH1, cmdH2, cmdH3, cmdH4, cmdH5, cmdH6:
+			return strings.Replace(def.def, "CmdOrCtrl+", "CmdOrCtrl+Alt+", 1)
+		}
+	}
+	return def.def
+}
+
+// parsedCommandBinding 返回当前平台解析后的绑定；未绑定或解析失败返回 false。
 func (a *app) parsedCommandBinding(id string) (keyBinding, bool) {
-	acc := a.commandBinding(id)
+	return a.parsedCommandBindingForPlatform(id, runtime.GOOS)
+}
+
+func (a *app) parsedCommandBindingForPlatform(id, goos string) (keyBinding, bool) {
+	acc := a.commandBindingForPlatform(id, goos)
 	if acc == "" {
 		return keyBinding{}, false
 	}
-	b, err := parseAccelerator(acc)
+	b, err := parseAcceleratorForPlatform(acc, goos)
 	if err != nil {
 		return keyBinding{}, false
 	}
@@ -492,48 +586,54 @@ func validateBinding(b keyBinding) error {
 	return nil
 }
 
-// findBindingConflict 返回与已有命令、固定快捷键冲突的名称（""=无冲突）。
-// 同一命令自身的旧绑定不算冲突。
+// findBindingConflict 返回当前平台与已有命令、固定快捷键冲突的名称。
 func (a *app) findBindingConflict(id string, b keyBinding) string {
+	return a.findBindingConflictForPlatform(id, b, runtime.GOOS)
+}
+
+func (a *app) findBindingConflictForPlatform(id string, b keyBinding, goos string) string {
 	for _, def := range commandRegistry {
 		if def.id == id {
 			continue
 		}
-		if other, ok := a.parsedCommandBinding(def.id); ok && sameBinding(other, b) {
+		if other, ok := a.parsedCommandBindingForPlatform(def.id, goos); ok && sameBinding(other, b) {
 			return commandDisplayName(def)
 		}
 	}
 	for _, fixed := range fixedBindings {
-		if other, err := parseAccelerator(fixed.acc); err == nil && sameBinding(other, b) {
+		if other, err := parseAcceleratorForPlatform(fixed.acc, goos); err == nil && sameBinding(other, b) {
 			return fixedBindingName(fixed.key)
 		}
 	}
 	return ""
 }
 
-// validateKeymapChange 校验一次改键请求，返回错误信息（nil=允许）。
-// 冲突时显示冲突名称，不自动抢占。
+// validateKeymapChange 校验当前平台的一次改键请求。
 func (a *app) validateKeymapChange(id string, acc string) error {
+	return a.validateKeymapChangeForPlatform(id, acc, runtime.GOOS)
+}
+
+func (a *app) validateKeymapChangeForPlatform(id string, acc string, goos string) error {
 	if acc != "" {
-		b, err := parseAccelerator(acc)
+		b, err := parseAcceleratorForPlatform(acc, goos)
 		if err != nil {
 			return err
 		}
 		if err := validateBinding(b); err != nil {
 			return err
 		}
-		if name := a.findBindingConflict(id, b); name != "" {
+		if name := a.findBindingConflictForPlatform(id, b, goos); name != "" {
 			return fmt.Errorf("%s", locales.KeyErrConflict(name))
 		}
 	}
 	// 全局命令不允许和文档命令同键：全局键会吞掉文档快捷键。
 	if def, ok := commandDefByID(id); ok && def.global && acc != "" {
-		b, _ := parseAccelerator(acc)
+		b, _ := parseAcceleratorForPlatform(acc, goos)
 		for _, other := range commandRegistry {
 			if other.global || other.id == id {
 				continue
 			}
-			if ob, ok := a.parsedCommandBinding(other.id); ok && sameBinding(ob, b) {
+			if ob, ok := a.parsedCommandBindingForPlatform(other.id, goos); ok && sameBinding(ob, b) {
 				return fmt.Errorf("%s", locales.KeyErrConflict(commandDisplayName(other)))
 			}
 		}
@@ -561,8 +661,19 @@ func (a *app) setCommandBinding(id string, acc string) error {
 	})
 }
 
-// resetCommandBinding 恢复单项默认绑定。
+// resetCommandBinding 恢复单项默认绑定；默认键也必须通过同一冲突校验。
 func (a *app) resetCommandBinding(id string) error {
+	return a.resetCommandBindingForPlatform(id, runtime.GOOS)
+}
+
+func (a *app) resetCommandBindingForPlatform(id, goos string) error {
+	def, ok := commandDefByID(id)
+	if !ok {
+		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(id))
+	}
+	if err := a.validateKeymapChangeForPlatform(id, defaultBindingForPlatform(def, goos), goos); err != nil {
+		return err
+	}
 	return a.updatePreferences(func(p *preferences) {
 		delete(p.Keymap.Overrides, id)
 	})
@@ -576,8 +687,12 @@ func (a *app) resetKeymap() error {
 }
 
 func defBindingOf(id string) string {
+	return defBindingOfForPlatform(id, runtime.GOOS)
+}
+
+func defBindingOfForPlatform(id, goos string) string {
 	if def, ok := commandDefByID(id); ok {
-		return def.def
+		return defaultBindingForPlatform(def, goos)
 	}
 	return ""
 }

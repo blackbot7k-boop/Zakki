@@ -135,9 +135,13 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 	current := i == a.active
 	ui.Column(c.Key(fmt.Sprintf("tabrow-%d", tb.ID))).FillWidth().Gap(4).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			// 颜色点：点击切换当前标签；再点是行内的展开箭头语义，调色板
-			// 在下方展开（避免弹出层与滚动容器嵌套）。
-			dot := ui.ButtonBase(c.Key(fmt.Sprintf("tabcur-%d", tb.ID))).Label(locales.TabSwitchTo(a.menuTitle(i))).
+			tabID := tb.ID
+			colorLabel := tb.Color
+			if !validTabColor(colorLabel) {
+				colorLabel = tabPaletteColors[i%len(tabPaletteColors)]
+			}
+			// 颜色点：点击切换当前标签；调色板按钮在行内明确展开或收起调色板。
+			dot := ui.ButtonBase(c.Key(fmt.Sprintf("tabcur-%d", tabID))).Label(locales.TabSwitchTo(a.menuTitle(i))).
 				Size(18, 18).Radius(9).Cursor(ui.CursorPointer)
 			dot.Draw(func(p *ui.Painter, r ui.Rect) {
 				ink := a.tabColor(i)
@@ -154,6 +158,15 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 			if dot.Clicked() {
 				a.switchTab(i)
 			}
+			ui.Icon(c.Key(fmt.Sprintf("tabpalette-%d", tabID)), iconPalette).
+				Size(18, 18).TextColor(tMuted(c)).Cursor(ui.CursorPointer).
+				Label(locales.TabColorOf(colorLabel)).OnClick(func() {
+				if a.settingsUI.expandedColor == tabID {
+					a.settingsUI.expandedColor = 0
+					return
+				}
+				a.settingsUI.expandedColor = tabID
+			})
 
 			// 重命名只在标签栏进行（⌘R / 双击圆点），设置页不再提供重命名。
 			ui.Text(c, a.menuTitle(i)).Grow(1)
@@ -169,10 +182,13 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 				Label(locales.TabMoveDown(a.menuTitle(i))).Disabled(i == len(a.tabs)-1).Clicked() {
 				a.moveTab(i, 1)
 			}
-			if ui.Button(c.Key(fmt.Sprintf("tabdel-%d", tb.ID)), locales.CommonDelete()).
-				Label(locales.TabDelete(a.menuTitle(i))).Clicked() {
-				a.confirmDeleteTab(i)
-			}
+			ui.Button(c.Key(fmt.Sprintf("tabdel-%d", tabID)), locales.CommonDelete()).
+				Label(locales.TabDelete(a.menuTitle(i))).OnClick(func() {
+				current := a.tabIndexByID(tabID)
+				if current >= 0 {
+					a.confirmDeleteTab(current)
+				}
+			})
 		})
 		// 展开的调色板：12 色，点击改色。
 		if a.settingsUI.expandedColor == tb.ID {
@@ -190,9 +206,13 @@ func (a *app) tabRow(c *ui.Context, i int, dark bool) {
 							p.StrokePath(&path, 2, c.Theme().Text)
 						}
 					})
-					if s.Clicked() {
-						a.setTabColor(i, cand)
-					}
+					s.OnClick(func() {
+						current := a.tabIndexByID(tb.ID)
+						if current >= 0 {
+							a.setTabColor(current, cand)
+							a.settingsUI.expandedColor = 0
+						}
+					})
 				}
 			})
 		}

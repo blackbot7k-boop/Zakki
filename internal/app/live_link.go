@@ -22,12 +22,14 @@ type linkToolState struct {
 	start int // 作用范围（文档 rune 偏移）
 	end   int
 	block int // 焦点块索引（实时预览恢复焦点用）
+	tabID uint64
+	doc   string
 }
 
 func (a *app) openLinkEditor() {
 	a.ensureFocusBlock()
 	start, end := a.editorCaret()
-	tool := linkToolState{open: true, start: start, end: end, block: a.mdActive}
+	tool := linkToolState{open: true, start: start, end: end, block: a.mdActive, tabID: a.activeTab().ID, doc: a.activeTab().Text}
 	doc := a.activeTab().Text
 	// 已有链接：光标/选区落在链接 span 内时填入当前值（实时预览在块内找，
 	// 避免跨块误配；偏移在块坐标与文档坐标间换算）。
@@ -98,6 +100,10 @@ func findLinkSpanAt(region string, start, end int) *mSpan {
 func (a *app) applyLinkTool() {
 	tool := a.linkTool
 	if !tool.open {
+		return
+	}
+	if tool.tabID != a.activeTab().ID || tool.doc != a.activeTab().Text {
+		a.closeLinkTool()
 		return
 	}
 	text := strings.TrimSpace(tool.text)

@@ -24,29 +24,49 @@ func (a *app) activeTable() (liveBlock, bool) {
 	return b, b.kind == bkTable
 }
 
-// selectedTableCell also handles short Markdown rows, rather than assuming
-// that every row contains as many source cells as the header.
+// selectedTableCell 用表头列数解释语义单元格，短行和宽行都与渲染模型一致。
 func (a *app) selectedTableCell(b liveBlock) (row, col int) {
+	cols := len(b.table.align)
+	cells := tableCellPositions(b.raw)
+	if cols == 0 || len(cells) == 0 {
+		return 0, 0
+	}
 	pos := a.mdCaret
 	if a.selSyncStart >= 0 {
 		pos = a.selSyncStart
 	}
-	idx := tableCellAt(tableCellPositions(b.raw), pos)
-	for r, cells := range b.table.rows {
-		if idx < len(cells) {
-			return r, min(idx, len(b.table.align)-1)
-		}
-		idx -= len(cells)
-	}
-	return 0, 0
+	idx := clamp(tableCellAt(cells, pos), 0, len(cells)-1)
+	return idx / cols, idx % cols
 }
 
 func tableCellIndex(b liveBlock, row, col int) int {
-	idx := col
-	for r := 0; r < row; r++ {
-		idx += len(b.table.rows[r])
+	return row*len(b.table.align) + col
+}
+
+// materializeMissingTableCell 把短行的虚拟单元格补成真实 Markdown 单元格。
+// 点击命中仍由视图负责，这里统一源行规范化与结构化回写。
+func (a *app) materializeMissingTableCell(b liveBlock, row, col int) bool {
+	cols := len(b.table.align)
+	if cols == 0 || row < 0 || row >= len(b.table.rows) || col < 0 || col >= cols {
+		return false
 	}
-	return idx
+	cells := tableCellPositions(b.raw)
+	index := tableCellIndex(b, row, col)
+	if index >= len(cells) || !cells[index].missing {
+		return false
+	}
+	lines := strings.Split(b.raw, "\n")
+	line := row
+	if row > 0 {
+		line++ // Markdown 分隔行不是可见行。
+	}
+	normalized, ok := normalizeTableRow(lines[line], cols)
+	if !ok {
+		return false
+	}
+	lines[line] = normalized
+	a.replaceTable(strings.Join(lines, "\n"), row, col)
+	return true
 }
 
 // replaceTable keeps the caret/selection within the same surviving cell,
@@ -59,22 +79,23 @@ func (a *app) replaceTable(raw string, row, col int) {
 	before := a.liveSnapshot()
 	oldCells := tableCellPositions(b.raw)
 	oldRow, oldCol := a.selectedTableCell(b)
-	old := oldCells[tableCellIndex(b, oldRow, oldCol)]
+	oldIndex := clamp(tableCellIndex(b, oldRow, oldCol), 0, len(oldCells)-1)
+	old := oldCells[oldIndex]
 	start, end := a.mdCaret, a.mdSelEnd
 	if a.selSyncStart >= 0 {
 		start, end = a.selSyncStart, a.selSyncEnd
 	}
 	lines := strings.Split(raw, "\n")
-	cellRows := append([]string{lines[0]}, lines[2:]...)
-	row = clamp(row, 0, len(cellRows)-1)
-	cells, _ := pipeCells(cellRows[row])
-	col = clamp(col, 0, len(cells)-1)
-	idx := col
-	for r := 0; r < row; r++ {
-		cs, _ := pipeCells(cellRows[r])
-		idx += len(cs)
+	table, ok := tableStart(lines, 0, len(lines))
+	if !ok {
+		return
 	}
-	cell := tableCellPositions(raw)[idx]
+	cells := tableCellPositions(raw)
+	cols := len(table.align)
+	rows := len(cells) / cols
+	row = clamp(row, 0, rows-1)
+	col = clamp(col, 0, cols-1)
+	cell := cells[row*cols+col]
 	s, e := cell.start, cell.start
 	if row == oldRow && col == oldCol {
 		s += clamp(start-old.start, 0, cell.end-cell.start)

@@ -174,9 +174,15 @@ func (a *app) addTab() bool {
 		a.notice = locales.TabMaxCannotAdd(MaxTabCount)
 		return false
 	}
+	if a.cfg.Source {
+		a.saveSourceSession()
+	}
 	a.tabs = append(a.tabs, tab{ID: a.nextID(), Color: a.unusedTabColor()})
 	a.active = len(a.tabs) - 1
 	a.afterTabsChanged()
+	if a.cfg.Source {
+		a.restoreSourceSession()
+	}
 	a.liveFocus = 1 // 切到新标签后聚焦内容编辑
 	return true
 }
@@ -200,8 +206,13 @@ func (a *app) deleteTabNow(i int) bool {
 	}
 	removed := a.tabs[i].ID
 	activeID := a.tabs[a.active].ID
+	activeRemoved := removed == activeID
+	if a.cfg.Source {
+		a.saveSourceSession()
+	}
 	a.tabs = slices.Delete(a.tabs, i, i+1)
-	if removed == activeID {
+	delete(a.srcSessions, removed)
+	if activeRemoved {
 		a.active = min(i, len(a.tabs)-1)
 	} else {
 		for k := range a.tabs {
@@ -214,11 +225,23 @@ func (a *app) deleteTabNow(i int) bool {
 	a.clampActive()
 	a.cancelMorphFor(removed)
 	a.afterTabsChanged()
+	if a.cfg.Source {
+		a.restoreSourceSession()
+	}
 	return true
 }
 
-// confirmDeleteTab UI 入口：有内容的标签先弹原生确认，确认后走
-// deleteTabNow（其中再执行备份）。测试直接调 deleteTabNow。
+func (a *app) tabIndexByID(id uint64) int {
+	for i := range a.tabs {
+		if a.tabs[i].ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+// confirmDeleteTab UI 入口：有内容的标签先弹原生确认，确认后按稳定 ID
+// 重新定位，避免对话框期间重排标签后误删另一项。
 func (a *app) confirmDeleteTab(i int) {
 	if i < 0 || i >= len(a.tabs) || len(a.tabs) <= 1 {
 		return
@@ -227,6 +250,7 @@ func (a *app) confirmDeleteTab(i int) {
 		a.deleteTabNow(i)
 		return
 	}
+	tabID := a.tabs[i].ID
 	title := a.menuTitle(i)
 	go func() {
 		res, err := mygo.Dialog.Message(mygo.MessageOptions{
@@ -239,8 +263,25 @@ func (a *app) confirmDeleteTab(i int) {
 		if err != nil || res.Button != 0 {
 			return
 		}
-		a.withWindow(func() { a.deleteTabNow(i) })
+		a.deleteConfirmedTab(tabID)
 	}()
+}
+
+// deleteConfirmedTab 只把对话框创建前捕获的不可变 ID 投递给主窗口，后台
+// 不读取标签切片。窗口生命周期与 ID 定位都在 editor lane 的 action 内复核。
+func (a *app) deleteConfirmedTab(tabID uint64) {
+	a.runOnMain(a.confirmedDeleteAction(tabID))
+}
+
+func (a *app) confirmedDeleteAction(tabID uint64) func() {
+	return func() {
+		if !a.winOpen {
+			return
+		}
+		if current := a.tabIndexByID(tabID); current >= 0 {
+			a.deleteTabNow(current)
+		}
+	}
 }
 
 // renameTab 命名第 i 个标签（去首尾空白；空串=未命名只显示圆点）。
@@ -261,6 +302,9 @@ func (a *app) moveTab(i, dir int) bool {
 		return false
 	}
 	activeID := a.tabs[a.active].ID
+	if a.cfg.Source {
+		a.saveSourceSession()
+	}
 	a.tabs[i], a.tabs[j] = a.tabs[j], a.tabs[i]
 	for k := range a.tabs {
 		if a.tabs[k].ID == activeID {
@@ -269,6 +313,9 @@ func (a *app) moveTab(i, dir int) bool {
 		}
 	}
 	a.afterTabsChanged()
+	if a.cfg.Source {
+		a.restoreSourceSession()
+	}
 	return true
 }
 
@@ -353,6 +400,9 @@ func (a *app) switchTab(i int) {
 	if i == a.active || i < 0 || i >= len(a.tabs) {
 		return
 	}
+	if a.cfg.Source {
+		a.saveSourceSession()
+	}
 	a.endRename()
 	a.active = i
 	a.findOpen, a.query, a.matchIdx = false, "", 0
@@ -364,6 +414,9 @@ func (a *app) switchTab(i int) {
 	a.tableTools = tableTools{}
 	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
 	a.closeLinkTool()
+	if a.cfg.Source {
+		a.restoreSourceSession()
+	}
 	a.syncMenus()
 	a.scheduleSave()
 }

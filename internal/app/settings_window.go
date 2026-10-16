@@ -23,9 +23,11 @@ const (
 )
 
 // settingsUIState 设置窗口的临时输入状态（主线程）。控件绑定草稿，
-// 变更时整体推入 updatePreferences；非法输入不提交并显示行内错误。
+// synced 记录最近一次已应用偏好；提交时只写入相对 synced 发生变化的字段。
 type settingsUIState struct {
-	draft preferences // 控件绑定的草稿（与 prefs 同步于打开/重置时）
+	draft      preferences // 控件绑定的草稿
+	synced     preferences // 最近一次合并进草稿的已应用偏好
+	draftReady bool        // 尚未打开设置窗口时不维护草稿
 
 	// Select 控件绑定显示文案；与 draft 同步。
 	appearanceModeSel string
@@ -40,11 +42,13 @@ type settingsUIState struct {
 	// 标签页：展开了调色板的标签 ID（0 = 无）。
 	expandedColor uint64
 
-	// 数字字段的文本工作副本与行内错误。
-	bodySizeText   string
-	lineHeightText string
-	bodySizeErr    string
-	lineHeightErr  string
+	// 数字字段的文本工作副本、行内错误与文本级 dirty 状态。
+	bodySizeText    string
+	lineHeightText  string
+	bodySizeErr     string
+	lineHeightErr   string
+	bodySizeDirty   bool
+	lineHeightDirty bool
 
 	// Keymap 页：搜索词、正在录制的命令 ID、冲突/非法提示。
 	keySearch string
@@ -57,9 +61,78 @@ type settingsUIState struct {
 	resetTarget string // 待确认的「恢复本页默认值」页面
 }
 
-// syncDraftFromPrefs 把草稿重置为当前偏好（打开窗口、重置页面、重试后调用）。
+// syncDraftFromPrefs 明确丢弃草稿并重置为当前偏好（打开窗口、切页、重置时调用）。
 func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.draft = clonePrefs(p)
+	ui.synced = clonePrefs(p)
+	ui.draftReady = true
+	ui.bodySizeDirty, ui.lineHeightDirty = false, false
+	ui.syncDraftBindings()
+	ui.bodySizeErr, ui.lineHeightErr = "", ""
+	ui.keyErr = ""
+}
+
+// mergeDraftFromPrefs 把外部更新合并进未编辑字段；已编辑字段继续保留在非模态窗口中。
+func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
+	if !ui.draftReady {
+		return
+	}
+	old := ui.synced
+	next := clonePrefs(p)
+
+	mergeString := func(draft *string, before, current string) {
+		if *draft == before {
+			*draft = current
+		}
+	}
+	mergeFloat := func(draft *float32, before, current float32, dirty bool) {
+		if !dirty && *draft == before {
+			*draft = current
+		}
+	}
+	mergeBool := func(draft *bool, before, current bool) {
+		if *draft == before {
+			*draft = current
+		}
+	}
+	mergeInt := func(draft *int, before, current int) {
+		if *draft == before {
+			*draft = current
+		}
+	}
+
+	d, before, current := &ui.draft.Appearance, old.Appearance, next.Appearance
+	mergeString(&d.AppearanceMode, before.AppearanceMode, current.AppearanceMode)
+	mergeString(&d.ColorTheme, before.ColorTheme, current.ColorTheme)
+	mergeString(&d.MarkdownTheme, before.MarkdownTheme, current.MarkdownTheme)
+	mergeString(&d.Language, before.Language, current.Language)
+	mergeString(&d.BodyFont, before.BodyFont, current.BodyFont)
+	mergeString(&d.LatinFont, before.LatinFont, current.LatinFont)
+	mergeString(&d.MonoFont, before.MonoFont, current.MonoFont)
+	mergeFloat(&d.BodySize, before.BodySize, current.BodySize, ui.bodySizeDirty)
+	mergeFloat(&d.LineHeight, before.LineHeight, current.LineHeight, ui.lineHeightDirty)
+
+	windowDraft, windowBefore, windowCurrent := &ui.draft.Window, old.Window, next.Window
+	mergeBool(&windowDraft.AlwaysOnTop, windowBefore.AlwaysOnTop, windowCurrent.AlwaysOnTop)
+	mergeBool(&windowDraft.HideOnEscape, windowBefore.HideOnEscape, windowCurrent.HideOnEscape)
+	mergeBool(&windowDraft.RememberBounds, windowBefore.RememberBounds, windowCurrent.RememberBounds)
+
+	backupDraft, backupBefore, backupCurrent := &ui.draft.Backup, old.Backup, next.Backup
+	mergeInt(&backupDraft.IntervalMinutes, backupBefore.IntervalMinutes, backupCurrent.IntervalMinutes)
+	mergeInt(&backupDraft.Keep, backupBefore.Keep, backupCurrent.Keep)
+	mergeBool(&backupDraft.OnLaunch, backupBefore.OnLaunch, backupCurrent.OnLaunch)
+	mergeString(&backupDraft.MirrorDir, backupBefore.MirrorDir, backupCurrent.MirrorDir)
+	mergeString(&backupDraft.GitMode, backupBefore.GitMode, backupCurrent.GitMode)
+
+	ui.draft.Version = next.Version
+	ui.draft.Keymap = next.Keymap
+	ui.draft.Advanced = next.Advanced
+	ui.synced = next
+	ui.syncDraftBindings()
+}
+
+func (ui *settingsUIState) syncDraftBindings() {
+	p := ui.draft
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
 	ui.languageSel = languageDisplay(p.Appearance.Language)
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
@@ -70,10 +143,14 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.monoFontSel = displayOf(
 		[]string{"jbm", "sfmono", "menlo"},
 		[]string{locales.FontJetBrainsDefault(), locales.FontSFMono(), locales.FontMenlo()}, p.Appearance.MonoFont)
-	ui.bodySizeText = floatText(p.Appearance.BodySize)
-	ui.lineHeightText = floatText(p.Appearance.LineHeight)
-	ui.bodySizeErr, ui.lineHeightErr = "", ""
-	ui.keyErr = ""
+	if !ui.bodySizeDirty {
+		ui.bodySizeText = floatText(p.Appearance.BodySize)
+		ui.bodySizeErr = ""
+	}
+	if !ui.lineHeightDirty {
+		ui.lineHeightText = floatText(p.Appearance.LineHeight)
+		ui.lineHeightErr = ""
+	}
 	ui.gitModeSel = gitModeDisplay(p.Backup.GitMode)
 }
 
@@ -182,26 +259,87 @@ func (a *app) settingsView(c *ui.Context) {
 	})
 }
 
-// pushAppearance 把外观草稿推入偏好（校验失败回滚并提示）。
+// pushAppearance 只推入用户实际编辑的外观字段。
 func (a *app) pushAppearance() {
-	a.pushDraft(func(p *preferences) { p.Appearance = a.settingsUI.draft.Appearance })
+	a.pushDraft(a.settingsUI.applyAppearanceDraft)
 }
 
-// pushWindow 推入窗口偏好。
+func (ui *settingsUIState) applyAppearanceDraft(p *preferences) {
+	draft, before := ui.draft.Appearance, ui.synced.Appearance
+	if draft.AppearanceMode != before.AppearanceMode {
+		p.Appearance.AppearanceMode = draft.AppearanceMode
+	}
+	if draft.ColorTheme != before.ColorTheme {
+		p.Appearance.ColorTheme = draft.ColorTheme
+	}
+	if draft.MarkdownTheme != before.MarkdownTheme {
+		p.Appearance.MarkdownTheme = draft.MarkdownTheme
+	}
+	if draft.Language != before.Language {
+		p.Appearance.Language = draft.Language
+	}
+	if draft.BodyFont != before.BodyFont {
+		p.Appearance.BodyFont = draft.BodyFont
+	}
+	if draft.LatinFont != before.LatinFont {
+		p.Appearance.LatinFont = draft.LatinFont
+	}
+	if draft.MonoFont != before.MonoFont {
+		p.Appearance.MonoFont = draft.MonoFont
+	}
+	if !ui.bodySizeDirty && draft.BodySize != before.BodySize {
+		p.Appearance.BodySize = draft.BodySize
+	}
+	if !ui.lineHeightDirty && draft.LineHeight != before.LineHeight {
+		p.Appearance.LineHeight = draft.LineHeight
+	}
+}
+
+// pushWindow 只推入用户实际编辑的窗口字段。
 func (a *app) pushWindow() {
-	a.pushDraft(func(p *preferences) { p.Window = a.settingsUI.draft.Window })
+	a.pushDraft(a.settingsUI.applyWindowDraft)
 }
 
-// pushBackup 推入备份偏好。
+func (ui *settingsUIState) applyWindowDraft(p *preferences) {
+	draft, before := ui.draft.Window, ui.synced.Window
+	if draft.AlwaysOnTop != before.AlwaysOnTop {
+		p.Window.AlwaysOnTop = draft.AlwaysOnTop
+	}
+	if draft.HideOnEscape != before.HideOnEscape {
+		p.Window.HideOnEscape = draft.HideOnEscape
+	}
+	if draft.RememberBounds != before.RememberBounds {
+		p.Window.RememberBounds = draft.RememberBounds
+	}
+}
+
+// pushBackup 只推入用户实际编辑的备份字段。
 func (a *app) pushBackup() {
-	a.pushDraft(func(p *preferences) { p.Backup = a.settingsUI.draft.Backup })
+	a.pushDraft(a.settingsUI.applyBackupDraft)
 }
 
-// pushDraft 统一推入：以草稿为基础执行 mutate，校验失败时回滚草稿对应节。
+func (ui *settingsUIState) applyBackupDraft(p *preferences) {
+	draft, before := ui.draft.Backup, ui.synced.Backup
+	if draft.IntervalMinutes != before.IntervalMinutes {
+		p.Backup.IntervalMinutes = draft.IntervalMinutes
+	}
+	if draft.Keep != before.Keep {
+		p.Backup.Keep = draft.Keep
+	}
+	if draft.OnLaunch != before.OnLaunch {
+		p.Backup.OnLaunch = draft.OnLaunch
+	}
+	if draft.MirrorDir != before.MirrorDir {
+		p.Backup.MirrorDir = draft.MirrorDir
+	}
+	if draft.GitMode != before.GitMode {
+		p.Backup.GitMode = draft.GitMode
+	}
+}
+
+// pushDraft 统一推入；校验失败时保留草稿和行内错误供用户修正。
 func (a *app) pushDraft(mutate func(p *preferences)) {
-	err := a.updatePreferences(func(p *preferences) { mutate(p) })
-	if err != nil {
-		a.settingsUI.syncDraftFromPrefs(a.prefs)
+	if err := a.updatePreferences(mutate); err != nil {
 		a.settingsUI.keyErr = err.Error()
 	}
 }
@@ -263,8 +401,13 @@ func (a *app) confirmResetPage(page string) {
 		if err != nil || res.Button != 0 {
 			return
 		}
-		a.withWindow(func() { a.resetPageDefaults(page) })
+		a.resetPageAfterConfirmation(page)
 	}()
+}
+
+// resetPageAfterConfirmation 把原生对话框结果投递回存活的主窗口。
+func (a *app) resetPageAfterConfirmation(page string) {
+	a.runOnMain(func() { a.resetPageDefaults(page) })
 }
 
 // setAlwaysOnTop 通过统一入口切换置顶。

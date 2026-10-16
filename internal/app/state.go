@@ -52,12 +52,11 @@ func (a *app) snapshotFile() savedFile {
 	}
 }
 
-// newApp 建立空状态：先给 7 个默认标签（无数据文件/测试环境都有
-// 可用的标签列表），load 时被磁盘数据覆盖。
-func newApp() *app {
+// newAppAt 用显式目录装配 Store，不探测系统目录，也不触发迁移。
+// 测试必须使用这个接缝，避免接触真实用户数据。
+func newAppAt(dir string) *app {
 	s := settings{ThemeSource: "system", HideOnEscape: true}
 	now := time.Now
-	dir := dataDir()
 	a := &app{
 		cfg:      s,
 		prefs:    defaultPreferences(),
@@ -98,6 +97,19 @@ func (a *app) currentDataPath() string { return a.notes.CurrentDataPath() }
 // 不支持时隔离原件、尽量从备份恢复，绝不覆盖用户数据。返回非 nil 表示
 // 数据文件有问题（即使已从备份恢复，也如实上报）。
 func (a *app) load() error {
+	// 有效 pending 代表上一次在写保护期间完成的新编辑，优先于主文件和备份。
+	// 它必须保留到用户明确确认写回，避免覆盖无法确认安全性的原件。
+	if f, ok := a.notes.LoadPending(); ok {
+		a.applySavedFile(f)
+		a.notes.SetSaveBlocked(true)
+		a.resyncLive(0)
+		a.notice = locales.NoticeWriteProtected()
+		slog.Warn("已从暂存文件恢复，等待用户确认写回", "path", a.pendingPath())
+		return nil
+	} else if _, err := os.Stat(a.pendingPath()); err == nil {
+		slog.Warn("暂存文件无效，已保留原件且不自动覆盖", "path", a.pendingPath())
+	}
+
 	raw, err := os.ReadFile(a.notes.DataFile)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -152,9 +164,17 @@ func (a *app) applySavedFile(f savedFile) {
 // （新改动暂存 .pending），等用户确认后再写回。返回 cause 供调用方上报。
 func (a *app) recoverFromBrokenFile(cause error) error {
 	a.notes.QuarantineCorruptFile()
+	var version *versionError
+	writeProtected := errors.As(cause, &version)
 	if f, name, ok := a.notes.LoadNewestBackup(); ok {
 		a.applySavedFile(f)
 		a.resyncLive(0)
+		if writeProtected {
+			a.notes.SetSaveBlocked(true)
+			a.notice = locales.NoticeWriteProtected()
+			slog.Warn("数据版本超前，已从备份临时恢复，原件保持写保护", "backup", name, "error", cause)
+			return cause
+		}
 		a.notice = locales.NoticeRecoveredFromBackup(name)
 		slog.Warn("数据文件损坏，已从备份恢复", "backup", name, "error", cause)
 		return cause
@@ -290,22 +310,36 @@ func (a *app) backupOnLaunchAsync(enabled bool, keep int) error {
 	return a.notes.BackupOnLaunch(enabled, keep)
 }
 
+var removePendingAfterWriteBack = func(a *app) error { return a.notes.RemovePending() }
+
 // confirmWriteBack 用户确认后解除写保护，把当前状态写回数据文件
 // （不可用的原件此前已隔离为 .corrupt-<时间戳>，不会丢）。
 func (a *app) confirmWriteBack() error {
 	blocked := a.notes.SaveBlocked()
+	saved := a.snapshotFile()
+	if blocked {
+		// 先把唯一快照写入 pending，确保随后任一步失败或进程中断时，
+		// 下次启动优先恢复的内容都与即将写入主文件的内容一致。
+		if err := a.notes.SaveNow(saved); err != nil {
+			return err
+		}
+	}
 	a.notes.SetSaveBlocked(false)
-	if err := a.saveNow(); err != nil {
+	if err := a.notes.SaveNow(saved); err != nil {
 		a.notes.SetSaveBlocked(blocked) // 写回失败维持写保护
 		return err
 	}
-	if blocked {
-		if err := a.notes.RemovePending(); err != nil && !errors.Is(err, os.ErrNotExist) {
-			slog.Warn("清理暂存文件失败", "error", err)
-		}
-		a.notice = ""
-		slog.Info("已按用户确认把数据写回原路径")
+	if !blocked {
+		return nil
 	}
+	if err := removePendingAfterWriteBack(a); err != nil && !errors.Is(err, os.ErrNotExist) {
+		a.notes.SetSaveBlocked(true)
+		a.notes.ReportPersist("清理暂存文件", err)
+		a.notice = locales.NoticeWriteProtected()
+		return fmt.Errorf("主数据已写入，但清理暂存文件失败，继续保持写保护: %w", err)
+	}
+	a.notice = ""
+	slog.Info("已按用户确认把数据写回原路径")
 	return nil
 }
 

@@ -37,7 +37,9 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	a.onboarding.tabCount = 3
 	a.onboarding.step = onboardingLastStep
 
+	settled := nextMirrorSettlement(a)
 	a.finishOnboarding(true)
+	waitForMirrorSettlement(t, settled)
 
 	// 偏好：外部备份 + Git 模式落盘。
 	if a.prefs.Backup.MirrorDir != mirror || a.prefs.Backup.GitMode != "commitPush" {
@@ -122,7 +124,7 @@ func TestOnboardingSkipKeepsDefaults(t *testing.T) {
 
 func TestObApplyFolderLinksGit(t *testing.T) {
 	a := newTestApp(t)
-	base := filepath.Dir(a.notes.BackupDir)
+	base := filepath.Dir(filepath.Dir(a.notes.BackupDir))
 
 	plain := filepath.Join(base, "plain")
 	if err := os.MkdirAll(plain, 0o755); err != nil {
@@ -161,7 +163,7 @@ func TestObApplyFolderLinksGit(t *testing.T) {
 func TestOnboardingViewRendersSteps(t *testing.T) {
 	a := newTestApp(t)
 	a.onboarding.tabCount = 7
-	mirror := filepath.Join(filepath.Dir(a.notes.BackupDir), "view-mirror")
+	mirror := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "view-mirror")
 	if err := os.MkdirAll(filepath.Join(mirror, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
