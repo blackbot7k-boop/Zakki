@@ -31,9 +31,15 @@ jobs:
         run: make vet
 
       - name: make test
+        env:
+          # 界面语言在 MyGo 包初始化时解析并缓存，TestMain 里再设环境变量为时已晚；
+          # runner 系统语言是英文，不钉扎会让全部中文文案断言在 CI 上失真。
+          MYGO_LOCALE: zh-Hans
         run: make test
 
       - name: make race
+        env:
+          MYGO_LOCALE: zh-Hans
         run: make race
 
       - name: make arch-check

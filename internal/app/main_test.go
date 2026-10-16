@@ -14,9 +14,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// TestMain 把测试进程的界面语言固定为简体中文：MYGO_LOCALE 只影响本次
-// 进程、不写系统设置，存量断言继续使用中文文案；英文目录由 locales.In("en")
-// 直接覆盖。
+// TestMain 兜底声明测试进程的界面语言。注意 MyGo 在包初始化阶段就解析并
+// 缓存界面语言，这里的环境变量为时已晚——真正生效的是 CI 在 make test /
+// make race 步骤注入的 MYGO_LOCALE=zh-Hans（见 .github/workflows/ci.yml）；
+// 本地系统语言非中文的机器请以 MYGO_LOCALE=zh-Hans go test 运行。
 func TestMain(m *testing.M) {
 	os.Setenv("MYGO_LOCALE", "zh-Hans")
 	os.Exit(m.Run())
