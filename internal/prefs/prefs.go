@@ -283,8 +283,10 @@ func FromNotes(b legacyconfig.NotesBaseline, backupIntervalMinutes int) Preferen
 		p.Appearance.AppearanceMode = v
 	}
 	switch b.MarkdownTheme {
-	case legacyThemeTot:
+	case legacyThemeTot, "note":
 		p.Appearance.MarkdownTheme = "note"
+	case "":
+		// 保持默认值。
 	default:
 		p.Appearance.MarkdownTheme = "sonnet"
 	}

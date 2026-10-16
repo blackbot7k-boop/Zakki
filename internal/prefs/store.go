@@ -71,7 +71,7 @@ func (s *Store) Issue() Issue {
 func (s *Store) TakeSnapshot(p Preferences) *Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.issue.Kind == IssuePrefsBroken {
+	if s.issue.Kind != IssueNone {
 		return nil
 	}
 	s.rev++
@@ -124,7 +124,7 @@ func (s *Store) WriteSnapshot(snap *Snapshot) error {
 	defer s.writeMu.Unlock()
 
 	s.mu.Lock()
-	if s.stopped || s.writtenRev >= snap.Rev || s.issue.Kind == IssuePrefsBroken {
+	if s.stopped || s.writtenRev >= snap.Rev || s.issue.Kind != IssueNone {
 		s.mu.Unlock()
 		return nil
 	}
@@ -153,7 +153,16 @@ func (s *Store) WriteSnapshot(snap *Snapshot) error {
 func (s *Store) WriteInitial(p Preferences) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	return atomicfile.WriteJSON(s.Path, p)
+
+	err := atomicfile.WriteJSON(s.Path, p)
+	s.mu.Lock()
+	if err == nil {
+		s.lastSaveErr = ""
+	} else {
+		s.lastSaveErr = "偏好保存失败：" + err.Error()
+	}
+	s.mu.Unlock()
+	return err
 }
 
 // SetSaveError 记录最近一次偏好保存错误（设置页「未保存」）。
@@ -188,7 +197,7 @@ func (s *Store) StopSaveTimer() {
 // Shutdown 退出最终保存；待恢复状态绝不覆盖原文件。
 func (s *Store) Shutdown(p Preferences) error {
 	s.StopSaveTimer()
-	if s.Issue().Kind == IssuePrefsBroken {
+	if s.Issue().Kind != IssueNone {
 		s.mu.Lock()
 		s.stopped = true
 		s.mu.Unlock()

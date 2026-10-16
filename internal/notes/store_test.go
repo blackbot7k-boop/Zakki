@@ -454,6 +454,18 @@ func waitForGit(t *testing.T, g *gitLog, cond func() bool) {
 	t.Fatalf("等待 Git 条件超时，已执行: %v", g.ran())
 }
 
+func waitForMirror(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatal("等待镜像任务超时")
+}
+
 func newMirrorStore(t *testing.T, clk *testClock) (*Store, string) {
 	t.Helper()
 	s := newTestStore(t, clk.now)
@@ -475,6 +487,7 @@ func TestMirrorBackupCopiesAndPrunes(t *testing.T) {
 	if err := s.BackupNow(2); err != nil {
 		t.Fatalf("BackupNow 报错: %v", err)
 	}
+	waitForMirror(t, func() bool { return len(backupNames(t, mirror)) == 1 })
 	got := backupNames(t, mirror)
 	if len(got) != 1 || got[0] != backupNames(t, s.BackupDir)[0] {
 		t.Fatalf("镜像应与本地备份同名同数: mirror=%v local=%v", got, backupNames(t, s.BackupDir))
@@ -493,6 +506,9 @@ func TestMirrorBackupCopiesAndPrunes(t *testing.T) {
 			t.Fatalf("第 %d 次备份报错: %v", i+1, err)
 		}
 	}
+	waitForMirror(t, func() bool {
+		return reflect.DeepEqual(backupNames(t, s.BackupDir), backupNames(t, mirror))
+	})
 	if local, mir := backupNames(t, s.BackupDir), backupNames(t, mirror); !reflect.DeepEqual(local, mir) || len(mir) != 2 {
 		t.Fatalf("修剪后本地与镜像应一致且各留 2 份: local=%v mirror=%v", local, mir)
 	}
@@ -513,6 +529,7 @@ func TestMirrorFailureDoesNotBlockLocalBackup(t *testing.T) {
 	if got := backupNames(t, s.BackupDir); len(got) != 1 {
 		t.Fatalf("本地备份应存在: %v", got)
 	}
+	waitForMirror(t, func() bool { return s.MirrorStatus().Err != "" })
 	if st := s.MirrorStatus(); st.Err == "" {
 		t.Fatalf("镜像失败应记入状态: %+v", st)
 	}
@@ -601,6 +618,10 @@ func TestMirrorGitModes(t *testing.T) {
 		if !strings.Contains(s.MirrorStatus().Err, "no identity") {
 			t.Fatalf("错误应包含原因: %q", s.MirrorStatus().Err)
 		}
+		s.SetMirror(s.MirrorStatus().Dir, "off")
+		if st := s.MirrorStatus(); st.Err != "" {
+			t.Fatalf("关闭 Git 后不应保留旧 Git 错误: %+v", st)
+		}
 		if got := backupNames(t, s.BackupDir); len(got) == 0 {
 			t.Fatal("本地备份应已写入")
 		}
@@ -640,6 +661,7 @@ func TestLoadMirrorTime(t *testing.T) {
 	if err := s.BackupNow(20); err != nil {
 		t.Fatal(err)
 	}
+	waitForMirror(t, func() bool { return !s.MirrorStatus().Last.IsZero() })
 	// 先指向别处再切回，让目录变更重置 lastMirror，验证从磁盘恢复。
 	s.SetMirror("", "off")
 	s.SetMirror(mirror, "off")
