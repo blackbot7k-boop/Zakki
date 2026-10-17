@@ -3436,104 +3436,34 @@ func (msgs Messages) OnboardFinish() string {
 	return Catalog.Format(msgs.locale, "onboardFinish", nil)
 }
 
-// OnboardWelcomeTitle says "Welcome to Zakki"
-// in the language the app shows.
-func OnboardWelcomeTitle() string { return In(i18n.Locale()).OnboardWelcomeTitle() }
-
-// OnboardWelcomeTitle says "Welcome to Zakki"
-// in the language of msgs.
-func (msgs Messages) OnboardWelcomeTitle() string {
-	return Catalog.Format(msgs.locale, "onboardWelcomeTitle", nil)
-}
-
-// OnboardWelcomeSub says "Setup takes a minute; notes always save locally first."
-// in the language the app shows.
-func OnboardWelcomeSub() string { return In(i18n.Locale()).OnboardWelcomeSub() }
-
-// OnboardWelcomeSub says "Setup takes a minute; notes always save locally first."
-// in the language of msgs.
-func (msgs Messages) OnboardWelcomeSub() string {
-	return Catalog.Format(msgs.locale, "onboardWelcomeSub", nil)
-}
-
-// OnboardBackupAutomation says "Git automation"
-// in the language the app shows.
-func OnboardBackupAutomation() string { return In(i18n.Locale()).OnboardBackupAutomation() }
-
-// OnboardBackupAutomation says "Git automation"
-// in the language of msgs.
-func (msgs Messages) OnboardBackupAutomation() string {
-	return Catalog.Format(msgs.locale, "onboardBackupAutomation", nil)
-}
-
-// OnboardBackupLocalBody says "Backups stay on this Mac automatically; nothing to set up."
-// in the language the app shows.
-func OnboardBackupLocalBody() string { return In(i18n.Locale()).OnboardBackupLocalBody() }
-
-// OnboardBackupLocalBody says "Backups stay on this Mac automatically; nothing to set up."
-// in the language of msgs.
-func (msgs Messages) OnboardBackupLocalBody() string {
-	return Catalog.Format(msgs.locale, "onboardBackupLocalBody", nil)
-}
-
-// OnboardBackupLocalTitle says "Local backup only (recommended)"
-// in the language the app shows.
-func OnboardBackupLocalTitle() string { return In(i18n.Locale()).OnboardBackupLocalTitle() }
-
-// OnboardBackupLocalTitle says "Local backup only (recommended)"
-// in the language of msgs.
-func (msgs Messages) OnboardBackupLocalTitle() string {
-	return Catalog.Format(msgs.locale, "onboardBackupLocalTitle", nil)
-}
-
-// OnboardBackupMirrorBody says "iCloud Drive, Dropbox or any synced folder; pick a Git repository to also auto-commit."
-// in the language the app shows.
-func OnboardBackupMirrorBody() string { return In(i18n.Locale()).OnboardBackupMirrorBody() }
-
-// OnboardBackupMirrorBody says "iCloud Drive, Dropbox or any synced folder; pick a Git repository to also auto-commit."
-// in the language of msgs.
-func (msgs Messages) OnboardBackupMirrorBody() string {
-	return Catalog.Format(msgs.locale, "onboardBackupMirrorBody", nil)
-}
-
-// OnboardBackupMirrorTitle says "Also mirror to a folder"
-// in the language the app shows.
-func OnboardBackupMirrorTitle() string { return In(i18n.Locale()).OnboardBackupMirrorTitle() }
-
-// OnboardBackupMirrorTitle says "Also mirror to a folder"
-// in the language of msgs.
-func (msgs Messages) OnboardBackupMirrorTitle() string {
-	return Catalog.Format(msgs.locale, "onboardBackupMirrorTitle", nil)
-}
-
-// OnboardBackupNotRepo says "Not a Git repository; as a synced folder it works just as well."
-// in the language the app shows.
-func OnboardBackupNotRepo() string { return In(i18n.Locale()).OnboardBackupNotRepo() }
-
-// OnboardBackupNotRepo says "Not a Git repository; as a synced folder it works just as well."
-// in the language of msgs.
-func (msgs Messages) OnboardBackupNotRepo() string {
-	return Catalog.Format(msgs.locale, "onboardBackupNotRepo", nil)
-}
-
-// OnboardChooseBackupTitle says "Backups"
+// OnboardChooseBackupTitle says "Backup folder"
 // in the language the app shows.
 func OnboardChooseBackupTitle() string { return In(i18n.Locale()).OnboardChooseBackupTitle() }
 
-// OnboardChooseBackupTitle says "Backups"
+// OnboardChooseBackupTitle says "Backup folder"
 // in the language of msgs.
 func (msgs Messages) OnboardChooseBackupTitle() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupTitle", nil)
 }
 
-// OnboardChooseBackupBody says "Local backups always run; optionally mirror every backup to another folder. Change this anytime in Settings."
+// OnboardChooseBackupBody says "Every backup is additionally mirrored to this folder. A default location is preselected — just continue, or click C…"
 // in the language the app shows.
 func OnboardChooseBackupBody() string { return In(i18n.Locale()).OnboardChooseBackupBody() }
 
-// OnboardChooseBackupBody says "Local backups always run; optionally mirror every backup to another folder. Change this anytime in Settings."
+// OnboardChooseBackupBody says "Every backup is additionally mirrored to this folder. A default location is preselected — just continue, or click C…"
 // in the language of msgs.
 func (msgs Messages) OnboardChooseBackupBody() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupBody", nil)
+}
+
+// OnboardFolderCap says "Backups will be mirrored to:"
+// in the language the app shows.
+func OnboardFolderCap() string { return In(i18n.Locale()).OnboardFolderCap() }
+
+// OnboardFolderCap says "Backups will be mirrored to:"
+// in the language of msgs.
+func (msgs Messages) OnboardFolderCap() string {
+	return Catalog.Format(msgs.locale, "onboardFolderCap", nil)
 }
 
 // OnboardTabCountTitle says "Number of tabs"
@@ -3564,98 +3494,6 @@ func OnboardTabCountN(n int) string { return In(i18n.Locale()).OnboardTabCountN(
 // in the language of msgs.
 func (msgs Messages) OnboardTabCountN(n int) string {
 	return Catalog.Format(msgs.locale, "onboardTabCountN", map[string]any{"n": n})
-}
-
-// OnboardDoneTitle says "Ready"
-// in the language the app shows.
-func OnboardDoneTitle() string { return In(i18n.Locale()).OnboardDoneTitle() }
-
-// OnboardDoneTitle says "Ready"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneTitle() string {
-	return Catalog.Format(msgs.locale, "onboardDoneTitle", nil)
-}
-
-// OnboardDoneLocal says "Local backup"
-// in the language the app shows.
-func OnboardDoneLocal() string { return In(i18n.Locale()).OnboardDoneLocal() }
-
-// OnboardDoneLocal says "Local backup"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneLocal() string {
-	return Catalog.Format(msgs.locale, "onboardDoneLocal", nil)
-}
-
-// OnboardDoneLocalBody says "On launch + edit throttle + ⌘S back up now"
-// in the language the app shows.
-func OnboardDoneLocalBody() string { return In(i18n.Locale()).OnboardDoneLocalBody() }
-
-// OnboardDoneLocalBody says "On launch + edit throttle + ⌘S back up now"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneLocalBody() string {
-	return Catalog.Format(msgs.locale, "onboardDoneLocalBody", nil)
-}
-
-// OnboardDoneExternal says "External backup"
-// in the language the app shows.
-func OnboardDoneExternal() string { return In(i18n.Locale()).OnboardDoneExternal() }
-
-// OnboardDoneExternal says "External backup"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneExternal() string {
-	return Catalog.Format(msgs.locale, "onboardDoneExternal", nil)
-}
-
-// OnboardDoneExternalBody says "{kind} · {path}"
-// in the language the app shows.
-func OnboardDoneExternalBody(kind string, path string) string {
-	return In(i18n.Locale()).OnboardDoneExternalBody(kind, path)
-}
-
-// OnboardDoneExternalBody says "{kind} · {path}"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneExternalBody(kind string, path string) string {
-	return Catalog.Format(msgs.locale, "onboardDoneExternalBody", map[string]any{"kind": kind, "path": path})
-}
-
-// OnboardDoneGit says "Git automation"
-// in the language the app shows.
-func OnboardDoneGit() string { return In(i18n.Locale()).OnboardDoneGit() }
-
-// OnboardDoneGit says "Git automation"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneGit() string {
-	return Catalog.Format(msgs.locale, "onboardDoneGit", nil)
-}
-
-// OnboardDoneNone says "Not configured (local backups only; add it anytime in Settings)"
-// in the language the app shows.
-func OnboardDoneNone() string { return In(i18n.Locale()).OnboardDoneNone() }
-
-// OnboardDoneNone says "Not configured (local backups only; add it anytime in Settings)"
-// in the language of msgs.
-func (msgs Messages) OnboardDoneNone() string {
-	return Catalog.Format(msgs.locale, "onboardDoneNone", nil)
-}
-
-// OnboardInitialTabs says "{n, number} initial tabs"
-// in the language the app shows.
-func OnboardInitialTabs(n int) string { return In(i18n.Locale()).OnboardInitialTabs(n) }
-
-// OnboardInitialTabs says "{n, number} initial tabs"
-// in the language of msgs.
-func (msgs Messages) OnboardInitialTabs(n int) string {
-	return Catalog.Format(msgs.locale, "onboardInitialTabs", map[string]any{"n": n})
-}
-
-// OnboardOpenBackupFolder says "Open Backup Folder"
-// in the language the app shows.
-func OnboardOpenBackupFolder() string { return In(i18n.Locale()).OnboardOpenBackupFolder() }
-
-// OnboardOpenBackupFolder says "Open Backup Folder"
-// in the language of msgs.
-func (msgs Messages) OnboardOpenBackupFolder() string {
-	return Catalog.Format(msgs.locale, "onboardOpenBackupFolder", nil)
 }
 
 // OnboardSaveErr says "Failed to save settings: {err}"

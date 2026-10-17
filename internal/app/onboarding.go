@@ -1,14 +1,15 @@
 package app
 
 // 首启初始化向导：仅在全新安装（数据文件不存在）时出现。
-// 五步：语言 → 欢迎 → 备份方式（可跳过）→ 初始标签数量 → 完成。
-// 备份相关配置收在同一歨：二选一卡片，选外部文件夹时内联展开目录与 Git 档位。
-// 所有选择先存草稿，确认时才写入偏好与数据文件；关闭窗口等同跳过。
-// 语言步骤即时经 App.SetLocale 生效（MyGo 持久化选择），后续步骤随之换语言。
+// 三步：语言 → 备份文件夹（预填默认路径，可不改）→ 初始标签数量。
+// 备份文件夹始终有值：用户所选或默认 ~/Documents/Zakki 备份；Git/云盘不在
+// 向导出现（档位默认 off，留在设置页）。选择先存草稿，确认时才写入偏好与
+// 数据文件；跳过/关闭等同接受默认。语言步骤即时经 App.SetLocale 生效。
 
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo"
@@ -19,20 +20,27 @@ import (
 )
 
 // onboardingLastStep 向导最后一步的序号。
-const onboardingLastStep = 5
+const onboardingLastStep = 3
+
+// defaultMirrorDir 新安装的默认外部备份目录（~/Documents/Zakki 备份）。
+// 可注入以便测试；空串表示无法定位主目录，此时向导必须手选文件夹。
+var defaultMirrorDir = func() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, "Documents", "Zakki 备份")
+}
 
 // onboardingState 向导的草稿状态（主线程）。
 type onboardingState struct {
-	obWin      *mygo.Window
-	step       int // 1..onboardingLastStep
-	finished   bool
-	mirrorCard bool   // 备份方式卡片：false=仅本地（默认），true=同步到外部文件夹
-	dirDraft   string // 已选备份文件夹（确认时才写入偏好）
-	dirIsGit   bool   // dirDraft 是否检测到 .git
-	tabCount   int
-	gitMode    string // off / commit / commitPush
-	gitModeSel string // Git 档位 Select 绑定的显示文案（持久字段，避免丢编辑）
-	dirErr     string // 文件夹校验错误
+	obWin    *mygo.Window
+	step     int // 1..onboardingLastStep
+	finished bool
+
+	dirDraft string // 备份文件夹草稿，预填默认路径（确认时才写入偏好）
+	tabCount int
+	dirErr   string // 文件夹校验错误
 }
 
 // firstRun 全新安装判定：数据文件不存在（载入时的 initDefaults 只写内存）。
@@ -44,10 +52,9 @@ func (a *app) firstRun() bool {
 // openOnboarding 创建并显示向导窗口；主窗口等向导结束再创建。
 func (a *app) openOnboarding() {
 	a.onboarding = onboardingState{
-		step:       1,
-		tabCount:   DefaultTabCount,
-		gitMode:    "off",
-		gitModeSel: gitModeDisplay("off"),
+		step:     1,
+		tabCount: DefaultTabCount,
+		dirDraft: defaultMirrorDir(),
 	}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:     locales.OnboardWindowTitle(),
@@ -70,8 +77,10 @@ func (a *app) openOnboarding() {
 	win.Show()
 }
 
-// abandonOnboarding 放弃向导：保持默认值创建主窗口。
+// abandonOnboarding 放弃向导（跳过/关窗等同接受默认）：备份文件夹落默认路径，
+// 数据写默认快照，之后照常进入主界面。
 func (a *app) abandonOnboarding() {
+	a.applyDefaultMirrorDir()
 	if err := a.persistFirstRunSnapshot(); err != nil {
 		a.notice = locales.OnboardDraftPendingNotice()
 	}
@@ -79,14 +88,21 @@ func (a *app) abandonOnboarding() {
 	a.enterMainFromOnboarding()
 }
 
+// applyDefaultMirrorDir 跳过/关窗路径的偏好写入：不选也有默认备份文件夹。
+// Git 档位不在向导出现，保持默认 off。
+func (a *app) applyDefaultMirrorDir() {
+	if err := a.updatePreferences(func(p *preferences) {
+		p.Backup.MirrorDir = defaultMirrorDir()
+	}); err != nil {
+		a.notice = locales.OnboardSaveErr(err.Error())
+	}
+}
+
 // finishOnboarding 结束向导并应用配置。configured=false 表示跳过（全默认）。
 func (a *app) finishOnboarding(configured bool) {
 	ob := &a.onboarding
 	if configured {
-		dir, mode := ob.dirDraft, ob.gitMode
-		if dir == "" {
-			mode = "off"
-		}
+		dir := ob.dirDraft
 		n := ob.tabCount
 		if n < 1 {
 			n = 1
@@ -96,7 +112,6 @@ func (a *app) finishOnboarding(configured bool) {
 		}
 		if err := a.updatePreferences(func(p *preferences) {
 			p.Backup.MirrorDir = dir
-			p.Backup.GitMode = mode
 		}); err != nil {
 			ob.dirErr = locales.OnboardSaveErr(err.Error())
 			return // 留在向导，让用户重试或跳过
@@ -111,9 +126,13 @@ func (a *app) finishOnboarding(configured bool) {
 				a.notice = locales.OnboardFirstMirrorErr(err.Error())
 			}
 		}
-	} else if err := a.persistFirstRunSnapshot(); err != nil {
-		ob.dirErr = locales.OnboardWriteErr(err.Error())
-		return
+	} else {
+		// 跳过等同接受默认：备份文件夹落默认路径，再写默认数据快照。
+		a.applyDefaultMirrorDir()
+		if err := a.persistFirstRunSnapshot(); err != nil {
+			ob.dirErr = locales.OnboardWriteErr(err.Error())
+			return
+		}
 	}
 	ob.finished = true
 	if win := ob.obWin; win != nil {
@@ -148,22 +167,15 @@ func (a *app) obPickFolder() {
 	a.chooseMirrorDirAsync(a.onboarding.obWin, a.obApplyFolder)
 }
 
-// obApplyFolder 主线程：校验并记录所选文件夹，非 Git 仓库时联动关闭 Git；
-// 选了文件夹即视为选中「同步到外部文件夹」卡片。
+// obApplyFolder 主线程：校验并记录所选文件夹（覆盖默认路径）。
 func (a *app) obApplyFolder(path string) {
 	abs, err := a.validateMirrorDir(path)
 	if err != nil {
 		a.onboarding.dirErr = err.Error()
 		return
 	}
-	ob := &a.onboarding
-	ob.mirrorCard = true
-	ob.dirDraft = abs
-	ob.dirIsGit = dirIsGitRepo(abs)
-	ob.dirErr = ""
-	if !ob.dirIsGit {
-		ob.gitMode, ob.gitModeSel = "off", gitModeDisplay("off")
-	}
+	a.onboarding.dirDraft = abs
+	a.onboarding.dirErr = ""
 }
 
 // obNextLabel 底栏主按钮文案。
@@ -202,13 +214,9 @@ func (a *app) onboardingView(c *ui.Context) {
 		case 1:
 			a.obLanguage(c, &t)
 		case 2:
-			a.obWelcome(c, &t)
-		case 3:
-			a.obBackup(c, &t)
-		case 4:
-			a.obTabs(c)
+			a.obFolder(c, &t)
 		default:
-			a.obDone(c)
+			a.obTabs(c)
 		}
 		ui.Box(c).Grow(1)
 		if ob.dirErr != "" {
@@ -265,100 +273,28 @@ func (a *app) obLanguage(c *ui.Context, t *ui.Theme) {
 	})
 }
 
-// obWelcome 步骤 2：欢迎（备份详情在下一步统一配置）。
-func (a *app) obWelcome(c *ui.Context, t *ui.Theme) {
-	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, locales.OnboardWelcomeTitle()).FontSize(22).Bold()
-		ui.Text(c, locales.OnboardWelcomeSub()).TextColor(tMuted(c))
-	})
-}
-
-// obBackup 步骤 3：备份方式（可跳过）。二选一卡片，替代旧流程分散在
-// 欢迎要点/备份文件夹/Git 三处的内容：选外部文件夹时内联展开目录与 Git 档位。
-func (a *app) obBackup(c *ui.Context, t *ui.Theme) {
+// obFolder 步骤 2：备份文件夹。预填默认路径，用户可换；Git/云盘不在向导出现。
+func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
 		ui.Text(c, locales.OnboardChooseBackupTitle()).FontSize(17).Bold()
 		ui.Text(c, locales.OnboardChooseBackupBody()).
 			FontSize(12).TextColor(tMuted(c))
-		obBackupCard(c, t, "ob-backup-local", !ob.mirrorCard,
-			locales.OnboardBackupLocalTitle(), locales.OnboardBackupLocalBody(),
-			func() {
-				ob.mirrorCard = false
-				ob.dirDraft, ob.dirIsGit = "", false
-				ob.gitMode, ob.gitModeSel = "off", gitModeDisplay("off")
-			})
-		obBackupCard(c, t, "ob-backup-mirror", ob.mirrorCard,
-			locales.OnboardBackupMirrorTitle(), locales.OnboardBackupMirrorBody(),
-			func() { ob.mirrorCard = true })
-		if !ob.mirrorCard {
-			return
-		}
-		if ob.dirDraft == "" {
-			if ui.Button(c, locales.ChooseFolder()).Clicked() {
-				a.obPickFolder()
-			}
-			return
-		}
-		kind := locales.CommonFolder()
-		if ob.dirIsGit {
-			kind = locales.CommonGitRepo()
-		}
 		ui.Column(c).FillWidth().Gap(6).Padding(12, 14).Radius(8).
 			Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
-			ui.Text(c, ob.dirDraft).FontSize(11).Font(monoFontStack("sfmono")).TextColor(tMuted(c))
-			ui.Text(c, locales.MirrorGitDetailLine(kind))
+			ui.Text(c, locales.OnboardFolderCap()).FontSize(12).TextColor(tMuted(c))
+			ui.Text(c, ob.dirDraft).FontSize(11).Font(monoFontStack("sfmono"))
 			ui.Row(c).Gap(8).Children(func() {
-				if ui.Button(c, locales.CommonChange()).Clicked() {
-					a.obPickFolder()
+				label := locales.CommonChange()
+				if ob.dirDraft == "" {
+					label = locales.ChooseFolder()
 				}
-				if ui.Button(c, locales.CommonDisconnect()).Clicked() {
-					ob.dirDraft, ob.dirIsGit = "", false
-					ob.gitMode, ob.gitModeSel = "off", gitModeDisplay("off")
+				if ui.Button(c, label).Clicked() {
+					a.obPickFolder()
 				}
 			})
 		})
-		if !ob.dirIsGit {
-			ui.Text(c, locales.OnboardBackupNotRepo()).FontSize(12).TextColor(tMuted(c))
-			return
-		}
-		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, locales.OnboardBackupAutomation()).Grow(1)
-			if ui.Select(c, &ob.gitModeSel, gitModeOptions()).Changed() {
-				ob.gitMode = gitModeOfDisplay(ob.gitModeSel)
-			}
-		})
-		ui.Text(c, gitModeDetail(ob.gitMode)).FontSize(12).TextColor(tMuted(c))
 	})
-}
-
-// obBackupCard 备份方式卡片：ButtonBase 整行可点，选中态描边（同语言按钮约定：
-// 可见文字必须用 Text 子元素，Label 只是可访问性标题）。
-func obBackupCard(c *ui.Context, t *ui.Theme, key string, chosen bool, title, body string, onClick func()) {
-	btn := ui.ButtonBase(c.Key(key)).FillWidth().Padding(12, 10).Radius(10).Cursor(ui.CursorPointer)
-	if chosen {
-		btn = btn.BorderWidth(2).BorderColor(t.Accent)
-	} else {
-		btn = btn.Border(1, t.Border)
-	}
-	btn.Children(func() {
-		ui.Column(c).Gap(2).Children(func() {
-			ui.Text(c, title).Bold()
-			ui.Text(c, body).FontSize(12).TextColor(tMuted(c))
-		})
-	})
-	btn.OnClick(onClick)
-}
-
-// gitModeDetail Git 档位的一句白话解释，与设置页共用文案。
-func gitModeDetail(mode string) string {
-	switch mode {
-	case "commit":
-		return locales.GitModeCommitDetail()
-	case "commitPush":
-		return locales.GitModeCommitPushDetail()
-	}
-	return locales.GitModeOffDetail()
 }
 
 // obTabs 步骤 4：初始标签数量。
@@ -386,38 +322,5 @@ func (a *app) obTabs(c *ui.Context) {
 				ui.Box(c).Width(14).Height(14).Radius(999).Background(ui.Hex(tabPaletteColors[i]))
 			}
 		})
-	})
-}
-
-// obDone 步骤 5：配置汇总。
-func (a *app) obDone(c *ui.Context) {
-	ob := &a.onboarding
-	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, locales.OnboardDoneTitle()).FontSize(17).Bold()
-		obDoneRow(c, locales.OnboardDoneLocal(), locales.OnboardDoneLocalBody())
-		if ob.dirDraft != "" {
-			kind := locales.CommonFolder()
-			if ob.dirIsGit {
-				kind = locales.CommonGitRepo()
-			}
-			obDoneRow(c, locales.OnboardDoneExternal(), locales.OnboardDoneExternalBody(kind, ob.dirDraft))
-			obDoneRow(c, locales.OnboardDoneGit(), gitModeDisplay(ob.gitMode))
-		} else {
-			obDoneRow(c, locales.OnboardDoneExternal(), locales.OnboardDoneNone())
-		}
-		ui.Text(c, locales.OnboardInitialTabs(ob.tabCount)).FontSize(12).TextColor(tMuted(c))
-		if ob.dirDraft != "" {
-			if ui.Button(c, locales.OnboardOpenBackupFolder()).Clicked() {
-				_ = mygo.Shell.OpenPath(ob.dirDraft)
-			}
-		}
-	})
-}
-
-func obDoneRow(c *ui.Context, key, value string) {
-	ui.Row(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, key).TextColor(tMuted(c)).FontSize(12)
-		ui.Text(c, "·")
-		ui.Text(c, value).FontSize(12).Grow(1)
 	})
 }

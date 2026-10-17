@@ -11,8 +11,6 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-
-	"zakki/locales"
 )
 
 func TestFirstRunDetection(t *testing.T) {
@@ -28,17 +26,26 @@ func TestFirstRunDetection(t *testing.T) {
 	}
 }
 
+// TestDefaultMirrorDir 默认外部备份目录固定在 ~/Documents/Zakki 备份，
+// 且永远非空（取不到主目录时由向导退化成"必须手选"，但取值函数本身有兜底）。
+func TestDefaultMirrorDir(t *testing.T) {
+	got := defaultMirrorDir()
+	if got == "" {
+		t.Fatal("默认备份目录不应为空")
+	}
+	if filepath.Base(got) != "Zakki 备份" || filepath.Base(filepath.Dir(got)) != "Documents" {
+		t.Fatalf("默认备份目录应为 ~/Documents/Zakki 备份: %q", got)
+	}
+}
+
 func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	a := newTestApp(t)
 	a.notes.RunGit = nil // 本测试只验镜像文件，不验 git，避免异步噪音
 	mirror := filepath.Join(filepath.Dir(a.notes.BackupDir), "wizard-mirror")
-	if err := os.MkdirAll(filepath.Join(mirror, ".git"), 0o755); err != nil {
+	if err := os.MkdirAll(mirror, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	a.onboarding.dirDraft = mirror
-	a.onboarding.dirIsGit = true
-	a.onboarding.gitMode = "commitPush"
-	a.onboarding.gitModeSel = gitModeDisplay("commitPush")
 	a.onboarding.tabCount = 3
 	a.onboarding.step = onboardingLastStep
 
@@ -46,9 +53,12 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	a.finishOnboarding(true)
 	waitForMirrorSettlement(t, settled)
 
-	// 偏好：外部备份 + Git 模式落盘。
-	if a.prefs.Backup.MirrorDir != mirror || a.prefs.Backup.GitMode != "commitPush" {
+	// 偏好：外部备份落盘；Git 档位不在向导出现，保持默认 off。
+	if a.prefs.Backup.MirrorDir != mirror {
 		t.Fatalf("向导配置未写入偏好: %+v", a.prefs.Backup)
+	}
+	if a.prefs.Backup.GitMode != "off" {
+		t.Fatalf("向导不应改动 Git 档位: %+v", a.prefs.Backup)
 	}
 	// 数据：3 个标签，第 1 个含欢迎文本，其余为空；文件已落盘。
 	if len(a.tabs) != 3 {
@@ -92,6 +102,12 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 
 func TestOnboardingSkipBlocksWhenDataSaveFails(t *testing.T) {
 	a := newTestApp(t)
+	// 跳过会把默认备份文件夹写进偏好，注入临时路径保证测试不触达真实主目录。
+	oldDef := defaultMirrorDir
+	t.Cleanup(func() { defaultMirrorDir = oldDef })
+	tmpDef := filepath.Join(t.TempDir(), "默认备份")
+	defaultMirrorDir = func() string { return tmpDef }
+
 	dir := filepath.Dir(a.notes.DataFile)
 	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Skip("无法 chmod 测试目录:", err)
@@ -110,11 +126,20 @@ func TestOnboardingSkipBlocksWhenDataSaveFails(t *testing.T) {
 	}
 }
 
-func TestOnboardingSkipKeepsDefaults(t *testing.T) {
+func TestOnboardingSkipAppliesDefaultMirror(t *testing.T) {
 	a := newTestApp(t)
+	// 跳过等同接受默认：备份文件夹落默认路径，Git 档位保持 off。
+	oldDef := defaultMirrorDir
+	t.Cleanup(func() { defaultMirrorDir = oldDef })
+	tmpDef := filepath.Join(t.TempDir(), "默认备份")
+	defaultMirrorDir = func() string { return tmpDef }
+
 	a.finishOnboarding(false)
-	if a.prefs.Backup.MirrorDir != "" || a.prefs.Backup.GitMode != "off" {
-		t.Fatalf("跳过不应改动偏好: %+v", a.prefs.Backup)
+	if a.prefs.Backup.MirrorDir != tmpDef {
+		t.Fatalf("跳过应写入默认备份文件夹: %+v", a.prefs.Backup)
+	}
+	if a.prefs.Backup.GitMode != "off" {
+		t.Fatalf("跳过不应改动 Git 档位: %+v", a.prefs.Backup)
 	}
 	if len(a.tabs) != DefaultTabCount {
 		t.Fatalf("跳过后应保持默认标签数 %d, got %d", DefaultTabCount, len(a.tabs))
@@ -127,7 +152,7 @@ func TestOnboardingSkipKeepsDefaults(t *testing.T) {
 	}
 }
 
-func TestObApplyFolderLinksGit(t *testing.T) {
+func TestObApplyFolderValidates(t *testing.T) {
 	a := newTestApp(t)
 	base := filepath.Dir(filepath.Dir(a.notes.BackupDir))
 
@@ -140,27 +165,12 @@ func TestObApplyFolderLinksGit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.onboarding.dirDraft != wantPlain || a.onboarding.dirIsGit {
-		t.Fatalf("普通目录应原样记录且非 Git: %+v", a.onboarding)
-	}
-
-	repo := filepath.Join(base, "repo")
-	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	a.onboarding.gitMode = "commit" // 模拟之前选过 Git
-	a.obApplyFolder(plain)          // 换成普通目录应联动关闭
-	if a.onboarding.gitMode != "off" {
-		t.Fatalf("换成普通目录应联动关闭 Git: %q", a.onboarding.gitMode)
-	}
-	a.obApplyFolder(repo)
-	if !a.onboarding.dirIsGit {
-		t.Fatal("Git 仓库目录应被识别")
+	if a.onboarding.dirDraft != wantPlain || a.onboarding.dirErr != "" {
+		t.Fatalf("合法目录应原样记录: %+v", a.onboarding)
 	}
 	// 非法目录：记录错误且不改草稿。
-	before := a.onboarding.dirDraft
 	a.obApplyFolder(filepath.Dir(a.notes.BackupDir))
-	if a.onboarding.dirErr == "" || a.onboarding.dirDraft != before {
+	if a.onboarding.dirErr == "" || a.onboarding.dirDraft != wantPlain {
 		t.Fatalf("非法目录应报错且不改草稿: %+v", a.onboarding)
 	}
 }
@@ -168,28 +178,20 @@ func TestObApplyFolderLinksGit(t *testing.T) {
 func TestOnboardingViewRendersSteps(t *testing.T) {
 	a := newTestApp(t)
 	a.onboarding.tabCount = 7
-	mirror := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "view-mirror")
-	if err := os.MkdirAll(filepath.Join(mirror, ".git"), 0o755); err != nil {
+	folder := filepath.Join(filepath.Dir(filepath.Dir(a.notes.BackupDir)), "view-mirror")
+	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	a.onboarding.dirDraft = mirror
-	a.onboarding.dirIsGit = true
-	a.onboarding.gitMode = "commitPush"
-	a.onboarding.gitModeSel = gitModeDisplay("commitPush")
-	a.onboarding.tabCount = 7
+	a.onboarding.dirDraft = folder
 
 	steps := map[int][]string{
 		1: {"选择语言", "English", "简体中文"},
-		2: {"欢迎使用 Zakki", "跳过，使用默认设置"},
-		3: {"备份", "仅本地备份（推荐）", "同步到外部文件夹"},
-		4: {"初始标签数量", "7 个"},
-		5: {"准备就绪", "完成，进入 Zakki", "打开备份文件夹"},
+		2: {"备份文件夹", folder, "更换…"},
+		3: {"初始标签数量", "7 个"},
 	}
-	// 第 3 步选中「同步到外部文件夹」卡片时，目录与 Git 档位内联展开。
-	a.onboarding.mirrorCard = true
 	for step, wants := range steps {
 		a.onboarding.step = step
-		tt := ui.NewTester(a.onboardingView, 560, 500)
+		tt := ui.NewTester(a.onboardingView, 560, 440)
 		tt.Frame()
 		for _, want := range wants {
 			if !tt.HasText(want) {
@@ -197,68 +199,22 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 			}
 		}
 	}
-	// 第 3 步展开后：目录卡片、Git 档位与白话解释同屏可见。
-	a.onboarding.step = 3
-	tt := ui.NewTester(a.onboardingView, 560, 500)
+	// 最后一步主按钮是完成，且不再显示跳过。
+	a.onboarding.step = onboardingLastStep
+	tt := ui.NewTester(a.onboardingView, 560, 440)
 	tt.Frame()
-	for _, want := range []string{mirror, "Git 仓库", "更换…", "Git 自动化", "提交并推送"} {
-		if !tt.HasText(want) {
-			t.Fatalf("备份步骤缺少 %q: %v", want, tt.Texts())
-		}
+	if !tt.HasText("完成，进入 Zakki") {
+		t.Fatalf("最后一步应显示完成按钮: %v", tt.Texts())
 	}
 	// 语言按钮的可见文字必须是 Text 子元素：ButtonBase 的 Label 只是
 	// 可访问性标题，也计入 HasText，缺 Text 子元素时按钮渲染为空白。
 	a.onboarding.step = 1
-	tt = ui.NewTester(a.onboardingView, 560, 500)
+	tt = ui.NewTester(a.onboardingView, 560, 440)
 	tt.Frame()
 	for _, want := range mygo.App.Languages() {
 		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 2 {
 			t.Fatalf("语言 %s 缺少可见 Text 子元素: %v", want, tt.Texts())
 		}
-	}
-	// 非 Git 目录：备份步骤说明原因而不是给 Git 档位选项。
-	a.onboarding.step = 3
-	a.onboarding.dirIsGit = false
-	tt = ui.NewTester(a.onboardingView, 560, 500)
-	tt.Frame()
-	if tt.HasText("提交并推送") {
-		t.Fatalf("非 Git 目录不应出现档位选项: %v", tt.Texts())
-	}
-	if !tt.HasText("不是 Git 仓库") {
-		t.Fatalf("非 Git 目录应说明原因: %v", tt.Texts())
-	}
-}
-
-// TestOnboardingBackupCards 备份方式卡片：点「仅本地」清空外部备份草稿，
-// 点「同步到外部文件夹」重新展开；目录与档位只在展开时可见。
-func TestOnboardingBackupCards(t *testing.T) {
-	a := newTestApp(t)
-	ob := &a.onboarding
-	ob.step = 3
-	ob.mirrorCard = true
-	ob.dirDraft = string(filepath.Separator) + filepath.Join("tmp", "wizard-repo")
-	ob.dirIsGit = true
-	ob.gitMode = "commit"
-	ob.gitModeSel = gitModeDisplay("commit")
-
-	tt := ui.NewTester(a.onboardingView, 560, 500)
-	tt.Frame()
-	if err := tt.Click(locales.OnboardBackupLocalTitle()); err != nil {
-		t.Fatal(err)
-	}
-	if ob.mirrorCard || ob.dirDraft != "" || ob.dirIsGit || ob.gitMode != "off" {
-		t.Fatalf("选仅本地应清空外部备份草稿: %+v", ob)
-	}
-	tt = ui.NewTester(a.onboardingView, 560, 500)
-	tt.Frame()
-	if tt.HasText("Git 自动化") {
-		t.Fatalf("仅本地卡片下不应出现 Git 配置: %v", tt.Texts())
-	}
-	if err := tt.Click(locales.OnboardBackupMirrorTitle()); err != nil {
-		t.Fatal(err)
-	}
-	if !ob.mirrorCard {
-		t.Fatal("选同步卡片应重新展开外部备份配置")
 	}
 }
 
