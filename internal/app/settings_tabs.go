@@ -245,7 +245,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			for i, o := range opts {
 				displays[i] = o.display
 			}
-			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel, displays).Changed() {
+			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel, displays).Width(200).Changed() {
 				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
 				a.scheduleSave()
 			}
@@ -266,7 +266,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			for _, o := range opts {
 				displays = append(displays, o.display)
 			}
-			if ui.Select(c, &a.settingsUI.tabDotShapeSel, displays).Changed() {
+			if ui.Select(c, &a.settingsUI.tabDotShapeSel, displays).Width(200).Changed() {
 				a.cfg.TabDotShape = tabDotShapeKey(a.settingsUI.tabDotShapeSel)
 				a.scheduleSave()
 				a.withWindow(func() {})
@@ -275,7 +275,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 		cardDivider(c)
 		settingsRow(c, locales.AppearanceLabel(), locales.ModeRowHint(), func() {
 			if ui.Select(c, &a.settingsUI.appearanceModeSel,
-				[]string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Changed() {
+				[]string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
 				a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
 				a.pushAppearance()
 			}

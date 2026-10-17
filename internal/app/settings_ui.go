@@ -68,7 +68,7 @@ func (a *app) languageRow(c *ui.Context) {
 		displays[i] = o.display
 	}
 	settingsRow(c, locales.LanguageRow(), locales.LanguageRowHint(), func() {
-		if ui.Select(c, &a.settingsUI.languageSel, displays).Changed() {
+		if ui.Select(c, &a.settingsUI.languageSel, displays).Width(200).Changed() {
 			tag := languageTagOfDisplay(a.settingsUI.languageSel)
 			a.settingsUI.draft.Appearance.Language = tag
 			_ = a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
@@ -177,7 +177,7 @@ func (a *app) presetSketchRow(c *ui.Context) {
 func (a *app) appearanceModeSelect(c *ui.Context) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 		ui.Text(c, locales.AppearanceLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Changed() {
+		if ui.Select(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
 			a.pushAppearance()
 		}
@@ -189,7 +189,7 @@ func (a *app) colorThemeSelect(c *ui.Context) {
 	options := colorThemeNames()
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Changed() {
+		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
 			a.pushAppearance()
 		}
@@ -307,7 +307,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
+		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
 			a.pushAppearance()
 		}
@@ -321,7 +321,7 @@ func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Changed() {
+		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
 			a.pushAppearance()
 		}
@@ -425,7 +425,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.bodyFontSel, bodyOptions).Changed() {
+			if ui.Select(c, &a.settingsUI.bodyFontSel, bodyOptions).Width(200).Changed() {
 				a.settingsUI.draft.Appearance.BodyFont = keyOfDisplay(bodyKeys, bodyOptions, a.settingsUI.bodyFontSel)
 				a.pushAppearance()
 			}
@@ -436,7 +436,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.latinFontSel, latinFontOptions).Changed() {
+			if ui.Select(c, &a.settingsUI.latinFontSel, latinFontOptions).Width(200).Changed() {
 				a.settingsUI.draft.Appearance.LatinFont = keyOfDisplay(latinFontKeys, latinFontOptions, a.settingsUI.latinFontSel)
 				a.pushAppearance()
 			}
@@ -447,7 +447,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.monoFontSel, monoOptions).Changed() {
+			if ui.Select(c, &a.settingsUI.monoFontSel, monoOptions).Width(200).Changed() {
 				a.settingsUI.draft.Appearance.MonoFont = keyOfDisplay(monoKeys, monoOptions, a.settingsUI.monoFontSel)
 				a.pushAppearance()
 			}
@@ -473,7 +473,7 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 				ui.Text(c, label)
 				ui.Text(c, detail).FontSize(11).TextColor(tMuted(c))
 			})
-			ui.Column(c).Width(110).Gap(2).Children(func() {
+			ui.Column(c).Width(200).Gap(2).Children(func() {
 				text := &a.settingsUI.bodySizeText
 				if field == "lineHeight" {
 					text = &a.settingsUI.lineHeightText
@@ -599,7 +599,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 			}
 			cardDivider(c)
 			settingsRow(c, locales.GitAutomation(), a.gitModeDetailText(), func() {
-				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Changed() {
+				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Width(200).Changed() {
 					a.pushMirrorGitMode()
 				}
 			})
@@ -694,7 +694,7 @@ func settingsCard(c *ui.Context, title string, body func()) ui.Element {
 		BorderWidth(1).BorderColor(c.Theme().Border).
 		Background(c.Theme().Surface).Children(func() {
 		if title != "" {
-			ui.Text(c, title).FontSize(12).Bold().TextColor(tMuted(c)).Padding(14, 16, 2, 16)
+			ui.Text(c, title).FontSize(14).Bold().Padding(14, 16, 2, 16)
 		}
 		body()
 	})
