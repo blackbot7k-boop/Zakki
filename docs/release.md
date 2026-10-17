@@ -12,9 +12,11 @@
 - 发布目标固定为 **darwin/universal**（Intel 与 Apple Silicon）和 **windows/amd64**（Windows 10/11 x64）。
   同一个 Release 分别提供 `update-darwin-universal.json` 与 `update-windows-amd64.json`，两种系统不会混用更新。
   每种架构独立订阅清单，后续不要随意切换目标，否则已有版本会收不到更新；目前不发布 Windows ARM64 原生包。
-- Release 附件保持最少：两个安装包、两个签名更新归档、两个更新清单。`mygo.json` 的
-  `updates.deltas` 固定为 `0`，不生成也不上传增量包与 SHA256SUMS；应用内更新始终下载
-  完整签名归档，清单与归档的 Ed25519 签名校验保证完整性，校验失败不写入应用。
+- Release 附件：两个安装包、两个签名更新归档、两个更新清单，以及从当前 Latest 到
+  新版本的签名增量包（`*.delta`）；不生成 SHA256SUMS（完整性由清单内的 Ed25519
+  签名保证，校验失败不写入应用）。`mygo.json` 的 `updates.deltas` 为 `3`：
+  MyGo 为最近 3 个已发布版本保留增量来源；应用优先使用匹配 delta，补丁缺失、
+  无体积优势、校验失败或本地应用被修改时自动回退完整签名归档，兜底不能关闭。
 - **没有 Apple 开发者账号**：`macos.signingIdentity` 为 `-`，仅 ad-hoc 签名，不做公证。
   Windows 尚无 Authenticode 代码签名，SmartScreen 可能显示未知发布者。
   两个平台共用 Ed25519 更新签名密钥；它验证更新包来源，不代替 Apple 或 Windows 的系统代码签名。
@@ -74,6 +76,7 @@ gh secret set MYGO_UPDATER_PRIVATE_KEY --repo gomeen/Zakki \
    - 核对 tag、版本、仓库与私钥 Secret；缺私钥直接失败，不生成不完整的发行包。
    - 执行 `go mod verify`、完整 `make check`；macOS runner 构建 universal 包，Ubuntu runner 安装 NSIS 并交叉构建 Windows x64 安装器。
    - 检查安装器、清单版本/URL、归档大小；额外核对 macOS 双架构与 ad-hoc 签名、Windows PE x64 可执行文件。
+   - 读取当前 Latest 版本，要求两个平台的清单和附件均包含该版本到新版本的有效 delta，并核对签名字段与实际文件大小。
    - 保留两个平台的 Actions 附件；全部成功后汇总、再次校验，再上传至草稿 Release，两个更新清单最后上传。
    - 拒绝覆盖已公开的同号 Release；修复已公开版本必须递增版本号。
 5. 从草稿下载测试，在另一台 Mac/干净账户与真实 Windows 10/11 x64 上检查安装、托盘、全局快捷键、中文输入法、备份、保存与重启。
@@ -109,6 +112,7 @@ MYGO_UPDATER_PRIVATE_KEY="$(< "$HOME/Library/Application Support/mygo/update-key
 | `Zakki <version>.dmg` | 用户首次安装或手动更新 |
 | `zakki-<version>-darwin-universal.tar.gz` | 应用内更新所下载的签名归档 |
 | `update-darwin-universal.json` | 版本、说明、URL、大小、签名等更新清单 |
+| `*.delta`（有可用旧版本时） | 从上一 Latest 到新版本的增量更新，失败自动回退完整归档 |
 
 `build/windows-amd64/` 中的文件：
 
@@ -118,10 +122,11 @@ MYGO_UPDATER_PRIVATE_KEY="$(< "$HOME/Library/Application Support/mygo/update-key
 | `Zakki Setup <version> amd64.exe` | 按用户安装器；默认安装到 `%LOCALAPPDATA%\Programs\Zakki`，无需管理员权限 |
 | `zakki-<version>-windows-amd64.tar.gz` | Windows 应用内更新的签名归档，不含 Setup 与卸载器 |
 | `update-windows-amd64.json` | Windows x64 的版本、说明、下载信息与签名 |
+| `*.delta`（有可用旧版本时） | Windows 增量更新，失败自动回退完整归档 |
 
-`mygo.json` 里 `updates.deltas` 固定为 `0`：构建不生成增量包，Release 不含 `*.delta`。
-应用内更新始终下载完整签名归档；下载与解包都以更新清单中的 Ed25519 签名校验，
-校验失败时放弃安装并提示。
+增量包以「当前 Latest → 新版本」为基线；应用优先使用匹配 delta，但补丁缺失、
+无体积优势、校验失败或本地应用被修改时，会自动回退完整签名归档，这一安全兜底
+不能关闭。下载与解包都以更新清单中的 Ed25519 签名校验，校验失败时放弃安装并提示。
 
 MyGo 缺私钥时只警告并跳过 macOS/Windows 更新文件，所以本地普通构建仍可用，但不能拿其安装包当作完整的更新发布。
 工作流会检查私钥与产物，公私钥不匹配时构建失败。生成 DMG 需要 macOS；Windows 可从 macOS/Linux 交叉构建，安装器需要 NSIS。
@@ -158,9 +163,9 @@ https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.js
 
 - [ ] `mygo.json` 与 tag 同号，CHANGELOG 有对应章节，`make check` 与 `go mod verify` 通过。
 - [ ] Secret 对应当前公钥，私钥有独立安全备份，Git 与附件中均无私钥。
-- [ ] macOS 与 Windows 构建 job 均成功，草稿包含 DMG、Setup EXE、两份签名归档与两份更新清单，无多余附件。
+- [ ] macOS 与 Windows 构建 job 均成功，草稿包含 DMG、Setup EXE、两份签名归档、两份更新清单与两平台的 delta，无多余附件。
 - [ ] Intel / Apple Silicon 安装可启动；对真实下载文件验证 Gatekeeper 行为，不以本机无隔离标记的包代替。
 - [ ] Windows 10/11 x64 按用户安装、启动、中文输入法、托盘、快捷键与退出通过实机验收，确认 SmartScreen 提示；不能仅凭交叉编译宣布已验证。
-- [ ] 旧版检查更新可下载安装并重启，更新走完整签名归档。
+- [ ] 旧版检查更新可下载安装并重启；两个平台的清单均包含从上一 Latest 版本出发的 delta，附件存在且大小一致。
 - [ ] 更新前后笔记/偏好/备份保留；保存失败不静默重启。
 - [ ] 公开 Release 并设为 Latest 后，清单和归档均可匿名下载。
