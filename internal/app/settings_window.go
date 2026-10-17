@@ -244,7 +244,7 @@ func (a *app) settingsView(c *ui.Context) {
 			a.settingsUI.syncDraftFromPrefs(a.prefs)
 			a.settingsUI.recording = ""
 		}
-		ui.Column(c).Fill().Grow(1).Padding(24, 20).Gap(16).Children(func() {
+		ui.Column(c).Fill().Grow(1).Padding(28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
 			case pageAppearance:
 				a.appearancePage(c, &t, dark)
@@ -374,7 +374,7 @@ func (a *app) resetPageDefaults(page string) {
 
 // settingsRow 一行：左侧标签 + 右侧控件。
 func settingsRow(c *ui.Context, label, detail string, control func()) ui.Element {
-	return ui.Column(c).FillWidth().Gap(3).PaddingY(10).Children(func() {
+	return ui.Column(c).FillWidth().Gap(3).Padding(12, 16).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Text(c, label).Grow(1)
 			control()

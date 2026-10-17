@@ -17,7 +17,7 @@ import (
 // ---- 常规 ----
 
 func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
-	ui.Column(c).FillWidth().Gap(14).Children(func() {
+	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		a.migrationStatus(c)
 		settingsCard(c, locales.CardLanguage(), func() {
 			a.languageRow(c)
@@ -27,7 +27,7 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
 					a.pushWindow()
 				}
-			}).PaddingX(14)
+			})
 			a.cardResetFooter(c, pageGeneral)
 		})
 	})
@@ -73,7 +73,7 @@ func (a *app) languageRow(c *ui.Context) {
 			a.settingsUI.draft.Appearance.Language = tag
 			_ = a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
 		}
-	}).PaddingX(14)
+	})
 }
 
 // migrationStatus 一次性迁移结果与偏好恢复入口。
@@ -133,7 +133,7 @@ func (a *app) appearancePage(c *ui.Context, t *ui.Theme, dark bool) {
 		return
 	}
 	ui.Scroll(c.Key("appearance-stacked")).Fill().Grow(1).Children(func() {
-		ui.Column(c).FillWidth().Gap(14).Children(func() {
+		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			previewPane()
 			a.appearanceControls(c, dark)
 		})
@@ -149,15 +149,15 @@ func settingsWideLayout(c *ui.Context) bool {
 
 // appearanceControls 外观页的控制项卡片列。
 func (a *app) appearanceControls(c *ui.Context, dark bool) {
-	ui.Column(c).FillWidth().Gap(14).Children(func() {
+	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		settingsCard(c, locales.CardAppearanceMode(), func() {
-			ui.Column(c).FillWidth().Padding(4, 14, 10, 14).Children(func() {
+			ui.Column(c).FillWidth().Padding(6, 16, 12, 16).Children(func() {
 				a.appearanceModeSelect(c)
 			})
 		})
 
 		settingsCard(c, locales.CardColorTheme(), func() {
-			ui.Column(c).FillWidth().Padding(8, 14, 10, 14).Children(func() {
+			ui.Column(c).FillWidth().Padding(8, 16, 12, 16).Children(func() {
 				a.colorThemeCards(c, dark)
 			})
 		})
@@ -194,7 +194,7 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 					a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
 					a.pushAppearance()
 				}
-			}).PaddingX(14)
+			})
 		})
 
 		settingsCard(c, locales.CardTypographyTweaks(), func() {
@@ -312,7 +312,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
@@ -326,7 +326,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
 func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
@@ -427,7 +427,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
@@ -438,7 +438,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 			}
 		})
 		cardDivider(c)
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
@@ -449,7 +449,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 			}
 		})
 		cardDivider(c)
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(6, 14).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
@@ -474,7 +474,7 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	if field == "lineHeight" {
 		placeholder = floatText(layout.lineHeight)
 	}
-	ui.Column(c).FillWidth().Gap(2).Padding(6, 14).Children(func() {
+	ui.Column(c).FillWidth().Gap(2).Padding(10, 16).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, label)
@@ -637,7 +637,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 	interval := a.settingsUI.draft.Backup.IntervalMinutes
 	keep := a.settingsUI.draft.Backup.Keep
 	intervalF, keepF := float64(interval), float64(keep)
-	ui.Column(c).FillWidth().Gap(14).Children(func() {
+	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
 
@@ -648,9 +648,9 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					if ui.Button(c, locales.ChooseFolder()).Clicked() {
 						a.pickMirrorFolder()
 					}
-				}).PaddingX(14)
+				})
 			} else {
-				ui.Column(c).FillWidth().Padding(10, 14).Gap(8).Children(func() {
+				ui.Column(c).FillWidth().Padding(12, 16).Gap(8).Children(func() {
 					ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
 					ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
 					ui.Row(c).Gap(8).Children(func() {
@@ -671,7 +671,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Changed() {
 					a.pushMirrorGitMode()
 				}
-			}).PaddingX(14)
+			})
 		})
 
 		settingsCard(c, locales.CardAutoBackup(), func() {
@@ -680,24 +680,24 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
 					a.pushBackup()
 				}
-			}).PaddingX(14)
+			})
 			cardDivider(c)
 			settingsRow(c, locales.BackupKeep(), locales.BackupKeepHint(), func() {
 				if ui.NumberInput(c, &keepF, 1, 1000, 1).Changed() {
 					a.settingsUI.draft.Backup.Keep = int(keepF)
 					a.pushBackup()
 				}
-			}).PaddingX(14)
+			})
 			cardDivider(c)
 			settingsRow(c, locales.BackupOnLaunch(), locales.BackupOnLaunchHint(), func() {
 				if ui.Switch(c, &a.settingsUI.draft.Backup.OnLaunch).Label(locales.BackupOnLaunchSwitch()).Changed() {
 					a.pushBackup()
 				}
-			}).PaddingX(14)
+			})
 		})
 
 		settingsCard(c, locales.CardManualActions(), func() {
-			ui.Column(c).FillWidth().Padding(10, 14).Gap(8).Children(func() {
+			ui.Column(c).FillWidth().Padding(12, 16).Gap(8).Children(func() {
 				ui.Row(c).Gap(8).Children(func() {
 					if ui.Button(c, locales.BackupNowButton()).Clicked() {
 						if err := a.backupNow(); err != nil {
@@ -763,7 +763,7 @@ func settingsCard(c *ui.Context, title string, body func()) ui.Element {
 		BorderWidth(1).BorderColor(c.Theme().Border).
 		Background(c.Theme().Surface).Children(func() {
 		if title != "" {
-			ui.Text(c, title).FontSize(12).Bold().TextColor(tMuted(c)).Padding(12, 14, 0, 14)
+			ui.Text(c, title).FontSize(12).Bold().TextColor(tMuted(c)).Padding(14, 16, 2, 16)
 		}
 		body()
 	})
@@ -777,7 +777,7 @@ func cardDivider(c *ui.Context) {
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
 func (a *app) cardResetFooter(c *ui.Context, page string) {
 	cardDivider(c)
-	ui.Row(c).FillWidth().Padding(8, 14).Children(func() {
+	ui.Row(c).FillWidth().Padding(10, 16).Children(func() {
 		ui.Box(c).Grow(1)
 		if ui.Button(c, locales.ResetPageButton()).Clicked() {
 			a.confirmResetPage(page)

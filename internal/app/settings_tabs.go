@@ -88,9 +88,9 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
 	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
-		ui.Column(c).FillWidth().Gap(14).Children(func() {
+		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			settingsCard(c, locales.CardTabs(), func() {
-				ui.Column(c).FillWidth().Padding(10, 14, 12, 14).Gap(10).Children(func() {
+				ui.Column(c).FillWidth().Padding(12, 16, 14, 16).Gap(12).Children(func() {
 					a.tabListSection(c, dark)
 				})
 			})
@@ -237,7 +237,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.TabAnimSpeed(), locales.TabAnimSpeedHint(), func() {
 			opts := tabAnimSpeedOptions()
@@ -249,7 +249,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
 				a.scheduleSave()
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.TabMotion(), locales.TabMotionHint(), func() {
 			motion := !a.cfg.TabMotionOff
@@ -258,7 +258,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.TabDotShape(), locales.TabDotShapeHint(), func() {
 			opts := tabDotShapeOptions()
@@ -271,7 +271,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.AppearanceLabel(), locales.ModeRowHint(), func() {
 			if ui.Select(c, &a.settingsUI.appearanceModeSel,
@@ -279,7 +279,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
 				a.pushAppearance()
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.ColoredDots(), locales.ColoredDotsHint(), func() {
 			colored := !a.cfg.MonoDots
@@ -288,7 +288,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		settingsRow(c, locales.GlassStrength(), locales.GlassStrengthHint(), func() {
 			if ui.NumberInput(c, &glass, 0.2, 0.9, 0.05).Changed() {
@@ -296,10 +296,10 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
-		}).PaddingX(14)
+		})
 		cardDivider(c)
 		ui.Text(c, locales.TabsPageFootnote()).
-			FontSize(11).TextColor(tMuted(c)).Padding(8, 14, 10, 14)
+			FontSize(11).TextColor(tMuted(c)).Padding(10, 16, 12, 16)
 	})
 }
 
