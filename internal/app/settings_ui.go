@@ -19,15 +19,17 @@ import (
 func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		a.migrationStatus(c)
-		settingsCard(c, "", func() {
+		ui.Column(c).FillWidth().Children(func() {
 			settingsSectionTitle(c, locales.CardLanguage())
 			a.languageRow(c)
+			sectionDivider(c)
 			settingsSectionTitle(c, locales.CardWindow())
 			settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
 				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
 					a.pushWindow()
 				}
 			})
+			sectionDivider(c)
 			a.cardResetFooter(c, "general", pageGeneral)
 		})
 	})
@@ -119,18 +121,22 @@ func (a *app) appearancePage(c *ui.Context) {
 	})
 }
 
-// appearanceControls 外观页：单卡平铺全部设置行，单一恢复入口。
+// appearanceControls 外观页：单列平铺全部设置行，分区以浅色分割线分隔，
+// 单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	settingsCard(c, "", func() {
+	ui.Column(c).FillWidth().Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
 		a.presetSketchRow(c)
+		sectionDivider(c)
 		settingsSectionTitle(c, locales.CardTypography())
 		a.markdownThemeSelect(c)
 		a.typographyOverrides(c)
+		sectionDivider(c)
 		settingsSectionTitle(c, locales.CardCodeTheme())
 		a.codeThemeSelect(c)
+		sectionDivider(c)
 		a.cardResetFooter(c, "appearance", pageAppearance)
 	})
 }
@@ -546,11 +552,11 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 	interval := a.settingsUI.draft.Backup.IntervalMinutes
 	keep := a.settingsUI.draft.Backup.Keep
 	intervalF, keepF := float64(interval), float64(keep)
-	ui.Column(c).FillWidth().Gap(16).Children(func() {
+	ui.Column(c).FillWidth().Children(func() {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
 
-		settingsCard(c, "", func() {
+		ui.Column(c).FillWidth().Children(func() {
 			settingsSectionTitle(c, locales.CardExternalBackup())
 			mono := monoFontStack("sfmono")
 			if dir := a.prefs.Backup.MirrorDir; dir == "" {
@@ -582,6 +588,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				}
 			})
 
+			sectionDivider(c)
 			settingsSectionTitle(c, locales.CardAutoBackup())
 			settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
 				if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
@@ -601,6 +608,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				}
 			})
 
+			sectionDivider(c)
 			settingsSectionTitle(c, locales.CardManualActions())
 			ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
 				ui.Row(c).Gap(8).Children(func() {
@@ -622,6 +630,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				ui.Text(c, locales.BackupDirLine(a.notes.BackupDir)).FontSize(11).Font(mono).TextColor(tMuted(c))
 				ui.Text(c, locales.DataFileLine(a.notes.DataFile)).FontSize(11).Font(mono).TextColor(tMuted(c))
 			})
+			sectionDivider(c)
 			a.cardResetFooter(c, "backup", pageBackup)
 		})
 
@@ -661,18 +670,6 @@ func (a *app) persistStatus(c *ui.Context, t *ui.Theme) {
 }
 
 // ---- 卡片分组小部件 ----
-
-// settingsCard 卡片分组容器：圆角描边，组标题在顶部。
-func settingsCard(c *ui.Context, title string, body func()) ui.Element {
-	return ui.Column(c).FillWidth().Radius(10).Clip().
-		BorderWidth(1).BorderColor(c.Theme().Border).
-		Background(c.Theme().Surface).Children(func() {
-		if title != "" {
-			ui.Text(c, title).FontSize(14).Bold().Padding(14, 16, 2, 16)
-		}
-		body()
-	})
-}
 
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
 func (a *app) cardResetFooter(c *ui.Context, key, page string) {

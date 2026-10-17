@@ -390,6 +390,12 @@ func settingsRow(c *ui.Context, label, detail string, control func()) ui.Element
 // tMuted 返回当前主题的次级文字色。
 func tMuted(c *ui.Context) ui.Color { return c.Theme().TextMuted }
 
+// sectionDivider 分区之间的浅色分割线：比边框更淡一档，只做视觉分组。
+func sectionDivider(c *ui.Context) ui.Element {
+	line := c.Theme().Border.Mix(c.Theme().Background, 0.5)
+	return ui.Box(c).Height(1).FillWidth().Background(line)
+}
+
 // settingsSectionTitle 分组标题：加粗正文色，上下留白与行距衔接。
 func settingsSectionTitle(c *ui.Context, title string) {
 	ui.Text(c, title).Bold().FontSize(15).Padding(10, 0, 4, 0)

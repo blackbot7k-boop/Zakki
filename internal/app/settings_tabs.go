@@ -88,11 +88,12 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
 	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
-		settingsCard(c, "", func() {
+		ui.Column(c).FillWidth().Children(func() {
 			settingsSectionTitle(c, locales.CardTabs())
 			ui.Column(c).FillWidth().PaddingY(10).Gap(12).Children(func() {
 				a.tabListSection(c, dark)
 			})
+			sectionDivider(c)
 			settingsSectionTitle(c, locales.CardTabBar())
 			a.tabAppearanceSection(c, dark)
 		})
