@@ -2262,6 +2262,56 @@ func (msgs Messages) CardMarkdownTheme() string {
 	return Catalog.Format(msgs.locale, "cardMarkdownTheme", nil)
 }
 
+// CardCodeTheme says "Code colors"
+// in the language the app shows.
+func CardCodeTheme() string { return In(i18n.Locale()).CardCodeTheme() }
+
+// CardCodeTheme says "Code colors"
+// in the language of msgs.
+func (msgs Messages) CardCodeTheme() string {
+	return Catalog.Format(msgs.locale, "cardCodeTheme", nil)
+}
+
+// CodeThemeLabel says "Syntax colors"
+// in the language the app shows.
+func CodeThemeLabel() string { return In(i18n.Locale()).CodeThemeLabel() }
+
+// CodeThemeLabel says "Syntax colors"
+// in the language of msgs.
+func (msgs Messages) CodeThemeLabel() string {
+	return Catalog.Format(msgs.locale, "codeThemeLabel", nil)
+}
+
+// CodeThemeNone says "Follow text"
+// in the language the app shows.
+func CodeThemeNone() string { return In(i18n.Locale()).CodeThemeNone() }
+
+// CodeThemeNone says "Follow text"
+// in the language of msgs.
+func (msgs Messages) CodeThemeNone() string {
+	return Catalog.Format(msgs.locale, "codeThemeNone", nil)
+}
+
+// CodeThemeSoft says "Soft"
+// in the language the app shows.
+func CodeThemeSoft() string { return In(i18n.Locale()).CodeThemeSoft() }
+
+// CodeThemeSoft says "Soft"
+// in the language of msgs.
+func (msgs Messages) CodeThemeSoft() string {
+	return Catalog.Format(msgs.locale, "codeThemeSoft", nil)
+}
+
+// CodeThemeVivid says "Vivid"
+// in the language the app shows.
+func CodeThemeVivid() string { return In(i18n.Locale()).CodeThemeVivid() }
+
+// CodeThemeVivid says "Vivid"
+// in the language of msgs.
+func (msgs Messages) CodeThemeVivid() string {
+	return Catalog.Format(msgs.locale, "codeThemeVivid", nil)
+}
+
 // CardPresetSketch says "Whole theme"
 // in the language the app shows.
 func CardPresetSketch() string { return In(i18n.Locale()).CardPresetSketch() }

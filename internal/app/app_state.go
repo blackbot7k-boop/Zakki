@@ -102,6 +102,7 @@ type liveEditorState struct {
 	rangesCacheQuery  string
 	rangesCacheDark   bool
 	rangesCacheAccent ui.Color
+	rangesCacheCode   string // 代码配色方案 id，参与区间缓存键
 	rangesCache       []ui.TextRange
 	matchesCacheDoc   string
 	matchesCacheQuery string

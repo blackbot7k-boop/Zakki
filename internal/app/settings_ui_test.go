@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 func TestPreviewStyleAppliesOverrides(t *testing.T) {
@@ -123,7 +125,7 @@ func TestSettingsFontSplitPersists(t *testing.T) {
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	// 视口要够高，排版微调卡片与下拉选项才在可视区内。
-	tt := ui.NewTester(a.settingsView, 900, 900)
+	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
 
 	// 下拉：先点开当前值，再点选项。
@@ -208,7 +210,7 @@ func TestSettingsInvalidNumericTextAndErrorSurviveFrames(t *testing.T) {
 		t.Fatalf("越界值不得提交: %v", a.prefs.Appearance.BodySize)
 	}
 
-	tt := ui.NewTester(a.settingsView, 900, 900)
+	tt := ui.NewTester(a.settingsView, 900, 1200)
 	for frame := 1; frame <= 2; frame++ {
 		tt.Frame()
 		if a.settingsUI.bodySizeText != "99" || a.settingsUI.bodySizeErr == "" || !a.settingsUI.bodySizeDirty {
@@ -245,5 +247,49 @@ func TestResetPageAfterConfirmationDropsWhenWindowClosed(t *testing.T) {
 
 	if !a.prefs.Window.AlwaysOnTop {
 		t.Fatal("后台对话框结果不得在没有存活窗口时直接修改偏好")
+	}
+}
+
+// TestSettingsCodeThemePersists 代码配色下拉：从默认柔和改选明快，落到偏好并持久化；
+// 显式「跟随文本」也能选中并原样落盘（空串不可被 omitempty 吞掉）。
+func TestSettingsCodeThemePersists(t *testing.T) {
+	a := newTestApp(t)
+	if err := a.loadPreferences(); err != nil {
+		t.Fatal(err)
+	}
+	if a.prefs.Appearance.CodeTheme != "soft" {
+		t.Fatalf("新安装默认应为柔和: %+v", a.prefs.Appearance)
+	}
+	a.settingsPage = pageAppearance
+	a.settingsUI.syncDraftFromPrefs(a.prefs)
+	tt := ui.NewTester(a.settingsView, 900, 1200)
+	tt.Frame()
+
+	if err := tt.Click(locales.CodeThemeSoft()); err != nil {
+		t.Fatalf("当前值应可见: %v", err)
+	}
+	if err := tt.Click(locales.CodeThemeVivid()); err != nil {
+		t.Fatal(err)
+	}
+	if a.prefs.Appearance.CodeTheme != "vivid" {
+		t.Fatalf("代码配色应即时生效: %+v", a.prefs.Appearance)
+	}
+	// 显式选「跟随文本」：空串必须即时生效且落盘保留。
+	if err := tt.Click(locales.CodeThemeVivid()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click(locales.CodeThemeNone()); err != nil {
+		t.Fatal(err)
+	}
+	if a.prefs.Appearance.CodeTheme != "" {
+		t.Fatalf("跟随文本应即时生效: %+v", a.prefs.Appearance)
+	}
+	a.shutdownPreferences()
+	saved, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Appearance.CodeTheme != "" {
+		t.Fatalf("跟随文本应已落盘为空串: %+v", saved.Appearance)
 	}
 }

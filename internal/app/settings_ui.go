@@ -169,6 +169,13 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 			a.cardResetFooter(c, pageAppearance)
 		})
 
+		settingsCard(c, locales.CardCodeTheme(), func() {
+			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
+				a.codeThemeSelect(c)
+			})
+			a.cardResetFooter(c, pageAppearance)
+		})
+
 		settingsCard(c, locales.CardPresetSketch(), func() {
 			settingsRow(c, locales.PresetSketchRow(), locales.PresetSketchHint(), func() {
 				ap := a.settingsUI.draft.Appearance
@@ -314,6 +321,40 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	})
 	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
 		FontSize(11).TextColor(tMuted(c))
+}
+
+// codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
+func (a *app) codeThemeSelect(c *ui.Context) {
+	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid()}
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
+		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Changed() {
+			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
+			a.pushAppearance()
+		}
+	})
+}
+
+// codeThemeKey 显示名 → 配色方案 id。
+func codeThemeKey(display string) string {
+	switch display {
+	case locales.CodeThemeSoft():
+		return "soft"
+	case locales.CodeThemeVivid():
+		return "vivid"
+	}
+	return ""
+}
+
+// codeThemeDisplay 配色方案 id → 显示名。
+func codeThemeDisplay(key string) string {
+	switch key {
+	case "soft":
+		return locales.CodeThemeSoft()
+	case "vivid":
+		return locales.CodeThemeVivid()
+	}
+	return locales.CodeThemeNone()
 }
 
 // markdownThemeDisplay 排版主题键 → 显示名。

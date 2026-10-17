@@ -59,6 +59,8 @@ func isFenceClosingLine(line string, opening fenceMarker) bool {
 
 func fenceClosingMarker(opening fenceMarker) string { return markdown.FenceClosingMarker(opening) }
 
+func fenceInfo(line string) string { return markdown.FenceInfo(line) }
+
 func caretLineCol(doc string, caret int) (int, int) { return markdown.CaretLineCol(doc, caret) }
 
 func inlineMarkers(kind spanKind) (string, string) {

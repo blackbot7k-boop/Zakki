@@ -7,6 +7,7 @@ GO_FILES := $(shell find . -name '*.go' -not -path './build/*' -not -path './.my
 # 这些包禁止依赖 MyGo，也禁止反向依赖 internal/app（UI 层）。
 ARCH_RULES := \
 	markdown: \
+	codehl: \
 	atomicfile: \
 	legacyconfig: \
 	notes:atomicfile \
@@ -45,7 +46,7 @@ arch-check:
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
 	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
-		case " markdown atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
+		case " markdown codehl atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 
 check: fmt-check vet test race arch-check

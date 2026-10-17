@@ -550,12 +550,15 @@ func (a *app) onEdited() { a.scheduleSave() }
 // sourceRanges 缓存源码模式高亮区间：视图每帧重建，避免长文档每帧全文重算。
 func (a *app) sourceRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRange {
 	dark := themeIsDark(t)
+	codeID := a.prefs.Appearance.CodeTheme
 	if a.rangesCacheDoc == text && a.rangesCacheQuery == query &&
-		a.rangesCacheDark == dark && a.rangesCacheAccent == accent {
+		a.rangesCacheDark == dark && a.rangesCacheAccent == accent && a.rangesCacheCode == codeID {
 		return a.rangesCache
 	}
-	rs := editorRanges(text, query, t, accent)
+	cp, _ := codePaletteFor(codeID, t)
+	rs := editorRanges(text, query, t, accent, cp)
 	a.rangesCacheDoc, a.rangesCacheQuery = text, query
-	a.rangesCacheDark, a.rangesCacheAccent, a.rangesCache = dark, accent, rs
+	a.rangesCacheDark, a.rangesCacheAccent, a.rangesCacheCode = dark, accent, codeID
+	a.rangesCache = rs
 	return rs
 }

@@ -142,6 +142,9 @@ func FenceClosingMarker(opening FenceMarker) string {
 
 func DocLineCount(doc string) int { return docLineCount(doc) }
 
+// FenceInfo 提取开栏行的 info 串（语言提示，如 "go"）。
+func FenceInfo(line string) string { return fenceInfo(line) }
+
 func CaretLineCol(doc string, caret int) (int, int) { return caretLineCol(doc, caret) }
 
 func InlineMarkers(kind SpanKind) (open, close string) { return inlineMarkers(spanKind(kind)) }

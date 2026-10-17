@@ -79,6 +79,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
   西文字体（跟随中文字体 / JetBrains Mono / 系统西文 / Noteworthy / Bradley Hand）、代码字体
   （JetBrains Mono / SF Mono / Menlo）、字号（10–40）、行高（1–3）；
   清空表示「跟随 Markdown 排版主题」。主题切换不重置显式覆盖。
+- **代码配色**：代码块语法着色方案（柔和 / 明快 / 跟随文本），实时预览代码卡与源码模式共用；
+  默认「柔和」，「跟随文本」保持单色文字（可显式选择并始终落盘）。逐行浅层词法着色，不保证跨行结构（块注释、多行字符串只有首行着色）。
 - **预览**：只读示例（中英文、标题、链接、代码、引用、任务、表格），
   用所选排版主题 + 当前颜色主题渲染，不套用户覆盖。
 
@@ -178,12 +180,13 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "appearance": {
     "appearanceMode": "system",
     "language": "",
     "colorTheme": "classic",
     "markdownTheme": "sonnet",
+    "codeTheme": "soft",
     "bodyFont": "",
     "latinFont": "",
     "monoFont": "",
@@ -201,6 +204,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
   两者组合成字体栈（西文在前、中文在后），英文字母与数字取西文，中文字形取中文。
   `latinFont` 空串 = 跟随中文字体，此时整篇用中文字体栈自带的西文字形。
 - `appearance.monoFont` 空串 = 跟随排版主题；`bodySize` / `lineHeight` 0 = 跟随。
+- `appearance.codeTheme` 空串 = 跟随文本（单色代码），其余取值 `soft`（柔和，默认）/ `vivid`（明快）；
+  该键始终落盘（无 omitempty），空串是显式选择而非未设置。
 - 版本 2 起分成中西文两个键。旧文件（版本 1 或无 version）读取时把 `latinFont` 留空，
   与升级前的渲染结果一致；升级后写回的文件为当前版本，旧版本程序会因版本超前而拒绝读取，
   并保留原文件不走覆盖。
@@ -211,6 +216,9 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 - 版本 4 起主题 ID 更名：`colorTheme` 旧字面量映射为 `classic`，`markdownTheme`
   旧字面量映射为 `note`（旧字面量见 `prefs` 包常量）；新增 `appearance.language`
   （空串 = 跟随系统，`en` / `zh-Hans`）。缺键行为与升级前一致。
+- 版本 5 起代码配色默认「柔和」：版本 4 及更早文件从未写过 `codeTheme` 键，
+  升级时统一补为 `soft`；带值文件原样保留。版本 5 文件该键始终写出，
+  缺键或空串都按显式「跟随文本」处理，不再补默认。
 - `keymap.overrides` 缺项用默认绑定；显式空串表示解除绑定；值为规范化 accelerator。
 - `advanced` 是兼容参数（自动保存防抖毫秒、主窗口初始宽高），不在设置页展示，
   仅在旧配置携带有效值时迁移保留。

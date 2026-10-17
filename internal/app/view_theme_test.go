@@ -203,7 +203,7 @@ func TestSketchPresetButton(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
-	tt := ui.NewTester(a.settingsView, 900, 620)
+	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
 	if err := tt.Click("套用手绘整套主题"); err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestSketchColorCardAppliesWholeSet(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
-	tt := ui.NewTester(a.settingsView, 900, 620)
+	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
 	if err := tt.Click("颜色主题 手绘"); err != nil {
 		t.Fatal(err)

@@ -95,3 +95,16 @@ func isFenceClosingLine(s string, opening fenceMarker) bool {
 func fenceClosingMarker(opening fenceMarker) string {
 	return strings.Repeat(string(opening.char), opening.size)
 }
+
+// fenceInfo 提取开栏行的 info 串（标记后的剩余部分，已去空白）。
+func fenceInfo(s string) string {
+	content, ok := fenceLineContent(s)
+	if !ok || len(content) < 3 || content[0] != '`' && content[0] != '~' {
+		return ""
+	}
+	size := 0
+	for size < len(content) && content[size] == content[0] {
+		size++
+	}
+	return strings.TrimSpace(content[size:])
+}

@@ -36,6 +36,7 @@ type settingsUIState struct {
 	latinFontSel      string
 	monoFontSel       string
 	markdownThemeSel  string
+	codeThemeSel      string
 	tabAnimSpeedSel   string
 	tabDotShapeSel    string
 
@@ -136,6 +137,7 @@ func (ui *settingsUIState) syncDraftBindings() {
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
 	ui.languageSel = languageDisplay(p.Appearance.Language)
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
+	ui.codeThemeSel = codeThemeDisplay(p.Appearance.CodeTheme)
 	ui.bodyFontSel = displayOf(
 		bodyFontKeys, bodyFontOptions, p.Appearance.BodyFont)
 	ui.latinFontSel = displayOf(
@@ -274,6 +276,9 @@ func (ui *settingsUIState) applyAppearanceDraft(p *preferences) {
 	}
 	if draft.MarkdownTheme != before.MarkdownTheme {
 		p.Appearance.MarkdownTheme = draft.MarkdownTheme
+	}
+	if draft.CodeTheme != before.CodeTheme {
+		p.Appearance.CodeTheme = draft.CodeTheme
 	}
 	if draft.Language != before.Language {
 		p.Appearance.Language = draft.Language

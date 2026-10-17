@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/codehl"
 	"zakki/locales"
 )
 
@@ -374,6 +375,8 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 		})
 	case bkCode:
 		codeCard(c, md, t, uint32(blk.start)).Fill().Children(func() {
+			cp, codeOn := codePaletteFor(a.prefs.Appearance.CodeTheme, t)
+			lang := codehl.Lang(blk.info)
 			lines := blk.lines
 			if len(lines) == 0 {
 				lines = []string{" "}
@@ -382,7 +385,12 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 				if l == "" {
 					l = " "
 				}
-				ui.Text(c, l).Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
+				if codeOn {
+					ui.RichText(c, codeLineSpans(l, codehl.Line(lang, l), cp, ui.Color{})...).
+						Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
+				} else {
+					ui.Text(c, l).Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
+				}
 			}
 		})
 	case bkList:

@@ -21,11 +21,13 @@
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
+| `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责本地持久化与镜像快照提交，`mirror_worker.go` 负责外部镜像/Git 的单 worker 调度。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。 |
-| `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`）。 |
+| `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
+| `internal/app/view_codehl.go` | 代码配色方案表 `codeSchemes`（柔和/明快 × 浅深）与解析 `codePaletteFor`；`codeLineSpans`（实时预览 RichText）与 `codeSourceRanges`（源码 TextRange）把 `internal/codehl` 词法片段套色。 |
 | `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
 | `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。 |
 | `internal/app/live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
@@ -163,11 +165,12 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **4**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **5**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`（空串 = 未配置）与 Git 自动化档位 `gitMode`
-（off/commit/commitPush，缺键按 off）；版本 4 把更名前的主题 ID 映射为 `classic` / `note`。
-旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 4。旧版本程序读到版本 4 会按
+（off/commit/commitPush，缺键按 off）；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
+版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）。
+旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 5。旧版本程序读到版本 5 会按
 「版本超前」拒绝并保留原文件。
 退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
 失败返回 `finishQuit`，阻止退出或更新重启。

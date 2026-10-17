@@ -23,6 +23,7 @@ type block struct {
 	level   int
 	text    string
 	lines   []string
+	info    string // 代码块开栏 info 串（语言提示）
 	checked bool
 	lineNo  int
 	n       int
@@ -39,6 +40,7 @@ func parseBlocks(src string) []block {
 			level:   lb.level,
 			text:    lb.text,
 			lines:   lb.lines,
+			info:    lb.info,
 			checked: lb.checked,
 			lineNo:  lb.start,
 			n:       lb.n,

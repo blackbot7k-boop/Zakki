@@ -17,7 +17,9 @@ import (
 // 版本 3 起 backup 记录外部备份目的地（mirrorDir）与 Git 自动化模式（gitMode）；
 // 旧版本程序读到版本 3 会按「版本超前」拒绝并保留原文件。
 // 版本 4 起主题 ID 更名：colorTheme "tot" → "classic"、markdownTheme "tot" → "note"。
-const CurrentVersion = 4
+// 版本 5 起代码块配色默认「柔和」：旧版本写入方从未写过 codeTheme 键，升级时统一补为
+// soft；版本 5 起该键始终落盘，空串是显式的「跟随文本」，不再参与补默认。
+const CurrentVersion = 5
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -41,6 +43,9 @@ type Appearance struct {
 	MarkdownTheme  string `json:"markdownTheme"`
 	// Language 是界面语言；空串 = 跟随系统（MyGo 按用户系统语言挑目录语言）。
 	Language string `json:"language,omitempty"`
+	// CodeTheme 是代码块着色方案；空串 = 跟随文本（不上色）。不能加 omitempty：
+	// 空串必须落盘，否则「显式跟随文本」与「从未设置」在下次解码时无法区分。
+	CodeTheme string `json:"codeTheme"`
 	// BodyFont 是中文字体；LatinFont 是西文字体，空串表示跟随中文字体。
 	BodyFont   string  `json:"bodyFont"`
 	LatinFont  string  `json:"latinFont"`
@@ -85,6 +90,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			AppearanceMode: "system",
 			ColorTheme:     "classic",
 			MarkdownTheme:  "sonnet",
+			CodeTheme:      "soft",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
 		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitMode: "off"},
@@ -117,6 +123,7 @@ func (p Preferences) Validate(v AccelValidator) error {
 		{"appearance.language", p.Appearance.Language, []string{"", "en", "zh-Hans"}},
 		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "sketch"}},
 		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact", "sketch"}},
+		{"appearance.codeTheme", p.Appearance.CodeTheme, []string{"", "soft", "vivid"}},
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
 		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley"}},
 		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
@@ -207,6 +214,7 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Appearance.MarkdownTheme == "" {
 		p.Appearance.MarkdownTheme = def.Appearance.MarkdownTheme
 	}
+	// codeTheme 不做空串补默认：空串是显式「跟随文本」，默认柔和由版本 5 迁移承担。
 	if p.Backup.IntervalMinutes == 0 {
 		p.Backup.IntervalMinutes = def.Backup.IntervalMinutes
 	}
@@ -235,7 +243,8 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // migrate 把旧版本偏好升级到 CurrentVersion。版本 1 只有一个正文字体键，
 // 西文当时取自同一套字体栈，因此升级后 latinFont 留空（跟随中文字体），
 // 渲染结果与升级前完全一致。版本 4 把更名前的主题 ID（"tot"）映射到新 ID
-// （"classic" / "note"），主题取值不变、只换名字。
+// （"classic" / "note"），主题取值不变、只换名字。版本 5 给从未设置过代码
+// 配色的旧文件补默认方案 soft；带值文件原样保留。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -247,6 +256,11 @@ func migrate(p Preferences) Preferences {
 		if p.Appearance.MarkdownTheme == legacyThemeTot {
 			p.Appearance.MarkdownTheme = "note"
 		}
+	}
+	if p.Version < 5 && p.Appearance.CodeTheme == "" {
+		// 版本 4 及更早的写入方从未写过 codeTheme 键，空值即「从未设置」，
+		// 补默认方案；带值的旧文件（含显式 soft/vivid）原样保留。
+		p.Appearance.CodeTheme = "soft"
 	}
 	p.Version = CurrentVersion
 	return p

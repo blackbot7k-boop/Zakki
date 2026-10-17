@@ -6,11 +6,18 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+	"zakki/internal/codehl"
 )
 
 // editorRanges 为编辑器生成互不重叠的着色区间：搜索命中优先，
 // 其次是行级结构（标题/引用/代码/列表/待办），再次是行内标记。
-func editorRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRange {
+// 可选 cp 非零时，围栏代码行按 token 上色，其余代码部分沿用 muted。
+func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePalette) []ui.TextRange {
+	codeOn := len(cp) > 0 && cp[0] != (codePalette{})
+	var palette codePalette
+	if codeOn {
+		palette = cp[0]
+	}
 	var accepted []ui.TextRange
 	total := utf8.RuneCountInString(text)
 
@@ -33,6 +40,7 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRan
 
 	runeOff := 0
 	inCode := false
+	codeLang := ""
 	for _, line := range strings.Split(text, "\n") {
 		lineRunes := utf8.RuneCountInString(line)
 		trimmed := strings.TrimSpace(line)
@@ -40,10 +48,22 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRan
 		switch {
 		case strings.HasPrefix(trimmed, "```"):
 			inCode = !inCode
+			codeLang = ""
+			if inCode {
+				codeLang = codehl.Lang(fenceInfo(trimmed))
+			}
 			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
 			styledLine = true
 		case inCode:
-			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
+			if codeOn {
+				for _, tr := range codeSourceRanges(line, codehl.Line(codeLang, line), palette, t.TextMuted) {
+					tr.Start += runeOff
+					tr.End += runeOff
+					add(tr)
+				}
+			} else {
+				add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
+			}
 			styledLine = true
 		case isHeading(trimmed):
 			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: accent, Weight: 700})

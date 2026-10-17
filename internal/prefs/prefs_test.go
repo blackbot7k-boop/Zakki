@@ -102,7 +102,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 4 {
+	if got.Version != CurrentVersion || CurrentVersion != 5 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -148,9 +148,9 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if v3.Backup.MirrorDir != "/tmp/bak" || v3.Backup.GitMode != "commitPush" {
 		t.Fatalf("版本 3 应读回外部备份配置: %+v", v3.Backup)
 	}
-	// 保存的是版本 3。
-	if d := Default(5); d.Version != 4 || d.Appearance.LatinFont != "" {
-		t.Fatalf("默认偏好应为版本 3 且西文跟随中文: %+v", d)
+	// 保存的是版本 5。
+	if d := Default(5); d.Version != 5 || d.Appearance.LatinFont != "" {
+		t.Fatalf("默认偏好应为版本 5 且西文跟随中文: %+v", d)
 	}
 }
 
@@ -178,5 +178,46 @@ func TestPreferencesMigrateThemeRenaming(t *testing.T) {
 	}
 	if fresh.Appearance.ColorTheme != "classic" || fresh.Appearance.MarkdownTheme != "sonnet" {
 		t.Fatalf("新文件默认值: %+v", fresh.Appearance)
+	}
+}
+
+// TestPreferencesMigrateCodeThemeSoft 版本 5 起代码块配色默认「柔和」：版本 4 及
+// 更早的写入方从未写过 codeTheme 键，缺值文件补 soft；带值文件原样保留。版本 5
+// 起该键始终落盘，缺键与空串都按显式「跟随文本」处理，不再补默认。
+func TestPreferencesMigrateCodeThemeSoft(t *testing.T) {
+	// 0.1.0/0.2.0 升级路径：v4 文件无 codeTheme 键 → 补默认 soft。
+	v4, err := Decode([]byte(`{"version":4,"appearance":{"colorTheme":"paper"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v4.Appearance.CodeTheme != "soft" {
+		t.Fatalf("v4 缺键应补默认 soft: %+v", v4.Appearance)
+	}
+	// 旧开发文件带显式值：迁移不得覆盖。
+	v4set, err := Decode([]byte(`{"version":4,"appearance":{"codeTheme":"vivid"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v4set.Appearance.CodeTheme != "vivid" {
+		t.Fatalf("v4 带值应原样保留: %+v", v4set.Appearance)
+	}
+	// v5 文件缺键：不补默认，按「跟随文本」处理。
+	v5missing, err := Decode([]byte(`{"version":5}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v5missing.Appearance.CodeTheme != "" {
+		t.Fatalf("v5 缺键应保持跟随文本: %+v", v5missing.Appearance)
+	}
+	// v5 显式空串 = 跟随文本，解码原样读回。
+	v5follow, err := Decode([]byte(`{"version":5,"appearance":{"codeTheme":""}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v5follow.Appearance.CodeTheme != "" {
+		t.Fatalf("显式跟随文本应原样保留: %+v", v5follow.Appearance)
+	}
+	if got := Default(5).Appearance.CodeTheme; got != "soft" {
+		t.Fatalf("全新安装默认应为 soft: %q", got)
 	}
 }

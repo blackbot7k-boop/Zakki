@@ -19,6 +19,7 @@ type liveBlock struct {
 	checked bool     // 待办勾选
 	text    string   // 渲染用文本（去块级标记；段落 = 各行 join " "）
 	lines   []string // 代码块内容行（不含围栏）
+	info    string   // 代码块开栏 info 串（语言提示）
 	spans   []mSpan  // text 的行内标记（渲染用，切分时预计算一次）
 	table   markdownTable
 }
@@ -77,7 +78,7 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			if !closed {
 				end = stop - 1
 			}
-			blk := liveBlock{kind: bkCode, start: i, end: end, raw: strings.Join(lines[i:end+1], "\n")}
+			blk := liveBlock{kind: bkCode, start: i, end: end, raw: strings.Join(lines[i:end+1], "\n"), info: fenceInfo(line)}
 			if closed {
 				blk.lines = lines[i+1 : j]
 			} else if i+1 < stop {
