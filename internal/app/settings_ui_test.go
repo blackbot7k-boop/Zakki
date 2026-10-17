@@ -69,11 +69,19 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	for _, want := range []string{
 		"明暗模式", "颜色主题", "Markdown 排版主题", "排版微调",
 		"中文字体", "西文字体", "代码字体",
-		"预览", "排版主题", "恢复本页默认值",
+		"排版主题", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观页缺少 %q: %v", want, tt.Texts())
 		}
+	}
+	// 页面级常驻预览已移除：不应再出现「预览」栏标题。
+	if tt.HasText("预览") {
+		t.Fatalf("外观页不应再有页面级预览栏: %v", tt.Texts())
+	}
+	// 排版选型的即时效果由卡内迷你样张呈现（样张标题复用 Preview 文案）。
+	if !tt.HasText(locales.PreviewHeading()) {
+		t.Fatalf("排版主题卡应含迷你样张: %v", tt.Texts())
 	}
 
 	a.settingsPage = pageGeneral
@@ -99,13 +107,16 @@ func TestSettingsWideLayoutFallback(t *testing.T) {
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 
-	// 窄视口：预览与控制项在同一滚动列（单栏退化），内容完整。
+	// 窄视口：单栏滚动列，内容完整且无页面级预览。
 	tt := ui.NewTester(a.settingsView, 800, 620)
 	tt.Frame()
-	for _, want := range []string{"预览", "颜色主题", "Markdown 排版主题", "排版微调"} {
+	for _, want := range []string{"颜色主题", "Markdown 排版主题", "排版微调"} {
 		if !tt.HasText(want) {
 			t.Fatalf("窄视口单栏缺少 %q: %v", want, tt.Texts())
 		}
+	}
+	if tt.HasText("预览") {
+		t.Fatalf("窄视口不应出现页面级预览栏: %v", tt.Texts())
 	}
 	if err := tt.Click("颜色主题 石墨"); err != nil {
 		t.Fatal(err)

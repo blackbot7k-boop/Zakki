@@ -247,7 +247,7 @@ func (a *app) settingsView(c *ui.Context) {
 		ui.Column(c).Fill().Grow(1).Padding(28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
 			case pageAppearance:
-				a.appearancePage(c, &t, dark)
+				a.appearancePage(c, dark)
 			case pageTabs:
 				a.tabsPage(c, &t, dark)
 			case pageBackup:

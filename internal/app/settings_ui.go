@@ -112,39 +112,12 @@ func (a *app) migrationStatus(c *ui.Context) {
 
 // ---- 外观 ----
 
-// appearancePage 外观页：宽窗口下左控制、右常驻实时预览；窗口不足 860
-// 宽时退化为预览在上的单栏。预览套用草稿的排版微调，改动即时可见。
-func (a *app) appearancePage(c *ui.Context, t *ui.Theme, dark bool) {
-	previewPane := func() {
-		ui.Column(c).FillWidth().Gap(8).Children(func() {
-			ui.Text(c, locales.PreviewLabel()).Bold().TextColor(tMuted(c)).FontSize(12)
-			a.themePreview(c, dark)
-		})
-	}
-	if settingsWideLayout(c) {
-		ui.Row(c).Fill().Grow(1).Gap(16).Children(func() {
-			ui.Scroll(c.Key("appearance-controls")).Grow(1).FillHeight().Children(func() {
-				a.appearanceControls(c, dark)
-			})
-			ui.Column(c).Width(380).Shrink(0).FillHeight().Children(func() {
-				ui.Scroll(c.Key("appearance-preview")).FillWidth().Grow(1).Children(previewPane)
-			})
-		})
-		return
-	}
-	ui.Scroll(c.Key("appearance-stacked")).Fill().Grow(1).Children(func() {
-		ui.Column(c).FillWidth().Gap(16).Children(func() {
-			previewPane()
-			a.appearanceControls(c, dark)
-		})
+// appearancePage 外观页：单列控制项卡片。排版选型的即时效果由排版主题卡
+// 内嵌的迷你样张呈现，不再保留页面级常驻预览栏。
+func (a *app) appearancePage(c *ui.Context, dark bool) {
+	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).Children(func() {
+		a.appearanceControls(c, dark)
 	})
-}
-
-// settingsWideLayout 外观页是否采用左右分栏：视口宽度 ≥ 860 时预览常驻右侧，
-// 否则退化为预览在上的单栏。
-func settingsWideLayout(c *ui.Context) bool {
-	w, _ := c.Size()
-	return w >= 860
 }
 
 // appearanceControls 外观页的控制项卡片列。
@@ -166,14 +139,14 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.markdownThemeSelect(c)
 			})
-			a.cardResetFooter(c, "code", pageAppearance)
+			a.cardResetFooter(c, "markdown", pageAppearance)
 		})
 
 		settingsCard(c, locales.CardCodeTheme(), func() {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.codeThemeSelect(c)
 			})
-			a.cardResetFooter(c, "typography", pageAppearance)
+			a.cardResetFooter(c, "code", pageAppearance)
 		})
 
 		settingsCard(c, locales.CardPresetSketch(), func() {
@@ -599,59 +572,6 @@ func (a *app) previewStyle(ap appearancePrefs, dark bool) resolvedStyle {
 	style := a.resolveStyle(-1, dark, true)
 	a.prefs = saved
 	return style
-}
-
-// themePreview 只读示例预览：覆盖中英文、标题、链接、代码、引用、任务及表格。
-// 套用草稿的颜色主题、排版主题与排版微调（字号/行高/字体覆盖即时可见）。
-func (a *app) themePreview(c *ui.Context, dark bool) {
-	style := a.previewStyle(a.settingsUI.draft.Appearance, dark)
-
-	savedTheme := c.Theme()
-	defer c.SetTheme(savedTheme)
-	theme := style.apply(*savedTheme)
-	c.SetTheme(&theme)
-	previewChecked := true
-	ui.Column(c).FillWidth().Padding(14, 16).Gap(8).
-		Radius(8).BorderWidth(1).BorderColor(style.border).
-		Background(style.background).Font(style.bodyFont).FontSize(style.bodySize * 0.8).
-		LineHeight(style.lineHeight).Children(func() {
-		ui.Text(c, locales.PreviewHeading()+" Writing").Font(style.headingFont).Bold().FontSize(style.headingSizes[1]).TextColor(style.text)
-		ui.RichText(c).Children(func() {
-			ui.Text(c, locales.PreviewBody())
-			ui.Text(c, locales.PreviewBold()).Bold()
-			ui.Text(c, locales.PreviewAnd())
-			ui.Text(c, locales.PreviewItalic()).Italic()
-			ui.Text(c, locales.PreviewComma())
-			ui.Text(c, "code").Font(style.monoFont).FontSize(style.codeSize).TextColor(style.textMuted)
-			ui.Text(c, locales.PreviewAnd())
-			ui.Text(c, locales.PreviewLink()).TextColor(style.accent).Underline()
-			ui.Text(c, locales.PreviewMixTail())
-		})
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Checkbox(c, &previewChecked, "")
-			ui.Text(c, locales.PreviewTask()).TextColor(style.text)
-		})
-		ui.Row(c).Gap(6).Children(func() {
-			quoteBar(c, style, 7)
-			ui.Text(c, locales.PreviewQuote()).TextColor(style.textMuted)
-		})
-		ui.Row(c).Gap(0).Children(func() {
-			ui.Box(c).Grow(1).Padding(style.tablePadY, style.tablePadX).Background(style.surface).BorderWidth(0, 0, 1, 1).BorderColor(style.border).Children(func() {
-				ui.Text(c, locales.PreviewTableHeader()).Bold().FontSize(style.codeSize)
-			})
-			ui.Box(c).Grow(1).Padding(style.tablePadY, style.tablePadX).Background(style.surface).BorderWidth(0, 0, 1, 0).BorderColor(style.border).Children(func() {
-				ui.Text(c, "Header").Bold().FontSize(style.codeSize)
-			})
-		})
-		ui.Row(c).Gap(0).Children(func() {
-			ui.Box(c).Grow(1).Padding(style.tablePadY, style.tablePadX).BorderWidth(0, 0, 1, 1).BorderColor(style.border).Children(func() {
-				ui.Text(c, locales.PreviewTableCell()).FontSize(style.codeSize)
-			})
-			ui.Box(c).Grow(1).Padding(style.tablePadY, style.tablePadX).BorderWidth(0, 0, 1, 0).BorderColor(style.border).Children(func() {
-				ui.Text(c, "Cell").FontSize(style.codeSize)
-			})
-		})
-	})
 }
 
 // ---- 备份与数据 ----
