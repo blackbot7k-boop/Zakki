@@ -218,6 +218,7 @@
   "prefsMigrationLine": "偏好迁移：{detail}",
   "previewLabel": "预览",
   "cardCodeTheme": "代码配色",
+  "colorThemeLabel": "颜色主题",
   "cardTheme": "主题",
   "cardTypography": "排版",
   "codeThemeLabel": "语法配色",

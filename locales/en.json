@@ -218,6 +218,7 @@
   "prefsMigrationLine": "Preferences migration: {detail}",
   "previewLabel": "Preview",
   "cardCodeTheme": "Code colors",
+  "colorThemeLabel": "Color theme",
   "cardTheme": "Theme",
   "cardTypography": "Typography",
   "codeThemeLabel": "Syntax colors",

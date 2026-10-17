@@ -36,6 +36,7 @@ type settingsUIState struct {
 	latinFontSel      string
 	monoFontSel       string
 	markdownThemeSel  string
+	colorThemeSel     string
 	codeThemeSel      string
 	tabAnimSpeedSel   string
 	tabDotShapeSel    string
@@ -137,6 +138,7 @@ func (ui *settingsUIState) syncDraftBindings() {
 	ui.appearanceModeSel = appearanceModeDisplay(p.Appearance.AppearanceMode)
 	ui.languageSel = languageDisplay(p.Appearance.Language)
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
+	ui.colorThemeSel = colorThemeDisplayName(p.Appearance.ColorTheme)
 	ui.codeThemeSel = codeThemeDisplay(p.Appearance.CodeTheme)
 	ui.bodyFontSel = displayOf(
 		bodyFontKeys, bodyFontOptions, p.Appearance.BodyFont)
@@ -247,7 +249,7 @@ func (a *app) settingsView(c *ui.Context) {
 		ui.Column(c).Fill().Grow(1).Padding(28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
 			case pageAppearance:
-				a.appearancePage(c, dark)
+				a.appearancePage(c)
 			case pageTabs:
 				a.tabsPage(c, &t, dark)
 			case pageBackup:

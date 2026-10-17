@@ -112,31 +112,29 @@ func (a *app) migrationStatus(c *ui.Context) {
 
 // ---- 外观 ----
 
-// appearancePage 外观页：单列控制项卡片。排版选型的即时效果由排版主题卡
-// 内嵌的迷你样张呈现，不再保留页面级常驻预览栏。
-func (a *app) appearancePage(c *ui.Context, dark bool) {
+// appearancePage 外观页：单列控制项卡片，全部用下拉选择。
+func (a *app) appearancePage(c *ui.Context) {
 	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).Children(func() {
-		a.appearanceControls(c, dark)
+		a.appearanceControls(c)
 	})
 }
 
-// appearanceControls 外观页的控制项卡片列：主题 / 排版 / 代码配色三组。
-func (a *app) appearanceControls(c *ui.Context, dark bool) {
+// appearanceControls 外观页的控制项卡片列：主题 / 排版 / 代码配色三组，
+// 全部用下拉选择，不放展示样张。
+func (a *app) appearanceControls(c *ui.Context) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		settingsCard(c, locales.CardTheme(), func() {
 			ui.Column(c).FillWidth().Padding(6, 16, 12, 16).Children(func() {
 				a.appearanceModeSelect(c)
 			})
 			cardDivider(c)
-			ui.Column(c).FillWidth().Padding(8, 16, 12, 16).Children(func() {
-				a.colorThemeCards(c, dark)
-			})
+			a.colorThemeSelect(c)
 			cardDivider(c)
 			a.presetSketchRow(c)
 		})
 
 		settingsCard(c, locales.CardTypography(), func() {
-			ui.Column(c).FillWidth().Padding(6, 16, 0, 16).Children(func() {
+			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
 				a.markdownThemeSelect(c)
 			})
 			cardDivider(c)
@@ -146,7 +144,7 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 		})
 
 		settingsCard(c, locales.CardCodeTheme(), func() {
-			ui.Column(c).FillWidth().Padding(6, 16, 0, 16).Children(func() {
+			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
 				a.codeThemeSelect(c)
 			})
 			cardDivider(c)
@@ -184,6 +182,31 @@ func (a *app) appearanceModeSelect(c *ui.Context) {
 			a.pushAppearance()
 		}
 	})
+}
+
+// colorThemeSelect 颜色主题下拉。
+func (a *app) colorThemeSelect(c *ui.Context) {
+	options := colorThemeNames()
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
+		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Changed() {
+			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
+			a.pushAppearance()
+		}
+	})
+}
+
+// colorThemeIDOfDisplay 显示名 → 主题 ID；未知回退经典。
+func colorThemeIDOfDisplay(display string) string {
+	if display == colorThemeDisplayName(colorThemeClassic) {
+		return colorThemeClassic
+	}
+	for _, def := range colorThemes {
+		if colorThemeDisplayName(def.id) == display {
+			return def.id
+		}
+	}
+	return colorThemeClassic
 }
 
 func appearanceModeKey(display string) string {
@@ -282,38 +305,15 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	// 左侧下拉与说明，右侧迷你样张：选排版时效果就在手边，
-	// 不依赖页面级预览栏的位置与滚动。
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(14).Padding(10, 16).Children(func() {
-		ui.Column(c).Grow(1).Gap(2).Children(func() {
-			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-				ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
-				if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
-					a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
-					a.pushAppearance()
-				}
-			})
-			ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
-				FontSize(11).TextColor(tMuted(c))
-		})
-		style := a.previewStyle(a.settingsUI.draft.Appearance, themeIsDark(c.Theme()))
-		layoutMiniPreview(c, style)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
+		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
+			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
+			a.pushAppearance()
+		}
 	})
-}
-
-// layoutMiniPreview 排版主题的迷你样张：标题 + 正文 + 代码三行微缩，
-// 套用草稿排版（字体/字号/行高/等宽），随下拉即时变化。
-func layoutMiniPreview(c *ui.Context, style resolvedStyle) {
-	ui.Column(c).Width(190).Shrink(0).Gap(4).Padding(10, 12).Radius(8).
-		Background(style.background).BorderWidth(1).BorderColor(style.border).
-		Font(style.bodyFont).FontSize(style.bodySize * 0.72).LineHeight(style.lineHeight).
-		Children(func() {
-			ui.Text(c, locales.PreviewHeading()).Font(style.headingFont).Bold().
-				FontSize(style.headingSizes[1] * 0.72).TextColor(style.text)
-			ui.Text(c, locales.PreviewBody()).TextColor(style.text)
-			ui.Text(c, "const a = 1;").Font(style.monoFont).FontSize(style.codeSize * 0.8).
-				TextColor(style.textMuted)
-		})
+	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
+		FontSize(11).TextColor(tMuted(c))
 }
 
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
@@ -560,15 +560,6 @@ func keyOfDisplay(keys, options []string, display string) string {
 		}
 	}
 	return keys[0]
-}
-
-// previewStyle 用给定的外观偏好（通常是草稿，含排版微调覆盖）解析预览样式。
-func (a *app) previewStyle(ap appearancePrefs, dark bool) resolvedStyle {
-	saved := a.prefs
-	a.prefs.Appearance = ap
-	style := a.resolveStyle(-1, dark, true)
-	a.prefs = saved
-	return style
 }
 
 // ---- 备份与数据 ----

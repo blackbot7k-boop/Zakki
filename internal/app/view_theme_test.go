@@ -249,18 +249,26 @@ func TestJitterDeterministic(t *testing.T) {
 	}
 }
 
-func TestSketchColorCardAppliesWholeSet(t *testing.T) {
+// TestSketchColorDropdownAppliesColorOnly 颜色主题下拉选手绘：只改颜色主题，
+// 不联动排版与字体（整套切换走「手绘手账」预设行）。
+func TestSketchColorDropdownAppliesColorOnly(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
-	if err := tt.Click("颜色主题 手绘"); err != nil {
+	if err := tt.Click("经典"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("手绘"); err != nil {
 		t.Fatal(err)
 	}
 	ap := a.prefs.Appearance
-	if ap.ColorTheme != "sketch" || ap.MarkdownTheme != "sketch" || ap.BodyFont != "hand" {
-		t.Fatalf("点手绘颜色卡片应套用整套手绘: %+v", ap)
+	if ap.ColorTheme != "sketch" {
+		t.Fatalf("下拉选手绘应生效: %+v", ap)
+	}
+	if ap.MarkdownTheme != "sonnet" || ap.BodyFont != "" {
+		t.Fatalf("颜色主题不应联动排版与字体: %+v", ap)
 	}
 }
 

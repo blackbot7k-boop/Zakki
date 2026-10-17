@@ -12,43 +12,38 @@ import (
 	"zakki/locales"
 )
 
-func TestPreviewStyleAppliesOverrides(t *testing.T) {
+func TestResolveStyleAppliesOverrides(t *testing.T) {
 	a := newTestApp(t)
-	ap := a.prefs.Appearance
-	ap.MarkdownTheme = "book"
-	ap.ColorTheme = "paper"
-	ap.BodyFont = "songti"
-	ap.MonoFont = "menlo"
-	ap.BodySize = 21
-	ap.LineHeight = 2.0
+	a.prefs.Appearance.MarkdownTheme = "book"
+	a.prefs.Appearance.ColorTheme = "paper"
+	a.prefs.Appearance.BodyFont = "songti"
+	a.prefs.Appearance.MonoFont = "menlo"
+	a.prefs.Appearance.BodySize = 21
+	a.prefs.Appearance.LineHeight = 2.0
 
-	s := a.previewStyle(ap, false)
+	s := a.resolveStyle(-1, false, true)
 	if s.bodySize != 21 || s.lineHeight != 2.0 {
-		t.Fatalf("排版微调应作用于预览: size=%v lh=%v", s.bodySize, s.lineHeight)
+		t.Fatalf("排版微调应作用于样式: size=%v lh=%v", s.bodySize, s.lineHeight)
 	}
 	if s.bodyFont != bodyFontStack("songti", "") || s.monoFont != monoFontStack("menlo") {
-		t.Fatalf("字体覆盖应作用于预览: %q %q", s.bodyFont, s.monoFont)
+		t.Fatalf("字体覆盖应作用于样式: %q %q", s.bodyFont, s.monoFont)
 	}
 	if s.headingSizes[1] != roundHalf(21*markdownLayoutByID("book").headingScale[1]) {
 		t.Fatalf("标题字号应随字号覆盖缩放: %+v", s.headingSizes)
 	}
 	if s.background != colorThemes[0].light.background { // paper
-		t.Fatalf("颜色主题应作用于预览: %v", s.background)
-	}
-	if a.prefs.Appearance.BodySize == 21 || a.prefs.Appearance.ColorTheme == "paper" {
-		t.Fatal("previewStyle 不应修改已保存偏好")
+		t.Fatalf("颜色主题应作用于样式: %v", s.background)
 	}
 }
 
-func TestPreviewStyleFollowsThemeWithoutOverrides(t *testing.T) {
+func TestResolveStyleFollowsLayoutWithoutOverrides(t *testing.T) {
 	a := newTestApp(t)
-	ap := a.prefs.Appearance
-	ap.MarkdownTheme = "book"
-	ap.BodySize, ap.LineHeight = 0, 0
-	ap.BodyFont, ap.MonoFont = "", ""
+	a.prefs.Appearance.MarkdownTheme = "book"
+	a.prefs.Appearance.BodySize, a.prefs.Appearance.LineHeight = 0, 0
+	a.prefs.Appearance.BodyFont, a.prefs.Appearance.MonoFont = "", ""
 
 	layout := markdownLayoutByID("book")
-	s := a.previewStyle(ap, false)
+	s := a.resolveStyle(-1, false, true)
 	if s.bodySize != layout.bodySize || s.lineHeight != layout.lineHeight {
 		t.Fatalf("空覆盖应跟随排版主题: %+v", s)
 	}
@@ -78,10 +73,6 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	// 页面级常驻预览已移除：不应再出现「预览」栏标题。
 	if tt.HasText("预览") {
 		t.Fatalf("外观页不应再有页面级预览栏: %v", tt.Texts())
-	}
-	// 排版选型的即时效果由卡内迷你样张呈现（样张标题复用 Preview 文案）。
-	if !tt.HasText(locales.PreviewHeading()) {
-		t.Fatalf("排版主题卡应含迷你样张: %v", tt.Texts())
 	}
 
 	a.settingsPage = pageGeneral
@@ -118,11 +109,14 @@ func TestSettingsWideLayoutFallback(t *testing.T) {
 	if tt.HasText("预览") {
 		t.Fatalf("窄视口不应出现页面级预览栏: %v", tt.Texts())
 	}
-	if err := tt.Click("颜色主题 石墨"); err != nil {
+	if err := tt.Click("经典"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("石墨"); err != nil {
 		t.Fatal(err)
 	}
 	if a.prefs.Appearance.ColorTheme != "graphite" {
-		t.Fatalf("窄视口下主题卡片应可点击生效: %+v", a.prefs.Appearance)
+		t.Fatalf("窄视口下主题下拉应可点击生效: %+v", a.prefs.Appearance)
 	}
 }
 

@@ -2262,6 +2262,16 @@ func (msgs Messages) CardCodeTheme() string {
 	return Catalog.Format(msgs.locale, "cardCodeTheme", nil)
 }
 
+// ColorThemeLabel says "Color theme"
+// in the language the app shows.
+func ColorThemeLabel() string { return In(i18n.Locale()).ColorThemeLabel() }
+
+// ColorThemeLabel says "Color theme"
+// in the language of msgs.
+func (msgs Messages) ColorThemeLabel() string {
+	return Catalog.Format(msgs.locale, "colorThemeLabel", nil)
+}
+
 // CardTheme says "Theme"
 // in the language the app shows.
 func CardTheme() string { return In(i18n.Locale()).CardTheme() }

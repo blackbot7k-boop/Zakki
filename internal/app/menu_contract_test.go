@@ -353,9 +353,9 @@ func TestSettingsViewRendersPages(t *testing.T) {
 			if !tt.HasText("颜色主题") || !tt.HasText("代码配色") {
 				t.Fatalf("外观页缺少主题选择: %v", tt.Texts())
 			}
-			if !tt.HasText("纸白") || !tt.HasText("暖砂") || !tt.HasText("雾青") || !tt.HasText("石墨") ||
-				!tt.HasText("Claude") || !tt.HasText("Qoder") {
-				t.Fatalf("外观页缺少颜色主题卡片: %v", tt.Texts())
+			// 颜色主题已收进下拉，当前选中名可见即可。
+			if !tt.HasText("经典") {
+				t.Fatalf("外观页缺少颜色主题下拉: %v", tt.Texts())
 			}
 			// 排版主题已收进下拉，当前选中名可见即可。
 			if !tt.HasText("Sonnet（Typora）") {
@@ -380,11 +380,15 @@ func TestSettingsAppearanceInstantApply(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 900)
 	tt.Frame()
-	if err := tt.Click("颜色主题 石墨"); err != nil {
+	// 颜色主题下拉：点开当前值，再点选项。
+	if err := tt.Click("经典"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("石墨"); err != nil {
 		t.Fatal(err)
 	}
 	if a.prefs.Appearance.ColorTheme != "graphite" {
-		t.Fatalf("点击颜色主题卡片应即时生效: %+v", a.prefs.Appearance)
+		t.Fatalf("下拉选择颜色主题应即时生效: %+v", a.prefs.Appearance)
 	}
 	// 排版主题下拉：点开当前值，再点选项。
 	if err := tt.Click("Sonnet（Typora）"); err != nil {
