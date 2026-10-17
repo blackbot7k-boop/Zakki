@@ -28,7 +28,7 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 					a.pushWindow()
 				}
 			})
-			a.cardResetFooter(c, pageGeneral)
+			a.cardResetFooter(c, "language", pageGeneral)
 		})
 	})
 }
@@ -166,14 +166,14 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.markdownThemeSelect(c)
 			})
-			a.cardResetFooter(c, pageAppearance)
+			a.cardResetFooter(c, "code", pageAppearance)
 		})
 
 		settingsCard(c, locales.CardCodeTheme(), func() {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.codeThemeSelect(c)
 			})
-			a.cardResetFooter(c, pageAppearance)
+			a.cardResetFooter(c, "typography", pageAppearance)
 		})
 
 		settingsCard(c, locales.CardPresetSketch(), func() {
@@ -201,7 +201,7 @@ func (a *app) appearanceControls(c *ui.Context, dark bool) {
 			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
 				a.typographyOverrides(c)
 			})
-			a.cardResetFooter(c, pageAppearance)
+			a.cardResetFooter(c, "markdown", pageAppearance)
 		})
 	})
 }
@@ -320,7 +320,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 		}
 	})
 	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
-		FontSize(11).TextColor(tMuted(c))
+		FontSize(11).TextColor(tMuted(c)).Padding(0, 16, 2, 16)
 }
 
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
@@ -717,7 +717,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				ui.Text(c, locales.BackupDirLine(a.notes.BackupDir)).FontSize(11).Font(mono).TextColor(tMuted(c))
 				ui.Text(c, locales.DataFileLine(a.notes.DataFile)).FontSize(11).Font(mono).TextColor(tMuted(c))
 			})
-			a.cardResetFooter(c, pageBackup)
+			a.cardResetFooter(c, "backup", pageBackup)
 		})
 
 		// 本页操作错误（备份失败、目录不可用等）。
@@ -775,12 +775,21 @@ func cardDivider(c *ui.Context) {
 }
 
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
-func (a *app) cardResetFooter(c *ui.Context, page string) {
+func (a *app) cardResetFooter(c *ui.Context, key, page string) {
 	cardDivider(c)
-	ui.Row(c).FillWidth().Padding(10, 16).Children(func() {
+	ui.Row(c).FillWidth().Padding(8, 16).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Grow(1)
-		if ui.Button(c, locales.ResetPageButton()).Clicked() {
-			a.confirmResetPage(page)
+		// 弱化为次要小按钮：恢复是破坏性较低的高频入口，但不应与大控件争抢视觉。
+		btn := ui.ButtonBase(c.Key("reset-"+key)).Padding(4, 10).Radius(7).
+			Cursor(ui.CursorPointer).FocusRing(false)
+		if btn.Hovered() {
+			btn.Background(c.Theme().SurfaceHover)
 		}
+		btn.Children(func() {
+			ui.Text(c, locales.ResetPageButton()).FontSize(12).TextColor(tMuted(c))
+		})
+		btn.OnClick(func() {
+			a.confirmResetPage(page)
+		})
 	})
 }
