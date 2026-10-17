@@ -88,16 +88,11 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
 	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
-		ui.Column(c).FillWidth().Gap(16).Children(func() {
-			settingsCard(c, locales.CardTabs(), func() {
-				ui.Column(c).FillWidth().Padding(12, 16, 14, 16).Gap(12).Children(func() {
-					a.tabListSection(c, dark)
-				})
+		settingsCard(c, "", func() {
+			ui.Column(c).FillWidth().PaddingY(6).Gap(12).Children(func() {
+				a.tabListSection(c, dark)
 			})
-
-			settingsCard(c, locales.CardTabBar(), func() {
-				a.tabAppearanceSection(c, dark)
-			})
+			a.tabAppearanceSection(c, dark)
 		})
 	})
 }
@@ -292,7 +287,7 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 			}
 		})
 		ui.Text(c, locales.TabsPageFootnote()).
-			FontSize(11).TextColor(tMuted(c)).Padding(10, 16, 12, 16)
+			FontSize(11).TextColor(tMuted(c)).PaddingY(10)
 	})
 }
 

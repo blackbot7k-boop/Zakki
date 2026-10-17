@@ -376,7 +376,7 @@ func (a *app) resetPageDefaults(page string) {
 
 // settingsRow 一行：左侧标签 + 右侧控件。
 func settingsRow(c *ui.Context, label, detail string, control func()) ui.Element {
-	return ui.Column(c).FillWidth().Gap(3).Padding(12, 16).Children(func() {
+	return ui.Column(c).FillWidth().Gap(3).PaddingY(12).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Text(c, label).Grow(1)
 			control()

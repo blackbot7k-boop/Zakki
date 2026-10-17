@@ -64,7 +64,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	for _, want := range []string{
 		"界面外观", "颜色主题", "手绘手账",
 		"排版主题", "中文字体", "西文字体", "代码字体",
-		"主题", "排版", "代码配色", "恢复本页默认值",
+		"主题", "排版", "语法配色", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观页缺少 %q: %v", want, tt.Texts())
@@ -87,7 +87,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt = ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
-	if !tt.HasText("自动备份") || !tt.HasText("手动操作") || !tt.HasText("备份目录：") {
+	if !tt.HasText("自动备份最小间隔") || !tt.HasText("立即备份") || !tt.HasText("备份目录：") {
 		t.Fatalf("备份页缺少卡片或路径: %v", tt.Texts())
 	}
 }

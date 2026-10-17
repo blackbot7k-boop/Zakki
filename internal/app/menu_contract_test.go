@@ -350,7 +350,7 @@ func TestSettingsViewRendersPages(t *testing.T) {
 				t.Fatalf("常规页不应再有置顶/Esc 开关: %v", tt.Texts())
 			}
 		case pageAppearance:
-			if !tt.HasText("颜色主题") || !tt.HasText("代码配色") {
+			if !tt.HasText("颜色主题") || !tt.HasText("语法配色") {
 				t.Fatalf("外观页缺少主题选择: %v", tt.Texts())
 			}
 			// 颜色主题已收进下拉，当前选中名可见即可。

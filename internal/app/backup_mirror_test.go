@@ -279,7 +279,7 @@ func TestSettingsBackupPageShowsMirror(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 760, 600)
 	tt.Frame()
-	for _, want := range []string{"外部备份", mirror, "打开文件夹", "Git 自动化", "Git 仓库"} {
+	for _, want := range []string{mirror, "打开文件夹", "更换…", "Git 自动化", "Git 仓库"} {
 		if !tt.HasText(want) {
 			t.Fatalf("备份页缺少 %q: %v", want, tt.Texts())
 		}

@@ -19,16 +19,14 @@ import (
 func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		a.migrationStatus(c)
-		settingsCard(c, locales.CardLanguage(), func() {
+		settingsCard(c, "", func() {
 			a.languageRow(c)
-		})
-		settingsCard(c, locales.CardWindow(), func() {
 			settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
 				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
 					a.pushWindow()
 				}
 			})
-			a.cardResetFooter(c, "language", pageGeneral)
+			a.cardResetFooter(c, "general", pageGeneral)
 		})
 	})
 }
@@ -119,32 +117,16 @@ func (a *app) appearancePage(c *ui.Context) {
 	})
 }
 
-// appearanceControls 外观页的控制项卡片列：主题 / 排版 / 代码配色三组，
-// 全部用下拉选择，不放展示样张。
+// appearanceControls 外观页：单卡平铺全部设置行，单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	ui.Column(c).FillWidth().Gap(16).Children(func() {
-		settingsCard(c, locales.CardTheme(), func() {
-			ui.Column(c).FillWidth().Padding(6, 16, 12, 16).Children(func() {
-				a.appearanceModeSelect(c)
-			})
-			a.colorThemeSelect(c)
-			a.presetSketchRow(c)
-		})
-
-		settingsCard(c, locales.CardTypography(), func() {
-			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
-				a.markdownThemeSelect(c)
-			})
-			a.typographyOverrides(c)
-			a.cardResetFooter(c, "typography", pageAppearance)
-		})
-
-		settingsCard(c, locales.CardCodeTheme(), func() {
-			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
-				a.codeThemeSelect(c)
-			})
-			a.cardResetFooter(c, "code", pageAppearance)
-		})
+	settingsCard(c, "", func() {
+		a.appearanceModeSelect(c)
+		a.colorThemeSelect(c)
+		a.presetSketchRow(c)
+		a.markdownThemeSelect(c)
+		a.typographyOverrides(c)
+		a.codeThemeSelect(c)
+		a.cardResetFooter(c, "appearance", pageAppearance)
 	})
 }
 
@@ -300,7 +282,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
@@ -314,7 +296,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
 func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
@@ -415,7 +397,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
@@ -425,7 +407,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
@@ -435,7 +417,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
@@ -458,7 +440,7 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	if field == "lineHeight" {
 		placeholder = floatText(layout.lineHeight)
 	}
-	ui.Column(c).FillWidth().Gap(2).Padding(10, 16).Children(func() {
+	ui.Column(c).FillWidth().Gap(2).PaddingY(10).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, label)
@@ -563,7 +545,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
 
-		settingsCard(c, locales.CardExternalBackup(), func() {
+		settingsCard(c, "", func() {
 			mono := monoFontStack("sfmono")
 			if dir := a.prefs.Backup.MirrorDir; dir == "" {
 				settingsRow(c, locales.MirrorUnconfigured(), locales.MirrorUnconfiguredHint(), func() {
@@ -572,7 +554,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					}
 				})
 			} else {
-				ui.Column(c).FillWidth().Padding(12, 16).Gap(8).Children(func() {
+				ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
 					ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
 					ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
 					ui.Row(c).Gap(8).Children(func() {
@@ -593,9 +575,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					a.pushMirrorGitMode()
 				}
 			})
-		})
 
-		settingsCard(c, locales.CardAutoBackup(), func() {
 			settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
 				if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
 					a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
@@ -613,10 +593,8 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					a.pushBackup()
 				}
 			})
-		})
 
-		settingsCard(c, locales.CardManualActions(), func() {
-			ui.Column(c).FillWidth().Padding(12, 16).Gap(8).Children(func() {
+			ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
 				ui.Row(c).Gap(8).Children(func() {
 					if ui.Button(c, locales.BackupNowButton()).Clicked() {
 						if err := a.backupNow(); err != nil {
@@ -690,7 +668,7 @@ func settingsCard(c *ui.Context, title string, body func()) ui.Element {
 
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
 func (a *app) cardResetFooter(c *ui.Context, key, page string) {
-	ui.Row(c).FillWidth().Padding(8, 16).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().PaddingY(8).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Grow(1)
 		// 弱化为次要小按钮：恢复是破坏性较低的高频入口，但不应与大控件争抢视觉。
 		btn := ui.ButtonBase(c.Key("reset-"+key)).Padding(4, 10).Radius(7).
