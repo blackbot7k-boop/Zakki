@@ -1,7 +1,8 @@
 package app
 
 // 首启初始化向导：仅在全新安装（数据文件不存在）时出现。
-// 六步：语言 → 欢迎 → 备份文件夹（可跳过）→ 初始标签数量 → Git（可选）→ 完成。
+// 五步：语言 → 欢迎 → 备份方式（可跳过）→ 初始标签数量 → 完成。
+// 备份相关配置收在同一歨：二选一卡片，选外部文件夹时内联展开目录与 Git 档位。
 // 所有选择先存草稿，确认时才写入偏好与数据文件；关闭窗口等同跳过。
 // 语言步骤即时经 App.SetLocale 生效（MyGo 持久化选择），后续步骤随之换语言。
 
@@ -18,14 +19,14 @@ import (
 )
 
 // onboardingLastStep 向导最后一步的序号。
-const onboardingLastStep = 6
+const onboardingLastStep = 5
 
 // onboardingState 向导的草稿状态（主线程）。
 type onboardingState struct {
-	obWin    *mygo.Window
-	step     int // 1..onboardingLastStep
-	finished bool
-
+	obWin      *mygo.Window
+	step       int // 1..onboardingLastStep
+	finished   bool
+	mirrorCard bool   // 备份方式卡片：false=仅本地（默认），true=同步到外部文件夹
 	dirDraft   string // 已选备份文件夹（确认时才写入偏好）
 	dirIsGit   bool   // dirDraft 是否检测到 .git
 	tabCount   int
@@ -147,7 +148,8 @@ func (a *app) obPickFolder() {
 	a.chooseMirrorDirAsync(a.onboarding.obWin, a.obApplyFolder)
 }
 
-// obApplyFolder 主线程：校验并记录所选文件夹，非 Git 仓库时联动关闭 Git。
+// obApplyFolder 主线程：校验并记录所选文件夹，非 Git 仓库时联动关闭 Git；
+// 选了文件夹即视为选中「同步到外部文件夹」卡片。
 func (a *app) obApplyFolder(path string) {
 	abs, err := a.validateMirrorDir(path)
 	if err != nil {
@@ -155,6 +157,7 @@ func (a *app) obApplyFolder(path string) {
 		return
 	}
 	ob := &a.onboarding
+	ob.mirrorCard = true
 	ob.dirDraft = abs
 	ob.dirIsGit = dirIsGitRepo(abs)
 	ob.dirErr = ""
@@ -201,11 +204,9 @@ func (a *app) onboardingView(c *ui.Context) {
 		case 2:
 			a.obWelcome(c, &t)
 		case 3:
-			a.obFolder(c, &t)
+			a.obBackup(c, &t)
 		case 4:
 			a.obTabs(c)
-		case 5:
-			a.obGit(c)
 		default:
 			a.obDone(c)
 		}
@@ -232,17 +233,6 @@ func (a *app) onboardingView(c *ui.Context) {
 					ob.step++
 				}
 			}
-		})
-	})
-}
-
-// obBullet 向导要点条目。
-func obBullet(c *ui.Context, title, detail string) {
-	ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-		ui.Box(c).Width(7).Height(7).Radius(999).Background(c.Theme().Accent)
-		ui.Column(c).Gap(1).Children(func() {
-			ui.Text(c, title).Bold()
-			ui.Text(c, detail).FontSize(12).TextColor(tMuted(c))
 		})
 	})
 }
@@ -275,25 +265,35 @@ func (a *app) obLanguage(c *ui.Context, t *ui.Theme) {
 	})
 }
 
-// obWelcome 步骤 2：欢迎。
+// obWelcome 步骤 2：欢迎（备份详情在下一步统一配置）。
 func (a *app) obWelcome(c *ui.Context, t *ui.Theme) {
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
 		ui.Text(c, locales.OnboardWelcomeTitle()).FontSize(22).Bold()
 		ui.Text(c, locales.OnboardWelcomeSub()).TextColor(tMuted(c))
-		ui.Box(c).Height(6)
-		obBullet(c, locales.OnboardBulletLocalTitle(), locales.OnboardBulletLocalBody())
-		obBullet(c, locales.OnboardBulletCloudTitle(), locales.OnboardBulletCloudBody())
-		obBullet(c, locales.OnboardBulletGitTitle(), locales.OnboardBulletGitBody())
 	})
 }
 
-// obFolder 步骤 2：备份文件夹（可跳过）。
-func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
+// obBackup 步骤 3：备份方式（可跳过）。二选一卡片，替代旧流程分散在
+// 欢迎要点/备份文件夹/Git 三处的内容：选外部文件夹时内联展开目录与 Git 档位。
+func (a *app) obBackup(c *ui.Context, t *ui.Theme) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
 		ui.Text(c, locales.OnboardChooseBackupTitle()).FontSize(17).Bold()
 		ui.Text(c, locales.OnboardChooseBackupBody()).
 			FontSize(12).TextColor(tMuted(c))
+		obBackupCard(c, t, "ob-backup-local", !ob.mirrorCard,
+			locales.OnboardBackupLocalTitle(), locales.OnboardBackupLocalBody(),
+			func() {
+				ob.mirrorCard = false
+				ob.dirDraft, ob.dirIsGit = "", false
+				ob.gitMode, ob.gitModeSel = "off", gitModeDisplay("off")
+			})
+		obBackupCard(c, t, "ob-backup-mirror", ob.mirrorCard,
+			locales.OnboardBackupMirrorTitle(), locales.OnboardBackupMirrorBody(),
+			func() { ob.mirrorCard = true })
+		if !ob.mirrorCard {
+			return
+		}
 		if ob.dirDraft == "" {
 			if ui.Button(c, locales.ChooseFolder()).Clicked() {
 				a.obPickFolder()
@@ -318,10 +318,50 @@ func (a *app) obFolder(c *ui.Context, t *ui.Theme) {
 				}
 			})
 		})
+		if !ob.dirIsGit {
+			ui.Text(c, locales.OnboardBackupNotRepo()).FontSize(12).TextColor(tMuted(c))
+			return
+		}
+		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, locales.OnboardBackupAutomation()).Grow(1)
+			if ui.Select(c, &ob.gitModeSel, gitModeOptions()).Changed() {
+				ob.gitMode = gitModeOfDisplay(ob.gitModeSel)
+			}
+		})
+		ui.Text(c, gitModeDetail(ob.gitMode)).FontSize(12).TextColor(tMuted(c))
 	})
 }
 
-// obTabs 步骤 3：初始标签数量。
+// obBackupCard 备份方式卡片：ButtonBase 整行可点，选中态描边（同语言按钮约定：
+// 可见文字必须用 Text 子元素，Label 只是可访问性标题）。
+func obBackupCard(c *ui.Context, t *ui.Theme, key string, chosen bool, title, body string, onClick func()) {
+	btn := ui.ButtonBase(c.Key(key)).FillWidth().Padding(12, 10).Radius(10).Cursor(ui.CursorPointer)
+	if chosen {
+		btn = btn.BorderWidth(2).BorderColor(t.Accent)
+	} else {
+		btn = btn.Border(1, t.Border)
+	}
+	btn.Children(func() {
+		ui.Column(c).Gap(2).Children(func() {
+			ui.Text(c, title).Bold()
+			ui.Text(c, body).FontSize(12).TextColor(tMuted(c))
+		})
+	})
+	btn.OnClick(onClick)
+}
+
+// gitModeDetail Git 档位的一句白话解释，与设置页共用文案。
+func gitModeDetail(mode string) string {
+	switch mode {
+	case "commit":
+		return locales.GitModeCommitDetail()
+	case "commitPush":
+		return locales.GitModeCommitPushDetail()
+	}
+	return locales.GitModeOffDetail()
+}
+
+// obTabs 步骤 4：初始标签数量。
 func (a *app) obTabs(c *ui.Context) {
 	ob := &a.onboarding
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
@@ -347,31 +387,6 @@ func (a *app) obTabs(c *ui.Context) {
 			}
 		})
 	})
-}
-
-// obGit 步骤 4：Git 自动化（可选，仅 Git 仓库目录可用）。
-func (a *app) obGit(c *ui.Context) {
-	ob := &a.onboarding
-	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		ui.Text(c, locales.OnboardGitTitle()).FontSize(17).Bold()
-		if ob.dirDraft == "" || !ob.dirIsGit {
-			ui.Text(c, locales.OnboardGitNotRepoBody(gitFolderState(ob))).
-				FontSize(12).TextColor(tMuted(c))
-			return
-		}
-		ui.Text(c, locales.OnboardGitRepoBody()).
-			FontSize(12).TextColor(tMuted(c))
-		if ui.Select(c, &ob.gitModeSel, gitModeOptions()).Changed() {
-			ob.gitMode = gitModeOfDisplay(ob.gitModeSel)
-		}
-	})
-}
-
-func gitFolderState(ob *onboardingState) string {
-	if ob.dirDraft == "" {
-		return locales.CommonNotSet()
-	}
-	return locales.OnboardGitNotRepo()
 }
 
 // obDone 步骤 5：配置汇总。

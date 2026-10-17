@@ -17,7 +17,7 @@
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`（内含生产 git runner 装配）。 |
 | `internal/app/backup_mirror.go` | 外部备份目的地：`validateMirrorDir`（拒绝数据目录/备份目录自身 + 可写性探测）、`dirIsGitRepo`、Git 档位展示映射、`chooseMirrorDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「外部备份」卡片的选/换/断开与 Git 分段入口也在这里。 |
-| `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：六步（语言/欢迎/备份文件夹/初始标签数/Git 可选/完成）草稿式确认，语言步骤即时 `App.SetLocale`；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗经 `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
+| `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：五步（语言/欢迎/备份方式/初始标签数/完成）草稿式确认，语言步骤即时 `App.SetLocale`；备份方式一歨内二选一卡片（仅本地/同步到外部文件夹），选外部时内联展开目录与 Git 档位（档位白话解释与设置页共用文案）；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗经 `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |

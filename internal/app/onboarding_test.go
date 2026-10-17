@@ -11,6 +11,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 func TestFirstRunDetection(t *testing.T) {
@@ -178,12 +180,13 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 
 	steps := map[int][]string{
 		1: {"选择语言", "English", "简体中文"},
-		2: {"欢迎使用 Zakki", "本地优先", "云盘备份", "跳过，使用默认设置"},
-		3: {"选择备份文件夹", mirror, "Git 仓库", "更换…"},
+		2: {"欢迎使用 Zakki", "跳过，使用默认设置"},
+		3: {"备份", "仅本地备份（推荐）", "同步到外部文件夹"},
 		4: {"初始标签数量", "7 个"},
-		5: {"Git 自动备份（可选）", "提交并推送"},
-		6: {"准备就绪", "完成，进入 Zakki", "打开备份文件夹"},
+		5: {"准备就绪", "完成，进入 Zakki", "打开备份文件夹"},
 	}
+	// 第 3 步选中「同步到外部文件夹」卡片时，目录与 Git 档位内联展开。
+	a.onboarding.mirrorCard = true
 	for step, wants := range steps {
 		a.onboarding.step = step
 		tt := ui.NewTester(a.onboardingView, 560, 500)
@@ -194,26 +197,68 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 			}
 		}
 	}
+	// 第 3 步展开后：目录卡片、Git 档位与白话解释同屏可见。
+	a.onboarding.step = 3
+	tt := ui.NewTester(a.onboardingView, 560, 500)
+	tt.Frame()
+	for _, want := range []string{mirror, "Git 仓库", "更换…", "Git 自动化", "提交并推送"} {
+		if !tt.HasText(want) {
+			t.Fatalf("备份步骤缺少 %q: %v", want, tt.Texts())
+		}
+	}
 	// 语言按钮的可见文字必须是 Text 子元素：ButtonBase 的 Label 只是
 	// 可访问性标题，也计入 HasText，缺 Text 子元素时按钮渲染为空白。
 	a.onboarding.step = 1
-	tt := ui.NewTester(a.onboardingView, 560, 500)
+	tt = ui.NewTester(a.onboardingView, 560, 500)
 	tt.Frame()
 	for _, want := range mygo.App.Languages() {
 		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 2 {
 			t.Fatalf("语言 %s 缺少可见 Text 子元素: %v", want, tt.Texts())
 		}
 	}
-	// 非 Git 目录的第 5 步：说明不可用而不是给选项。
-	a.onboarding.step = 5
+	// 非 Git 目录：备份步骤说明原因而不是给 Git 档位选项。
+	a.onboarding.step = 3
 	a.onboarding.dirIsGit = false
 	tt = ui.NewTester(a.onboardingView, 560, 500)
 	tt.Frame()
 	if tt.HasText("提交并推送") {
-		t.Fatalf("非 Git 目录第 4 步不应出现档位选项: %v", tt.Texts())
+		t.Fatalf("非 Git 目录不应出现档位选项: %v", tt.Texts())
 	}
 	if !tt.HasText("不是 Git 仓库") {
-		t.Fatalf("非 Git 目录第 4 步应说明原因: %v", tt.Texts())
+		t.Fatalf("非 Git 目录应说明原因: %v", tt.Texts())
+	}
+}
+
+// TestOnboardingBackupCards 备份方式卡片：点「仅本地」清空外部备份草稿，
+// 点「同步到外部文件夹」重新展开；目录与档位只在展开时可见。
+func TestOnboardingBackupCards(t *testing.T) {
+	a := newTestApp(t)
+	ob := &a.onboarding
+	ob.step = 3
+	ob.mirrorCard = true
+	ob.dirDraft = string(filepath.Separator) + filepath.Join("tmp", "wizard-repo")
+	ob.dirIsGit = true
+	ob.gitMode = "commit"
+	ob.gitModeSel = gitModeDisplay("commit")
+
+	tt := ui.NewTester(a.onboardingView, 560, 500)
+	tt.Frame()
+	if err := tt.Click(locales.OnboardBackupLocalTitle()); err != nil {
+		t.Fatal(err)
+	}
+	if ob.mirrorCard || ob.dirDraft != "" || ob.dirIsGit || ob.gitMode != "off" {
+		t.Fatalf("选仅本地应清空外部备份草稿: %+v", ob)
+	}
+	tt = ui.NewTester(a.onboardingView, 560, 500)
+	tt.Frame()
+	if tt.HasText("Git 自动化") {
+		t.Fatalf("仅本地卡片下不应出现 Git 配置: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.OnboardBackupMirrorTitle()); err != nil {
+		t.Fatal(err)
+	}
+	if !ob.mirrorCard {
+		t.Fatal("选同步卡片应重新展开外部备份配置")
 	}
 }
 

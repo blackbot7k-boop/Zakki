@@ -3456,81 +3456,81 @@ func (msgs Messages) OnboardWelcomeSub() string {
 	return Catalog.Format(msgs.locale, "onboardWelcomeSub", nil)
 }
 
-// OnboardBulletLocalTitle says "Local first"
+// OnboardBackupAutomation says "Git automation"
 // in the language the app shows.
-func OnboardBulletLocalTitle() string { return In(i18n.Locale()).OnboardBulletLocalTitle() }
+func OnboardBackupAutomation() string { return In(i18n.Locale()).OnboardBackupAutomation() }
 
-// OnboardBulletLocalTitle says "Local first"
+// OnboardBackupAutomation says "Git automation"
 // in the language of msgs.
-func (msgs Messages) OnboardBulletLocalTitle() string {
-	return Catalog.Format(msgs.locale, "onboardBulletLocalTitle", nil)
+func (msgs Messages) OnboardBackupAutomation() string {
+	return Catalog.Format(msgs.locale, "onboardBackupAutomation", nil)
 }
 
-// OnboardBulletLocalBody says "Data and local backups always hit the disk first; external copies failing never gets in the way."
+// OnboardBackupLocalBody says "Backups stay on this Mac automatically; nothing to set up."
 // in the language the app shows.
-func OnboardBulletLocalBody() string { return In(i18n.Locale()).OnboardBulletLocalBody() }
+func OnboardBackupLocalBody() string { return In(i18n.Locale()).OnboardBackupLocalBody() }
 
-// OnboardBulletLocalBody says "Data and local backups always hit the disk first; external copies failing never gets in the way."
+// OnboardBackupLocalBody says "Backups stay on this Mac automatically; nothing to set up."
 // in the language of msgs.
-func (msgs Messages) OnboardBulletLocalBody() string {
-	return Catalog.Format(msgs.locale, "onboardBulletLocalBody", nil)
+func (msgs Messages) OnboardBackupLocalBody() string {
+	return Catalog.Format(msgs.locale, "onboardBackupLocalBody", nil)
 }
 
-// OnboardBulletCloudTitle says "Cloud backup"
+// OnboardBackupLocalTitle says "Local backup only (recommended)"
 // in the language the app shows.
-func OnboardBulletCloudTitle() string { return In(i18n.Locale()).OnboardBulletCloudTitle() }
+func OnboardBackupLocalTitle() string { return In(i18n.Locale()).OnboardBackupLocalTitle() }
 
-// OnboardBulletCloudTitle says "Cloud backup"
+// OnboardBackupLocalTitle says "Local backup only (recommended)"
 // in the language of msgs.
-func (msgs Messages) OnboardBulletCloudTitle() string {
-	return Catalog.Format(msgs.locale, "onboardBulletCloudTitle", nil)
+func (msgs Messages) OnboardBackupLocalTitle() string {
+	return Catalog.Format(msgs.locale, "onboardBackupLocalTitle", nil)
 }
 
-// OnboardBulletCloudBody says "Point the backup folder at iCloud, Nutstore or any sync folder and backups go to the cloud automatically."
+// OnboardBackupMirrorBody says "iCloud Drive, Dropbox or any synced folder; pick a Git repository to also auto-commit."
 // in the language the app shows.
-func OnboardBulletCloudBody() string { return In(i18n.Locale()).OnboardBulletCloudBody() }
+func OnboardBackupMirrorBody() string { return In(i18n.Locale()).OnboardBackupMirrorBody() }
 
-// OnboardBulletCloudBody says "Point the backup folder at iCloud, Nutstore or any sync folder and backups go to the cloud automatically."
+// OnboardBackupMirrorBody says "iCloud Drive, Dropbox or any synced folder; pick a Git repository to also auto-commit."
 // in the language of msgs.
-func (msgs Messages) OnboardBulletCloudBody() string {
-	return Catalog.Format(msgs.locale, "onboardBulletCloudBody", nil)
+func (msgs Messages) OnboardBackupMirrorBody() string {
+	return Catalog.Format(msgs.locale, "onboardBackupMirrorBody", nil)
 }
 
-// OnboardBulletGitTitle says "Git backup (optional)"
+// OnboardBackupMirrorTitle says "Also mirror to a folder"
 // in the language the app shows.
-func OnboardBulletGitTitle() string { return In(i18n.Locale()).OnboardBulletGitTitle() }
+func OnboardBackupMirrorTitle() string { return In(i18n.Locale()).OnboardBackupMirrorTitle() }
 
-// OnboardBulletGitTitle says "Git backup (optional)"
+// OnboardBackupMirrorTitle says "Also mirror to a folder"
 // in the language of msgs.
-func (msgs Messages) OnboardBulletGitTitle() string {
-	return Catalog.Format(msgs.locale, "onboardBulletGitTitle", nil)
+func (msgs Messages) OnboardBackupMirrorTitle() string {
+	return Catalog.Format(msgs.locale, "onboardBackupMirrorTitle", nil)
 }
 
-// OnboardBulletGitBody says "Point it at a Git repository for auto-commits and even pushes; fully usable without it."
+// OnboardBackupNotRepo says "Not a Git repository; as a synced folder it works just as well."
 // in the language the app shows.
-func OnboardBulletGitBody() string { return In(i18n.Locale()).OnboardBulletGitBody() }
+func OnboardBackupNotRepo() string { return In(i18n.Locale()).OnboardBackupNotRepo() }
 
-// OnboardBulletGitBody says "Point it at a Git repository for auto-commits and even pushes; fully usable without it."
+// OnboardBackupNotRepo says "Not a Git repository; as a synced folder it works just as well."
 // in the language of msgs.
-func (msgs Messages) OnboardBulletGitBody() string {
-	return Catalog.Format(msgs.locale, "onboardBulletGitBody", nil)
+func (msgs Messages) OnboardBackupNotRepo() string {
+	return Catalog.Format(msgs.locale, "onboardBackupNotRepo", nil)
 }
 
-// OnboardChooseBackupTitle says "Choose a backup folder"
+// OnboardChooseBackupTitle says "Backups"
 // in the language the app shows.
 func OnboardChooseBackupTitle() string { return In(i18n.Locale()).OnboardChooseBackupTitle() }
 
-// OnboardChooseBackupTitle says "Choose a backup folder"
+// OnboardChooseBackupTitle says "Backups"
 // in the language of msgs.
 func (msgs Messages) OnboardChooseBackupTitle() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupTitle", nil)
 }
 
-// OnboardChooseBackupBody says "Every backup is mirrored here: a cloud-sync folder means cloud backup; a GitHub repository clone gets versioning. Ski…"
+// OnboardChooseBackupBody says "Local backups always run; optionally mirror every backup to another folder. Change this anytime in Settings."
 // in the language the app shows.
 func OnboardChooseBackupBody() string { return In(i18n.Locale()).OnboardChooseBackupBody() }
 
-// OnboardChooseBackupBody says "Every backup is mirrored here: a cloud-sync folder means cloud backup; a GitHub repository clone gets versioning. Ski…"
+// OnboardChooseBackupBody says "Local backups always run; optionally mirror every backup to another folder. Change this anytime in Settings."
 // in the language of msgs.
 func (msgs Messages) OnboardChooseBackupBody() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupBody", nil)
@@ -3564,58 +3564,6 @@ func OnboardTabCountN(n int) string { return In(i18n.Locale()).OnboardTabCountN(
 // in the language of msgs.
 func (msgs Messages) OnboardTabCountN(n int) string {
 	return Catalog.Format(msgs.locale, "onboardTabCountN", map[string]any{"n": n})
-}
-
-// OnboardGitTitle says "Git auto-backup (optional)"
-// in the language the app shows.
-func OnboardGitTitle() string { return In(i18n.Locale()).OnboardGitTitle() }
-
-// OnboardGitTitle says "Git auto-backup (optional)"
-// in the language of msgs.
-func (msgs Messages) OnboardGitTitle() string {
-	return Catalog.Format(msgs.locale, "onboardGitTitle", nil)
-}
-
-// OnboardGitNotRepoBody says "Git automation only works for a Git repository. The folder you picked {state}; as a cloud-sync folder it is perfectly…"
-// in the language the app shows.
-func OnboardGitNotRepoBody(state string) string {
-	return In(i18n.Locale()).OnboardGitNotRepoBody(state)
-}
-
-// OnboardGitNotRepoBody says "Git automation only works for a Git repository. The folder you picked {state}; as a cloud-sync folder it is perfectly…"
-// in the language of msgs.
-func (msgs Messages) OnboardGitNotRepoBody(state string) string {
-	return Catalog.Format(msgs.locale, "onboardGitNotRepoBody", map[string]any{"state": state})
-}
-
-// OnboardGitRepoBody says "The backup folder is a Git repository. The app can commit after every backup write (optionally push); git must be ins…"
-// in the language the app shows.
-func OnboardGitRepoBody() string { return In(i18n.Locale()).OnboardGitRepoBody() }
-
-// OnboardGitRepoBody says "The backup folder is a Git repository. The app can commit after every backup write (optionally push); git must be ins…"
-// in the language of msgs.
-func (msgs Messages) OnboardGitRepoBody() string {
-	return Catalog.Format(msgs.locale, "onboardGitRepoBody", nil)
-}
-
-// OnboardGitNotRepo says "not a Git repository"
-// in the language the app shows.
-func OnboardGitNotRepo() string { return In(i18n.Locale()).OnboardGitNotRepo() }
-
-// OnboardGitNotRepo says "not a Git repository"
-// in the language of msgs.
-func (msgs Messages) OnboardGitNotRepo() string {
-	return Catalog.Format(msgs.locale, "onboardGitNotRepo", nil)
-}
-
-// OnboardGitIsRepo says "is a Git repository"
-// in the language the app shows.
-func OnboardGitIsRepo() string { return In(i18n.Locale()).OnboardGitIsRepo() }
-
-// OnboardGitIsRepo says "is a Git repository"
-// in the language of msgs.
-func (msgs Messages) OnboardGitIsRepo() string {
-	return Catalog.Format(msgs.locale, "onboardGitIsRepo", nil)
 }
 
 // OnboardDoneTitle says "Ready"
