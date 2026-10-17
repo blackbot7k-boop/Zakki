@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/internal/codehl"
 )
 
 type projectedRune struct{ start, end int }
@@ -451,4 +453,63 @@ func (a *app) undoLive(redo bool) {
 	a.liveFocus, a.scrollActive = 1, true
 	a.mdPending, a.lastPendingCaret = nil, 0
 	a.onEdited()
+}
+
+// textRangesInBlock 按块类型生成可见文本着色：搜索命中与行内样式优先，
+// 代码块在其空隙上叠加 token 配色（跟随文本时无 token 层，原样返回）。
+// 焦点块的编辑路径（activeText）与非焦点块的 RichText 路径共用同一套配色，
+// 避免编辑中的代码块褪色为单色文本。
+func (p liveProjection) textRangesInBlock(query string, t *ui.Theme, accent ui.Color, blk liveBlock, codeTheme string) []ui.TextRange {
+	ranges := p.textRanges(query, t, accent)
+	if blk.kind != bkCode {
+		return ranges
+	}
+	cp, ok := codePaletteFor(codeTheme, t)
+	if !ok {
+		return ranges
+	}
+	// token 色：逐 rune 记录（跨行累计偏移），再填进 base 的空隙。
+	token := make([]ui.Color, len(p.units))
+	runeOff := 0
+	for _, line := range strings.Split(p.text, "\n") {
+		for _, s := range codehl.Line(codehl.Lang(blk.info), line) {
+			if cp[s.Kind] == (ui.Color{}) {
+				continue
+			}
+			for i := s.Start; i < s.End; i++ {
+				token[runeOff+i] = cp[s.Kind]
+			}
+		}
+		runeOff += utf8.RuneCountInString(line) + 1
+	}
+	var out []ui.TextRange
+	next := 0
+	for _, r := range ranges {
+		if r.Start > next {
+			out = appendTokenRuns(out, token, next, r.Start)
+		}
+		out = append(out, r)
+		next = r.End
+	}
+	if next < len(token) {
+		out = appendTokenRuns(out, token, next, len(token))
+	}
+	return out
+}
+
+// appendTokenRuns 把 [start,end) 内连续同色的 token 区间并成 runs 追加到 out。
+func appendTokenRuns(out []ui.TextRange, token []ui.Color, start, end int) []ui.TextRange {
+	for i := start; i < end; {
+		if token[i] == (ui.Color{}) {
+			i++
+			continue
+		}
+		j := i + 1
+		for j < end && token[j] == token[i] {
+			j++
+		}
+		out = append(out, ui.TextRange{Start: i, End: j, Color: token[i]})
+		i = j
+	}
+	return out
 }

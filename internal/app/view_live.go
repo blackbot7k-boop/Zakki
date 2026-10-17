@@ -191,7 +191,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	if len(p.styles) == 1 && p.styles[0].start == 0 && p.styles[0].end == len(p.units) && p.styles[0].kind == spanItalic {
 		ta.Italic()
 	}
-	ta.TextRanges(p.textRanges(a.query, t, md.accent)...)
+	ta.TextRanges(p.textRangesInBlock(a.query, t, md.accent, blk, a.prefs.Appearance.CodeTheme)...)
 
 	// Native selections are visible offsets; the existing document pipeline
 	// continues to use source offsets. IME composition stays with the widget.
