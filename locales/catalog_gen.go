@@ -2252,36 +2252,6 @@ func (msgs Messages) PreviewLabel() string {
 	return Catalog.Format(msgs.locale, "previewLabel", nil)
 }
 
-// CardAppearanceMode says "Light / Dark"
-// in the language the app shows.
-func CardAppearanceMode() string { return In(i18n.Locale()).CardAppearanceMode() }
-
-// CardAppearanceMode says "Light / Dark"
-// in the language of msgs.
-func (msgs Messages) CardAppearanceMode() string {
-	return Catalog.Format(msgs.locale, "cardAppearanceMode", nil)
-}
-
-// CardColorTheme says "Color theme"
-// in the language the app shows.
-func CardColorTheme() string { return In(i18n.Locale()).CardColorTheme() }
-
-// CardColorTheme says "Color theme"
-// in the language of msgs.
-func (msgs Messages) CardColorTheme() string {
-	return Catalog.Format(msgs.locale, "cardColorTheme", nil)
-}
-
-// CardMarkdownTheme says "Markdown layout theme"
-// in the language the app shows.
-func CardMarkdownTheme() string { return In(i18n.Locale()).CardMarkdownTheme() }
-
-// CardMarkdownTheme says "Markdown layout theme"
-// in the language of msgs.
-func (msgs Messages) CardMarkdownTheme() string {
-	return Catalog.Format(msgs.locale, "cardMarkdownTheme", nil)
-}
-
 // CardCodeTheme says "Code colors"
 // in the language the app shows.
 func CardCodeTheme() string { return In(i18n.Locale()).CardCodeTheme() }
@@ -2290,6 +2260,26 @@ func CardCodeTheme() string { return In(i18n.Locale()).CardCodeTheme() }
 // in the language of msgs.
 func (msgs Messages) CardCodeTheme() string {
 	return Catalog.Format(msgs.locale, "cardCodeTheme", nil)
+}
+
+// CardTheme says "Theme"
+// in the language the app shows.
+func CardTheme() string { return In(i18n.Locale()).CardTheme() }
+
+// CardTheme says "Theme"
+// in the language of msgs.
+func (msgs Messages) CardTheme() string {
+	return Catalog.Format(msgs.locale, "cardTheme", nil)
+}
+
+// CardTypography says "Typography"
+// in the language the app shows.
+func CardTypography() string { return In(i18n.Locale()).CardTypography() }
+
+// CardTypography says "Typography"
+// in the language of msgs.
+func (msgs Messages) CardTypography() string {
+	return Catalog.Format(msgs.locale, "cardTypography", nil)
 }
 
 // CodeThemeLabel says "Syntax colors"
@@ -2352,16 +2342,6 @@ func (msgs Messages) CodeThemeQoder() string {
 	return Catalog.Format(msgs.locale, "codeThemeQoder", nil)
 }
 
-// CardPresetSketch says "Whole theme"
-// in the language the app shows.
-func CardPresetSketch() string { return In(i18n.Locale()).CardPresetSketch() }
-
-// CardPresetSketch says "Whole theme"
-// in the language of msgs.
-func (msgs Messages) CardPresetSketch() string {
-	return Catalog.Format(msgs.locale, "cardPresetSketch", nil)
-}
-
 // PresetSketchRow says "Hand-drawn sketchbook"
 // in the language the app shows.
 func PresetSketchRow() string { return In(i18n.Locale()).PresetSketchRow() }
@@ -2410,16 +2390,6 @@ func ApplySketchTheme() string { return In(i18n.Locale()).ApplySketchTheme() }
 // in the language of msgs.
 func (msgs Messages) ApplySketchTheme() string {
 	return Catalog.Format(msgs.locale, "applySketchTheme", nil)
-}
-
-// CardTypographyTweaks says "Typography tweaks"
-// in the language the app shows.
-func CardTypographyTweaks() string { return In(i18n.Locale()).CardTypographyTweaks() }
-
-// CardTypographyTweaks says "Typography tweaks"
-// in the language of msgs.
-func (msgs Messages) CardTypographyTweaks() string {
-	return Catalog.Format(msgs.locale, "cardTypographyTweaks", nil)
 }
 
 // AppearanceLabel says "Appearance"

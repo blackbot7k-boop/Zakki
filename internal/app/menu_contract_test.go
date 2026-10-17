@@ -350,11 +350,12 @@ func TestSettingsViewRendersPages(t *testing.T) {
 				t.Fatalf("常规页不应再有置顶/Esc 开关: %v", tt.Texts())
 			}
 		case pageAppearance:
-			if !tt.HasText("颜色主题") || !tt.HasText("Markdown 排版主题") {
+			if !tt.HasText("颜色主题") || !tt.HasText("代码配色") {
 				t.Fatalf("外观页缺少主题选择: %v", tt.Texts())
 			}
-			if !tt.HasText("纸白") || !tt.HasText("暖砂") || !tt.HasText("雾青") || !tt.HasText("石墨") {
-				t.Fatalf("外观页缺少五套颜色主题卡片: %v", tt.Texts())
+			if !tt.HasText("纸白") || !tt.HasText("暖砂") || !tt.HasText("雾青") || !tt.HasText("石墨") ||
+				!tt.HasText("Claude") || !tt.HasText("Qoder") {
+				t.Fatalf("外观页缺少颜色主题卡片: %v", tt.Texts())
 			}
 			// 排版主题已收进下拉，当前选中名可见即可。
 			if !tt.HasText("Sonnet（Typora）") {

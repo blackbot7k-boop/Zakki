@@ -120,65 +120,62 @@ func (a *app) appearancePage(c *ui.Context, dark bool) {
 	})
 }
 
-// appearanceControls 外观页的控制项卡片列。
+// appearanceControls 外观页的控制项卡片列：主题 / 排版 / 代码配色三组。
 func (a *app) appearanceControls(c *ui.Context, dark bool) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
-		settingsCard(c, locales.CardAppearanceMode(), func() {
+		settingsCard(c, locales.CardTheme(), func() {
 			ui.Column(c).FillWidth().Padding(6, 16, 12, 16).Children(func() {
 				a.appearanceModeSelect(c)
 			})
-		})
-
-		settingsCard(c, locales.CardColorTheme(), func() {
+			cardDivider(c)
 			ui.Column(c).FillWidth().Padding(8, 16, 12, 16).Children(func() {
 				a.colorThemeCards(c, dark)
 			})
+			cardDivider(c)
+			a.presetSketchRow(c)
 		})
 
-		settingsCard(c, locales.CardMarkdownTheme(), func() {
-			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
+		settingsCard(c, locales.CardTypography(), func() {
+			ui.Column(c).FillWidth().Padding(6, 16, 0, 16).Children(func() {
 				a.markdownThemeSelect(c)
 			})
-			a.cardResetFooter(c, "markdown", pageAppearance)
+			cardDivider(c)
+			a.typographyOverrides(c)
+			cardDivider(c)
+			a.cardResetFooter(c, "typography", pageAppearance)
 		})
 
 		settingsCard(c, locales.CardCodeTheme(), func() {
-			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
+			ui.Column(c).FillWidth().Padding(6, 16, 0, 16).Children(func() {
 				a.codeThemeSelect(c)
 			})
+			cardDivider(c)
 			a.cardResetFooter(c, "code", pageAppearance)
-		})
-
-		settingsCard(c, locales.CardPresetSketch(), func() {
-			settingsRow(c, locales.PresetSketchRow(), locales.PresetSketchHint(), func() {
-				ap := a.settingsUI.draft.Appearance
-				applied := ap.ColorTheme == "sketch" && ap.MarkdownTheme == "sketch" && ap.BodyFont == "hand" && ap.LatinFont == ""
-				label := locales.ApplyOnce()
-				if applied {
-					label = locales.Applied()
-				}
-				if ui.Button(c.Key("preset-sketch"), label).Label(locales.ApplySketchTheme()).Clicked() && !applied {
-					a.settingsUI.draft.Appearance.ColorTheme = "sketch"
-					a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
-					a.settingsUI.draft.Appearance.BodyFont = "hand"
-					a.settingsUI.draft.Appearance.LatinFont = ""
-					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-					a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
-					a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
-					a.pushAppearance()
-				}
-			})
-		})
-
-		settingsCard(c, locales.CardTypographyTweaks(), func() {
-			ui.Column(c).FillWidth().Padding(6, 0).Children(func() {
-				a.typographyOverrides(c)
-			})
-			a.cardResetFooter(c, "markdown", pageAppearance)
 		})
 	})
 }
 
+// presetSketchRow 手绘手账一键预设：同时套用手绘颜色主题、排版与手写字体。
+func (a *app) presetSketchRow(c *ui.Context) {
+	settingsRow(c, locales.PresetSketchRow(), locales.PresetSketchHint(), func() {
+		ap := a.settingsUI.draft.Appearance
+		applied := ap.ColorTheme == "sketch" && ap.MarkdownTheme == "sketch" && ap.BodyFont == "hand" && ap.LatinFont == ""
+		label := locales.ApplyOnce()
+		if applied {
+			label = locales.Applied()
+		}
+		if ui.Button(c.Key("preset-sketch"), label).Label(locales.ApplySketchTheme()).Clicked() && !applied {
+			a.settingsUI.draft.Appearance.ColorTheme = "sketch"
+			a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
+			a.settingsUI.draft.Appearance.BodyFont = "hand"
+			a.settingsUI.draft.Appearance.LatinFont = ""
+			a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
+			a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
+			a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
+			a.pushAppearance()
+		}
+	})
+}
 func (a *app) appearanceModeSelect(c *ui.Context) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 		ui.Text(c, locales.AppearanceLabel()).Grow(1)

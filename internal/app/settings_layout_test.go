@@ -39,12 +39,12 @@ func TestSettingsAppearanceControlsStartAtTop(t *testing.T) {
 	if !ok || mode.W <= 0 || mode.H <= 0 || mode.Y < 24 || mode.Y > 120 {
 		t.Fatalf("appearance mode must be visible near top: %+v (found=%v)", mode, ok)
 	}
-	controlsBefore, _ := tt.Find("Markdown 排版主题")
+	controlsBefore, _ := tt.Find("排版主题")
 	if controlsBefore.W <= 0 {
 		t.Fatalf("controls must render: %+v", controlsBefore)
 	}
 	tt.Scroll(400, 350, 0, 240)
-	controlsAfter, _ := tt.Find("Markdown 排版主题")
+	controlsAfter, _ := tt.Find("排版主题")
 	if controlsAfter.Y >= controlsBefore.Y {
 		t.Fatalf("controls did not scroll: before=%+v after=%+v", controlsBefore, controlsAfter)
 	}

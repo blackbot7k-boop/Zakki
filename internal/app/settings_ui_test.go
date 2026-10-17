@@ -67,9 +67,9 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	tt := ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
 	for _, want := range []string{
-		"明暗模式", "颜色主题", "Markdown 排版主题", "排版微调",
-		"中文字体", "西文字体", "代码字体",
-		"排版主题", "恢复本页默认值",
+		"界面外观", "颜色主题", "手绘手账",
+		"排版主题", "中文字体", "西文字体", "代码字体",
+		"主题", "排版", "代码配色", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观页缺少 %q: %v", want, tt.Texts())
@@ -110,7 +110,7 @@ func TestSettingsWideLayoutFallback(t *testing.T) {
 	// 窄视口：单栏滚动列，内容完整且无页面级预览。
 	tt := ui.NewTester(a.settingsView, 800, 620)
 	tt.Frame()
-	for _, want := range []string{"颜色主题", "Markdown 排版主题", "排版微调"} {
+	for _, want := range []string{"颜色主题", "排版主题", "中文字体"} {
 		if !tt.HasText(want) {
 			t.Fatalf("窄视口单栏缺少 %q: %v", want, tt.Texts())
 		}
