@@ -3850,11 +3850,11 @@ func (msgs Messages) GitDetailPickFirst() string {
 	return Catalog.Format(msgs.locale, "gitDetailPickFirst", nil)
 }
 
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌘1–⌘9 switch tabs; ⌘T new ta…"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–⌃9 switch tabs; ⌘T new ta…"
 // in the language the app shows.
 func WelcomeBodyTips() string { return In(i18n.Locale()).WelcomeBodyTips() }
 
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌘1–⌘9 switch tabs; ⌘T new ta…"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–⌃9 switch tabs; ⌘T new ta…"
 // in the language of msgs.
 func (msgs Messages) WelcomeBodyTips() string {
 	return Catalog.Format(msgs.locale, "welcomeBodyTips", nil)

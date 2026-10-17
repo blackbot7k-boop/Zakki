@@ -64,8 +64,8 @@ func (a *app) openOnboarding() {
 	}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:     locales.OnboardWindowTitle(),
-		Width:     560,
-		Height:    440,
+		Width:     1200,
+		Height:    800,
 		MinWidth:  520,
 		MinHeight: 400,
 		StateKey:  "onboarding",
