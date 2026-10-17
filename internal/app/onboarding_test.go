@@ -5,8 +5,11 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -191,10 +194,20 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 			}
 		}
 	}
+	// 语言按钮的可见文字必须是 Text 子元素：ButtonBase 的 Label 只是
+	// 可访问性标题，也计入 HasText，缺 Text 子元素时按钮渲染为空白。
+	a.onboarding.step = 1
+	tt := ui.NewTester(a.onboardingView, 560, 500)
+	tt.Frame()
+	for _, want := range mygo.App.Languages() {
+		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 2 {
+			t.Fatalf("语言 %s 缺少可见 Text 子元素: %v", want, tt.Texts())
+		}
+	}
 	// 非 Git 目录的第 5 步：说明不可用而不是给选项。
 	a.onboarding.step = 5
 	a.onboarding.dirIsGit = false
-	tt := ui.NewTester(a.onboardingView, 560, 500)
+	tt = ui.NewTester(a.onboardingView, 560, 500)
 	tt.Frame()
 	if tt.HasText("提交并推送") {
 		t.Fatalf("非 Git 目录第 4 步不应出现档位选项: %v", tt.Texts())

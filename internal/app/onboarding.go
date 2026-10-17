@@ -261,6 +261,10 @@ func (a *app) obLanguage(c *ui.Context, t *ui.Theme) {
 				if chosen {
 					btn = btn.BorderWidth(2).BorderColor(t.Accent)
 				}
+				// Label 只是可访问性标题，ButtonBase 不会绘制它；可见文字需要 Text 子元素。
+				btn.Children(func() {
+					ui.Text(c, i18n.Autonym(tag))
+				})
 				btn.OnClick(func() {
 					// 经统一偏好入口：写 appearance.language 并即时应用，
 					// 设置页的语言单选与本步骤保持同一事实来源。
