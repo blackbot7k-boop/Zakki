@@ -238,7 +238,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.withWindow(func() {})
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.TabAnimSpeed(), locales.TabAnimSpeedHint(), func() {
 			opts := tabAnimSpeedOptions()
 			displays := make([]string, len(opts))
@@ -250,7 +249,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.scheduleSave()
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.TabMotion(), locales.TabMotionHint(), func() {
 			motion := !a.cfg.TabMotionOff
 			if ui.Switch(c, &motion).Label(locales.TabMotionSwitch()).Changed() {
@@ -259,7 +257,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.withWindow(func() {})
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.TabDotShape(), locales.TabDotShapeHint(), func() {
 			opts := tabDotShapeOptions()
 			displays := make([]string, 0, len(opts))
@@ -272,7 +269,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.withWindow(func() {})
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.AppearanceLabel(), locales.ModeRowHint(), func() {
 			if ui.Select(c, &a.settingsUI.appearanceModeSel,
 				[]string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
@@ -280,7 +276,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.pushAppearance()
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.ColoredDots(), locales.ColoredDotsHint(), func() {
 			colored := !a.cfg.MonoDots
 			if ui.Switch(c, &colored).Label(locales.ColoredDotsSwitch()).Changed() {
@@ -289,7 +284,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.withWindow(func() {})
 			}
 		})
-		cardDivider(c)
 		settingsRow(c, locales.GlassStrength(), locales.GlassStrengthHint(), func() {
 			if ui.NumberInput(c, &glass, 0.2, 0.9, 0.05).Changed() {
 				a.cfg.GlassStrength = float32(glass)
@@ -297,7 +291,6 @@ func (a *app) tabAppearanceSection(c *ui.Context, dark bool) {
 				a.withWindow(func() {})
 			}
 		})
-		cardDivider(c)
 		ui.Text(c, locales.TabsPageFootnote()).
 			FontSize(11).TextColor(tMuted(c)).Padding(10, 16, 12, 16)
 	})

@@ -127,9 +127,7 @@ func (a *app) appearanceControls(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(6, 16, 12, 16).Children(func() {
 				a.appearanceModeSelect(c)
 			})
-			cardDivider(c)
 			a.colorThemeSelect(c)
-			cardDivider(c)
 			a.presetSketchRow(c)
 		})
 
@@ -137,9 +135,7 @@ func (a *app) appearanceControls(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
 				a.markdownThemeSelect(c)
 			})
-			cardDivider(c)
 			a.typographyOverrides(c)
-			cardDivider(c)
 			a.cardResetFooter(c, "typography", pageAppearance)
 		})
 
@@ -147,7 +143,6 @@ func (a *app) appearanceControls(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(10, 16, 0, 16).Children(func() {
 				a.codeThemeSelect(c)
 			})
-			cardDivider(c)
 			a.cardResetFooter(c, "code", pageAppearance)
 		})
 	})
@@ -430,7 +425,6 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		cardDivider(c)
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontWestern())
@@ -441,7 +435,6 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		cardDivider(c)
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontCode())
@@ -452,10 +445,8 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		cardDivider(c)
 		// 字号（10–40）/ 行高（1–3）：非法数字不提交，保留输入并显示行内错误。
 		a.floatOverrideRow(c, locales.FontSizeRow(), locales.OverrideFollowHint(), "bodySize")
-		cardDivider(c)
 		a.floatOverrideRow(c, locales.LineHeightRow(), locales.OverrideLineHint(), "lineHeight")
 	})
 }
@@ -597,7 +588,6 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					})
 				})
 			}
-			cardDivider(c)
 			settingsRow(c, locales.GitAutomation(), a.gitModeDetailText(), func() {
 				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Width(200).Changed() {
 					a.pushMirrorGitMode()
@@ -612,14 +602,12 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 					a.pushBackup()
 				}
 			})
-			cardDivider(c)
 			settingsRow(c, locales.BackupKeep(), locales.BackupKeepHint(), func() {
 				if ui.NumberInput(c, &keepF, 1, 1000, 1).Changed() {
 					a.settingsUI.draft.Backup.Keep = int(keepF)
 					a.pushBackup()
 				}
 			})
-			cardDivider(c)
 			settingsRow(c, locales.BackupOnLaunch(), locales.BackupOnLaunchHint(), func() {
 				if ui.Switch(c, &a.settingsUI.draft.Backup.OnLaunch).Label(locales.BackupOnLaunchSwitch()).Changed() {
 					a.pushBackup()
@@ -700,14 +688,8 @@ func settingsCard(c *ui.Context, title string, body func()) ui.Element {
 	})
 }
 
-// cardDivider 卡片内行间分隔线。
-func cardDivider(c *ui.Context) {
-	ui.Divider(c).FillWidth()
-}
-
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
 func (a *app) cardResetFooter(c *ui.Context, key, page string) {
-	cardDivider(c)
 	ui.Row(c).FillWidth().Padding(8, 16).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Grow(1)
 		// 弱化为次要小按钮：恢复是破坏性较低的高频入口，但不应与大控件争抢视觉。

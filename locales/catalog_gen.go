@@ -2272,21 +2272,21 @@ func (msgs Messages) ColorThemeLabel() string {
 	return Catalog.Format(msgs.locale, "colorThemeLabel", nil)
 }
 
-// CardTheme says "Theme"
+// CardTheme says "Theme & appearance"
 // in the language the app shows.
 func CardTheme() string { return In(i18n.Locale()).CardTheme() }
 
-// CardTheme says "Theme"
+// CardTheme says "Theme & appearance"
 // in the language of msgs.
 func (msgs Messages) CardTheme() string {
 	return Catalog.Format(msgs.locale, "cardTheme", nil)
 }
 
-// CardTypography says "Typography"
+// CardTypography says "Typography & fonts"
 // in the language the app shows.
 func CardTypography() string { return In(i18n.Locale()).CardTypography() }
 
-// CardTypography says "Typography"
+// CardTypography says "Typography & fonts"
 // in the language of msgs.
 func (msgs Messages) CardTypography() string {
 	return Catalog.Format(msgs.locale, "cardTypography", nil)
