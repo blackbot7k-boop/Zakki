@@ -331,18 +331,34 @@ func (a *app) setTabColor(i int, color string) {
 }
 
 // beginRename 进入当前标签的重命名（双击胶囊或 ⌘R）：胶囊内嵌输入框，
-// Enter 提交，Escape 取消。
+// Enter 提交，Escape 取消，焦点离开等同提交。
 func (a *app) beginRename(i int) {
 	if i < 0 || i >= len(a.tabs) {
 		return
 	}
+	// 换标签重命名前先提交上一个，避免草稿被静默覆盖。
+	if a.renaming != 0 && a.renaming != a.tabs[i].ID {
+		a.commitRenameOnBlur()
+	}
 	a.renaming = a.tabs[i].ID
 	a.renameDraft = a.tabs[i].Name
 	a.renameFocus = 1
+	a.renameSeenFocus = false
 }
 
-// commitRename 提交重命名（名称去首尾空白；空串 = 未命名只显示圆点）。
+// commitRename 提交重命名并把焦点交回内容编辑（回车/Tab 路径）。
 func (a *app) commitRename() {
+	a.commitRenameCommon(true)
+}
+
+// commitRenameOnBlur 失焦提交（点击内容、其他标签或切走窗口）：等同回车，
+// 但不抢回内容焦点——焦点已归用户点击处。
+func (a *app) commitRenameOnBlur() {
+	a.commitRenameCommon(false)
+}
+
+// commitRenameCommon 提交重命名（名称去首尾空白；空串 = 未命名只显示圆点）。
+func (a *app) commitRenameCommon(focusContent bool) {
 	if a.renaming == 0 {
 		return
 	}
@@ -356,7 +372,9 @@ func (a *app) commitRename() {
 			break
 		}
 	}
-	a.liveFocus = 1 // 焦点回到内容编辑
+	if focusContent {
+		a.liveFocus = 1
+	}
 }
 
 // cancelRename 取消重命名，不落盘。

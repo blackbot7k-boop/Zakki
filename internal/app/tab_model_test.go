@@ -877,3 +877,43 @@ func TestTabSwitchResetsSessionState(t *testing.T) {
 		t.Fatalf("切换后编辑异常: %q", a.tabs[1].Text)
 	}
 }
+
+// TestTabRenameCommitsOnBlur 重命名中点击内容区让输入框失焦：等同回车，
+// 名称提交、退出重命名，且不把焦点强行拉回内容编辑。
+func TestTabRenameCommitsOnBlur(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 460, 540)
+
+	a.beginRename(0)
+	tt.Frame()
+	tt.Type("新名字")
+	tt.Frame()
+	if !a.renameSeenFocus {
+		t.Fatal("自动聚焦落定后应置位 renameSeenFocus")
+	}
+	tt.ClickAt(200, 300) // 焦点到内容编辑器
+	tt.Frame()
+	if a.renaming != 0 {
+		t.Fatal("失焦后应退出重命名")
+	}
+	if a.tabs[0].Name != "新名字" {
+		t.Fatalf("失焦应提交名称: %q", a.tabs[0].Name)
+	}
+}
+
+// TestBeginRenameCommitsPrevious 重命名 A 时直接对 B 开始重命名：
+// A 的草稿先提交，不被静默覆盖。
+func TestBeginRenameCommitsPrevious(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.beginRename(0)
+	a.renameDraft = "甲"
+	a.beginRename(1)
+	if a.renaming != a.tabs[1].ID {
+		t.Fatalf("应进入标签 2 的重命名: renaming=%d", a.renaming)
+	}
+	if a.tabs[0].Name != "甲" {
+		t.Fatalf("切换前应提交上一个草稿: %q", a.tabs[0].Name)
+	}
+}

@@ -199,6 +199,16 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 	tb := a.tabs[i]
 	selected := i == a.active
 	renaming := a.renaming == tb.ID
+	if renaming {
+		// 失焦即提交：焦点曾落在输入框、现已离开（点内容、其他标签或切走
+		// 窗口）且不在输入法组合中——等同回车，但不抢回内容焦点。
+		if ui.FocusedValue(c, &a.renameFocus) == 1 {
+			a.renameSeenFocus = true
+		} else if a.renameSeenFocus && !a.renameComposing {
+			a.commitRenameOnBlur()
+			renaming = false
+		}
+	}
 	hitW := max(24, slot.w)
 	btn := ui.ButtonBase(c.Key(fmt.Sprintf("tab-%d", tb.ID))).Label(a.menuTitle(i)).
 		Absolute().Left(slot.cx-hitW/2).Top((tabTrackHeight-28)/2).

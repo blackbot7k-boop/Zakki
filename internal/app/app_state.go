@@ -31,7 +31,10 @@ type tabStripState struct {
 	renameDraft      string
 	renameFocus      int
 	renameComposing  bool
-	animNow          func() time.Time
+	// renameSeenFocus 重命名输入框曾真正持有焦点；置位后才允许失焦提交，
+	// 避免自动聚焦落定前的首帧误判为失焦。
+	renameSeenFocus bool
+	animNow         func() time.Time
 }
 
 // findState 查找条与匹配跳转。
