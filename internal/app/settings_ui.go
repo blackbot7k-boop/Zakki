@@ -116,7 +116,7 @@ func (a *app) migrationStatus(c *ui.Context) {
 
 // appearancePage 外观页：单列控制项卡片，全部用下拉选择。
 func (a *app) appearancePage(c *ui.Context) {
-	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).Children(func() {
+	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
 		a.appearanceControls(c)
 	})
 }
@@ -124,7 +124,7 @@ func (a *app) appearancePage(c *ui.Context) {
 // appearanceControls 外观页：单列平铺全部设置行，分区以浅色分割线分隔，
 // 单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	ui.Column(c).FillWidth().Children(func() {
+	ui.Column(c).FillWidth().Padding(0, 14, 0, 0).Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
@@ -165,7 +165,7 @@ func (a *app) presetSketchRow(c *ui.Context) {
 
 // appearanceModeSelect 界面明暗模式：跟随系统 / 浅色 / 深色。
 func (a *app) appearanceModeSelect(c *ui.Context) {
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.AppearanceLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
@@ -177,7 +177,7 @@ func (a *app) appearanceModeSelect(c *ui.Context) {
 // colorThemeSelect 颜色主题下拉。
 func (a *app) colorThemeSelect(c *ui.Context) {
 	options := colorThemeNames()
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
@@ -295,7 +295,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
@@ -309,7 +309,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
 func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
@@ -410,7 +410,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
@@ -420,7 +420,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
@@ -430,7 +430,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
@@ -453,7 +453,7 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	if field == "lineHeight" {
 		placeholder = floatText(layout.lineHeight)
 	}
-	ui.Column(c).FillWidth().Gap(2).PaddingY(12).Children(func() {
+	ui.Column(c).FillWidth().Gap(2).PaddingY(14).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, label)
