@@ -20,7 +20,9 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		a.migrationStatus(c)
 		settingsCard(c, "", func() {
+			settingsSectionTitle(c, locales.CardLanguage())
 			a.languageRow(c)
+			settingsSectionTitle(c, locales.CardWindow())
 			settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
 				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
 					a.pushWindow()
@@ -120,11 +122,14 @@ func (a *app) appearancePage(c *ui.Context) {
 // appearanceControls 外观页：单卡平铺全部设置行，单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
 	settingsCard(c, "", func() {
+		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
 		a.presetSketchRow(c)
+		settingsSectionTitle(c, locales.CardTypography())
 		a.markdownThemeSelect(c)
 		a.typographyOverrides(c)
+		settingsSectionTitle(c, locales.CardCodeTheme())
 		a.codeThemeSelect(c)
 		a.cardResetFooter(c, "appearance", pageAppearance)
 	})
@@ -546,6 +551,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 		a.persistStatus(c, t)
 
 		settingsCard(c, "", func() {
+			settingsSectionTitle(c, locales.CardExternalBackup())
 			mono := monoFontStack("sfmono")
 			if dir := a.prefs.Backup.MirrorDir; dir == "" {
 				settingsRow(c, locales.MirrorUnconfigured(), locales.MirrorUnconfiguredHint(), func() {
@@ -576,6 +582,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				}
 			})
 
+			settingsSectionTitle(c, locales.CardAutoBackup())
 			settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
 				if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
 					a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
@@ -594,6 +601,7 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 				}
 			})
 
+			settingsSectionTitle(c, locales.CardManualActions())
 			ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
 				ui.Row(c).Gap(8).Children(func() {
 					if ui.Button(c, locales.BackupNowButton()).Clicked() {

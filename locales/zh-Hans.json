@@ -301,7 +301,7 @@
   "glassStrength": "毛玻璃回退强度",
   "glassStrengthHint": "无系统材质的平台上的半透明层浓度（20–90%）",
   "tabsPageFootnote": "标签内容、名称与颜色属于笔记数据，随自动保存落盘；窗口材质是运行平台能力，不支持时自动回退为半透明色。",
-  "cardExternalBackup": "外部备份",
+  "cardExternalBackup": "外部备份与 Git",
   "mirrorUnconfigured": "未配置",
   "mirrorUnconfiguredHint": "每次备份会镜像一份到外部文件夹：选云盘同步文件夹即云备份，选 Git 仓库的本地 clone 可开启自动提交。跳过则仅保留本地备份。",
   "chooseFolder": "选择文件夹…",

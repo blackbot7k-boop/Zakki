@@ -3092,11 +3092,11 @@ func (msgs Messages) TabsPageFootnote() string {
 	return Catalog.Format(msgs.locale, "tabsPageFootnote", nil)
 }
 
-// CardExternalBackup says "External backup"
+// CardExternalBackup says "External backup & Git"
 // in the language the app shows.
 func CardExternalBackup() string { return In(i18n.Locale()).CardExternalBackup() }
 
-// CardExternalBackup says "External backup"
+// CardExternalBackup says "External backup & Git"
 // in the language of msgs.
 func (msgs Messages) CardExternalBackup() string {
 	return Catalog.Format(msgs.locale, "cardExternalBackup", nil)
@@ -3152,11 +3152,11 @@ func (msgs Messages) GitAutomation() string {
 	return Catalog.Format(msgs.locale, "gitAutomation", nil)
 }
 
-// CardAutoBackup says "Automatic backup"
+// CardAutoBackup says "Auto backup"
 // in the language the app shows.
 func CardAutoBackup() string { return In(i18n.Locale()).CardAutoBackup() }
 
-// CardAutoBackup says "Automatic backup"
+// CardAutoBackup says "Auto backup"
 // in the language of msgs.
 func (msgs Messages) CardAutoBackup() string {
 	return Catalog.Format(msgs.locale, "cardAutoBackup", nil)
