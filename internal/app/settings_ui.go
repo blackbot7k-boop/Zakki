@@ -312,15 +312,38 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(10, 16).Children(func() {
-		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
-			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
-			a.pushAppearance()
-		}
+	// 左侧下拉与说明，右侧迷你样张：选排版时效果就在手边，
+	// 不依赖页面级预览栏的位置与滚动。
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(14).Padding(10, 16).Children(func() {
+		ui.Column(c).Grow(1).Gap(2).Children(func() {
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+				ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
+				if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Changed() {
+					a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
+					a.pushAppearance()
+				}
+			})
+			ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
+				FontSize(11).TextColor(tMuted(c))
+		})
+		style := a.previewStyle(a.settingsUI.draft.Appearance, themeIsDark(c.Theme()))
+		layoutMiniPreview(c, style)
 	})
-	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
-		FontSize(11).TextColor(tMuted(c)).Padding(0, 16, 2, 16)
+}
+
+// layoutMiniPreview 排版主题的迷你样张：标题 + 正文 + 代码三行微缩，
+// 套用草稿排版（字体/字号/行高/等宽），随下拉即时变化。
+func layoutMiniPreview(c *ui.Context, style resolvedStyle) {
+	ui.Column(c).Width(190).Shrink(0).Gap(4).Padding(10, 12).Radius(8).
+		Background(style.background).BorderWidth(1).BorderColor(style.border).
+		Font(style.bodyFont).FontSize(style.bodySize * 0.72).LineHeight(style.lineHeight).
+		Children(func() {
+			ui.Text(c, locales.PreviewHeading()).Font(style.headingFont).Bold().
+				FontSize(style.headingSizes[1] * 0.72).TextColor(style.text)
+			ui.Text(c, locales.PreviewBody()).TextColor(style.text)
+			ui.Text(c, "const a = 1;").Font(style.monoFont).FontSize(style.codeSize * 0.8).
+				TextColor(style.textMuted)
+		})
 }
 
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
