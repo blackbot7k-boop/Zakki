@@ -5,6 +5,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -207,12 +208,12 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 		t.Fatalf("最后一步应显示完成按钮: %v", tt.Texts())
 	}
 	// 语言按钮的可见文字必须是 Text 子元素：ButtonBase 的 Label 只是
-	// 可访问性标题，也计入 HasText，缺 Text 子元素时按钮渲染为空白。
+	// 可访问性标题，不设 Label 时 Texts 里的唯一一条就是可见文字。
 	a.onboarding.step = 1
 	tt = ui.NewTester(a.onboardingView, 560, 440)
 	tt.Frame()
 	for _, want := range mygo.App.Languages() {
-		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 2 {
+		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 1 {
 			t.Fatalf("语言 %s 缺少可见 Text 子元素: %v", want, tt.Texts())
 		}
 	}
@@ -231,4 +232,24 @@ func dirJSONNames(t *testing.T, dir string) []string {
 		}
 	}
 	return out
+}
+
+// TestOnboardingTabCountInput 标签数输入框：越界钳制到 1–12，非法输入回写规范化文本。
+func TestOnboardingTabCountInput(t *testing.T) {
+	a := newTestApp(t)
+	a.onboarding.tabCountText = "0"
+	a.commitTabCountText()
+	if a.onboarding.tabCount != 1 {
+		t.Fatalf("0 应钳制到 1: %d", a.onboarding.tabCount)
+	}
+	a.onboarding.tabCountText = "99"
+	a.commitTabCountText()
+	if a.onboarding.tabCount != MaxTabCount {
+		t.Fatalf("99 应钳制到 %d: %d", MaxTabCount, a.onboarding.tabCount)
+	}
+	a.onboarding.tabCountText = "abc"
+	a.commitTabCountText()
+	if a.onboarding.tabCountText != strconv.Itoa(MaxTabCount) {
+		t.Fatalf("非法输入应回写规范化文本: %q", a.onboarding.tabCountText)
+	}
 }
