@@ -162,8 +162,10 @@ func (a *app) presetSketchRow(c *ui.Context) {
 		}
 	})
 }
+
+// appearanceModeSelect 界面明暗模式：跟随系统 / 浅色 / 深色。
 func (a *app) appearanceModeSelect(c *ui.Context) {
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 		ui.Text(c, locales.AppearanceLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
@@ -175,7 +177,7 @@ func (a *app) appearanceModeSelect(c *ui.Context) {
 // colorThemeSelect 颜色主题下拉。
 func (a *app) colorThemeSelect(c *ui.Context) {
 	options := colorThemeNames()
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
@@ -287,7 +289,7 @@ func cardBorder(c *ui.Context, selected bool) ui.Color {
 }
 
 // markdownThemeSelect 排版主题下拉：字体已解耦，排版只管间距字号；
-// 右侧预览即时呈现效果，不再放整组样例卡片。
+// 下方一行说明随选中项变化。
 func (a *app) markdownThemeSelect(c *ui.Context) {
 	options := make([]string, 0, len(markdownLayouts))
 	for _, l := range markdownLayouts {

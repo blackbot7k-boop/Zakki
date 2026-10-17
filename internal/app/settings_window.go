@@ -246,7 +246,7 @@ func (a *app) settingsView(c *ui.Context) {
 			a.settingsUI.syncDraftFromPrefs(a.prefs)
 			a.settingsUI.recording = ""
 		}
-		ui.Column(c).Fill().Grow(1).Padding(28, 24).Gap(18).Children(func() {
+		ui.Column(c).Fill().Grow(1).Padding(28, 32, 28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
 			case pageAppearance:
 				a.appearancePage(c)
