@@ -12,8 +12,48 @@ import (
 type codePalette [codehl.KindCount]ui.Color
 
 var codeSchemes = map[string][2]codePalette{
-	"soft":  {softCodePalette, softCodePaletteDark},
-	"vivid": {vividCodePalette, vividCodePaletteDark},
+	"soft":   {softCodePalette, softCodePaletteDark},
+	"vivid":  {vividCodePalette, vividCodePaletteDark},
+	"claude": {claudeCodePalette, claudeCodePaletteDark},
+	"qoder":  {qoderCodePalette, qoderCodePaletteDark},
+}
+
+// Claude 代码配色：Mayoi 同名主题的语法色（Key 取其 Tag 位）。
+var claudeCodePalette = codePalette{
+	codehl.Comment: ui.Hex("#938d82"),
+	codehl.String:  ui.Hex("#5e8a3a"),
+	codehl.Number:  ui.Hex("#a85a1f"),
+	codehl.Keyword: ui.Hex("#b8573a"),
+	codehl.Func:    ui.Hex("#3b6ea8"),
+	codehl.Key:     ui.Hex("#bf4d3a"),
+}
+
+var claudeCodePaletteDark = codePalette{
+	codehl.Comment: ui.Hex("#7d786f"),
+	codehl.String:  ui.Hex("#b3c98a"),
+	codehl.Number:  ui.Hex("#d4a27f"),
+	codehl.Keyword: ui.Hex("#d97757"),
+	codehl.Func:    ui.Hex("#8fb6dd"),
+	codehl.Key:     ui.Hex("#e8705f"),
+}
+
+// Qoder 代码配色：Mayoi 同名主题的语法色（Key 取其 Tag 位）。
+var qoderCodePalette = codePalette{
+	codehl.Comment: ui.Hex("#848c86"),
+	codehl.String:  ui.Hex("#8a5a00"),
+	codehl.Number:  ui.Hex("#b85a1f"),
+	codehl.Keyword: ui.Hex("#2f7550"),
+	codehl.Func:    ui.Hex("#0969a8"),
+	codehl.Key:     ui.Hex("#b3434a"),
+}
+
+var qoderCodePaletteDark = codePalette{
+	codehl.Comment: ui.Hex("#758077"),
+	codehl.String:  ui.Hex("#d8c07a"),
+	codehl.Number:  ui.Hex("#efb080"),
+	codehl.Keyword: ui.Hex("#73cd94"),
+	codehl.Func:    ui.Hex("#87c3ff"),
+	codehl.Key:     ui.Hex("#e394dc"),
 }
 
 // 柔和：低饱和的同系色，浅色底上再压暗一档。

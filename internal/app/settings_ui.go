@@ -325,7 +325,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
 func (a *app) codeThemeSelect(c *ui.Context) {
-	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid()}
+	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Changed() {
@@ -342,6 +342,10 @@ func codeThemeKey(display string) string {
 		return "soft"
 	case locales.CodeThemeVivid():
 		return "vivid"
+	case locales.CodeThemeClaude():
+		return "claude"
+	case locales.CodeThemeQoder():
+		return "qoder"
 	}
 	return ""
 }
@@ -353,6 +357,10 @@ func codeThemeDisplay(key string) string {
 		return locales.CodeThemeSoft()
 	case "vivid":
 		return locales.CodeThemeVivid()
+	case "claude":
+		return locales.CodeThemeClaude()
+	case "qoder":
+		return locales.CodeThemeQoder()
 	}
 	return locales.CodeThemeNone()
 }

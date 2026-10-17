@@ -1836,6 +1836,26 @@ func (msgs Messages) ThemeSketch() string {
 	return Catalog.Format(msgs.locale, "themeSketch", nil)
 }
 
+// ThemeClaude says "Claude"
+// in the language the app shows.
+func ThemeClaude() string { return In(i18n.Locale()).ThemeClaude() }
+
+// ThemeClaude says "Claude"
+// in the language of msgs.
+func (msgs Messages) ThemeClaude() string {
+	return Catalog.Format(msgs.locale, "themeClaude", nil)
+}
+
+// ThemeQoder says "Qoder"
+// in the language the app shows.
+func ThemeQoder() string { return In(i18n.Locale()).ThemeQoder() }
+
+// ThemeQoder says "Qoder"
+// in the language of msgs.
+func (msgs Messages) ThemeQoder() string {
+	return Catalog.Format(msgs.locale, "themeQoder", nil)
+}
+
 // LayoutSonnet says "Sonnet (Typora)"
 // in the language the app shows.
 func LayoutSonnet() string { return In(i18n.Locale()).LayoutSonnet() }
@@ -2310,6 +2330,26 @@ func CodeThemeVivid() string { return In(i18n.Locale()).CodeThemeVivid() }
 // in the language of msgs.
 func (msgs Messages) CodeThemeVivid() string {
 	return Catalog.Format(msgs.locale, "codeThemeVivid", nil)
+}
+
+// CodeThemeClaude says "Claude"
+// in the language the app shows.
+func CodeThemeClaude() string { return In(i18n.Locale()).CodeThemeClaude() }
+
+// CodeThemeClaude says "Claude"
+// in the language of msgs.
+func (msgs Messages) CodeThemeClaude() string {
+	return Catalog.Format(msgs.locale, "codeThemeClaude", nil)
+}
+
+// CodeThemeQoder says "Qoder"
+// in the language the app shows.
+func CodeThemeQoder() string { return In(i18n.Locale()).CodeThemeQoder() }
+
+// CodeThemeQoder says "Qoder"
+// in the language of msgs.
+func (msgs Messages) CodeThemeQoder() string {
+	return Catalog.Format(msgs.locale, "codeThemeQoder", nil)
 }
 
 // CardPresetSketch says "Whole theme"

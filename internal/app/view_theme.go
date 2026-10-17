@@ -58,6 +58,10 @@ func colorThemeDisplayName(id string) string {
 		return locales.ThemeGraphite()
 	case "sketch":
 		return locales.ThemeSketch()
+	case "claude":
+		return locales.ThemeClaude()
+	case "qoder":
+		return locales.ThemeQoder()
 	}
 	return id
 }
@@ -149,6 +153,43 @@ var colorThemes = []colorThemeDef{
 			text: ui.Hex("#efe7d6"), textMuted: ui.Hex("#b7ac95"),
 			accent: ui.Hex("#f2a66e"), selection: ui.RGBA(240, 200, 90, 0.30),
 			codeBackground: ui.Hex("#322e27"), quoteBorder: ui.Hex("#c9a23a"), rule: ui.Hex("#5a523f"),
+		},
+	},
+	{
+		// Claude：Anthropic 的暖象牙与近黑，橙 accent。浅深两套与代码配色
+		// 取自 Mayoi（sorrycc/Mayoi）的同名主题。
+		id: "claude",
+		light: colorPalette{
+			background: ui.Hex("#faf9f5"), header: ui.Hex("#f0eee6"), status: ui.Hex("#f0eee6"),
+			surface: ui.Hex("#ffffff"), border: ui.Hex("#e3dfd3"),
+			text: ui.Hex("#141413"), textMuted: ui.Hex("#6b675f"),
+			accent: ui.Hex("#c96442"), selection: ui.RGBA(217, 119, 87, 0.22),
+			codeBackground: ui.Hex("#f5f4ee"), quoteBorder: ui.Hex("#a39e93"), rule: ui.Hex("#e3dfd3"),
+		},
+		dark: colorPalette{
+			background: ui.Hex("#1f1e1d"), header: ui.Hex("#191918"), status: ui.Hex("#191918"),
+			surface: ui.Hex("#262523"), border: ui.Hex("#37342f"),
+			text: ui.Hex("#e8e6dc"), textMuted: ui.Hex("#a39e93"),
+			accent: ui.Hex("#d97757"), selection: ui.RGBA(217, 119, 87, 0.28),
+			codeBackground: ui.Hex("#262523"), quoteBorder: ui.Hex("#6b675f"), rule: ui.Hex("#2e2c2a"),
+		},
+	},
+	{
+		// Qoder：Forest 的白绿浅色与灰绿深色，森林绿 accent。取自 Mayoi。
+		id: "qoder",
+		light: colorPalette{
+			background: ui.Hex("#ffffff"), header: ui.Hex("#f2f4f2"), status: ui.Hex("#f2f4f2"),
+			surface: ui.Hex("#ffffff"), border: ui.Hex("#e3e6e3"),
+			text: ui.Hex("#141414"), textMuted: ui.Hex("#636261"),
+			accent: ui.Hex("#4b6f5a"), selection: ui.RGBA(75, 111, 90, 0.22),
+			codeBackground: ui.Hex("#f5f7f5"), quoteBorder: ui.Hex("#949391"), rule: ui.Hex("#e3e6e3"),
+		},
+		dark: colorPalette{
+			background: ui.Hex("#191b1a"), header: ui.Hex("#242624"), status: ui.Hex("#242624"),
+			surface: ui.Hex("#222523"), border: ui.Hex("#363c37"),
+			text: ui.Hex("#d9dcd9"), textMuted: ui.Hex("#949d96"),
+			accent: ui.Hex("#8ee5a1"), selection: ui.RGBA(77, 156, 97, 0.32),
+			codeBackground: ui.Hex("#1c1f1d"), quoteBorder: ui.Hex("#646d66"), rule: ui.Hex("#363c37"),
 		},
 	},
 }
