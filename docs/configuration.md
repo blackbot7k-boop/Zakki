@@ -22,6 +22,9 @@ Windows 的对应目录为 `%APPDATA%\Zakki\`，与默认程序安装目录 `%LO
 更名前安装的旧数据目录会在升级后首次启动时自动迁移到新目录（整体搬入并按新命名改名文件，
 新目录已有数据时不动旧目录仅告警）；其他平台两个文件位于同一数据目录（os.UserConfigDir）。
 MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助状态不会另建目录。
+开发运行（`go tool mygo dev` / `go run`，即 `mygo.IsDev()`）使用独立的
+`~/Library/Application Support/Zakki Dev/`，不做旧目录迁移；正式目录留给安装版
+（本地 `make build` 产物也算正式），两边数据互不污染。
 `updater.json` 由 MyGo 原生更新器管理检查时间、跳过版本和自动下载选择，不改动 `preferences.json` 的结构。
 默认只手动检查；更新入口及发布要求见 [发布与更新](release.md)。
 

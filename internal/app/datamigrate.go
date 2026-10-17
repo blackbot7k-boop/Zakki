@@ -23,6 +23,9 @@ const (
 	// 首次启动时整体迁移过来。
 	dataDirectoryName       = "Zakki"
 	legacyDataDirectoryName = "Tot MD"
+	// devDataDirectoryName 开发运行（go tool mygo dev / go run）的数据目录：
+	// 与正式安装共处一台机器时互不污染，开发目录全新、不做旧目录迁移。
+	devDataDirectoryName    = "Zakki Dev"
 	dataFileName            = "zakki.json"
 	legacyDataFileName      = "tot-md.json"
 	legacyDataPendingSuffix = ".pending"
@@ -35,6 +38,8 @@ var (
 	migrateDataDirOnce = new(sync.Once)
 	resolvedDataDir    string
 	resolvedDataDirErr error
+	// devMode 判定开发运行；测试可替换。
+	devMode = mygo.IsDev
 )
 
 // mygoAppDataBase 返回系统应用数据根目录；测试可替换。
@@ -58,6 +63,13 @@ func resolveDataDir() (string, error) {
 		if err != nil || base == "" {
 			home, _ := os.UserHomeDir()
 			base = filepath.Join(home, "Library", "Application Support")
+		}
+		// 开发运行的数据目录与正式安装分开：正式目录 Zakki 留给日常使用的
+		// 安装版（含本地 make build 产物），首启向导与迁移语义在两边各自
+		// 完整生效；开发目录全新，不迁移旧目录、不触碰正式目录。
+		if devMode() {
+			resolvedDataDir = filepath.Join(base, devDataDirectoryName)
+			return
 		}
 		resolvedDataDir = filepath.Join(base, dataDirectoryName)
 		if err := migrateDataDir(base); err != nil {

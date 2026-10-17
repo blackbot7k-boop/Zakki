@@ -297,12 +297,15 @@ func TestResolveDataDirCachesMigrationErrorAndNextProcessRetries(t *testing.T) {
 	}
 
 	oldBase := mygoAppDataBase
+	oldDev := devMode
 	oldOnce, oldDirCache, oldErrCache := migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr
 	t.Cleanup(func() {
 		mygoAppDataBase = oldBase
+		devMode = oldDev
 		migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr = oldOnce, oldDirCache, oldErrCache
 	})
 	mygoAppDataBase = func() (string, error) { return base, nil }
+	devMode = func() bool { return false }
 	migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr = new(sync.Once), "", nil
 
 	dir, firstErr := resolveDataDir()
@@ -328,6 +331,40 @@ func TestResolveDataDirCachesMigrationErrorAndNextProcessRetries(t *testing.T) {
 	}
 	mustExist(t, filepath.Join(newDir, dataFileName))
 	mustExist(t, filepath.Join(newDir, "config.toml"))
+}
+
+// TestResolveDataDirDevModeSeparatesDataDir 开发运行改用 Zakki Dev 目录，
+// 不迁移旧目录、不触碰正式目录：同一台机器上开发与日常使用互不污染。
+func TestResolveDataDirDevModeSeparatesDataDir(t *testing.T) {
+	base := t.TempDir()
+	oldDir := filepath.Join(base, legacyDataDirectoryName)
+	writeFile(t, filepath.Join(oldDir, legacyDataFileName), `{"version":2}`)
+	if err := os.MkdirAll(filepath.Join(base, dataDirectoryName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldBase := mygoAppDataBase
+	oldDev := devMode
+	oldOnce, oldDirCache, oldErrCache := migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr
+	t.Cleanup(func() {
+		mygoAppDataBase = oldBase
+		devMode = oldDev
+		migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr = oldOnce, oldDirCache, oldErrCache
+	})
+	mygoAppDataBase = func() (string, error) { return base, nil }
+	devMode = func() bool { return true }
+	migrateDataDirOnce, resolvedDataDir, resolvedDataDirErr = new(sync.Once), "", nil
+
+	dir, err := resolveDataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(base, devDataDirectoryName); dir != want {
+		t.Fatalf("开发运行应使用 %s，得到 %s", want, dir)
+	}
+	// 旧目录与正式目录原样保留：迁移不发生。
+	mustExist(t, filepath.Join(oldDir, legacyDataFileName))
+	mustNotExist(t, filepath.Join(base, dataDirectoryName, dataFileName))
 }
 
 func TestNewTestAppBypassesGlobalDataDirectoryResolution(t *testing.T) {
