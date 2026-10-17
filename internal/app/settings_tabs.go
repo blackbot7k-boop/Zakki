@@ -90,7 +90,7 @@ func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Scroll(c).Fill().Grow(1).Children(func() {
 		settingsCard(c, "", func() {
 			settingsSectionTitle(c, locales.CardTabs())
-			ui.Column(c).FillWidth().PaddingY(6).Gap(12).Children(func() {
+			ui.Column(c).FillWidth().PaddingY(10).Gap(12).Children(func() {
 				a.tabListSection(c, dark)
 			})
 			settingsSectionTitle(c, locales.CardTabBar())

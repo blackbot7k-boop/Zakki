@@ -287,7 +287,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	for _, l := range markdownLayouts {
 		options = append(options, markdownLayoutDisplayName(l.id))
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
@@ -295,13 +295,13 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 		}
 	})
 	ui.Text(c, markdownLayoutNote(a.settingsUI.draft.Appearance.MarkdownTheme)).
-		FontSize(11).TextColor(tMuted(c))
+		FontSize(11).TextColor(tMuted(c)).Padding(2, 0, 6, 0)
 }
 
 // codeThemeSelect 代码配色下拉：空串 = 跟随文本（不上色）。
 func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
 		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
@@ -402,7 +402,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 	monoKeys := []string{"jbm", "sfmono", "menlo"}
 
 	ui.Column(c).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
@@ -412,7 +412,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
@@ -422,7 +422,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				a.pushAppearance()
 			}
 		})
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(10).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
@@ -445,7 +445,7 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	if field == "lineHeight" {
 		placeholder = floatText(layout.lineHeight)
 	}
-	ui.Column(c).FillWidth().Gap(2).PaddingY(10).Children(func() {
+	ui.Column(c).FillWidth().Gap(2).PaddingY(12).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, label)
@@ -676,7 +676,7 @@ func settingsCard(c *ui.Context, title string, body func()) ui.Element {
 
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
 func (a *app) cardResetFooter(c *ui.Context, key, page string) {
-	ui.Row(c).FillWidth().PaddingY(8).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().PaddingY(12).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Grow(1)
 		// 弱化为次要小按钮：恢复是破坏性较低的高频入口，但不应与大控件争抢视觉。
 		btn := ui.ButtonBase(c.Key("reset-"+key)).Padding(4, 10).Radius(7).

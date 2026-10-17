@@ -392,7 +392,7 @@ func tMuted(c *ui.Context) ui.Color { return c.Theme().TextMuted }
 
 // settingsSectionTitle 分组标题：加粗正文色，上下留白与行距衔接。
 func settingsSectionTitle(c *ui.Context, title string) {
-	ui.Text(c, title).Bold().FontSize(13).PaddingY(6)
+	ui.Text(c, title).Bold().FontSize(15).Padding(10, 0, 4, 0)
 }
 
 // confirmResetPage 「恢复本页默认值」：原生确认对话框，不清除笔记或备份。
