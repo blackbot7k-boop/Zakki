@@ -72,7 +72,7 @@ Markdown 命令与全局唤起都可在 **设置 → 快捷键** 里录制改键
 
 ```sh
 go tool mygo dev      # 开发（热重载）
-go test               # 无窗口视图测试 + markdown 引擎测试 + 持久化测试
+make test             # 全量测试（含 MyGo vendor 补丁包）
 make check            # gofmt + vet（含 mygo vet）+ test + race + arch 检查（CI 同款）
 make build            # macOS 通用 .app / .dmg
 make build-windows    # Windows x64 .exe
@@ -84,14 +84,7 @@ make build-windows    # Windows x64 .exe
 
 ## 性能
 
-输入管线块级增量（基准 180KB / 2401 行 / 1200 块）：单次按键约 0.2ms / 0.4MB
-垃圾；源码高亮 163ms → 1.6ms；搜索命中 10.7ms → 0.54ms。预览块列表虚拟化后，
-帧构建成本只随可见块数增长（4001 块笔记每帧 ≈ 0.28ms），与文档长度无关。
-
-> MyGo 0.5 的 `markdown.Stream` 也评估过：它优化的是**逐 token 追加**的流式
-> 渲染（语言模型回复场景），对「打开一篇已存在的长笔记」没有收益，且本应用
-> 的编辑器按块自绘（焦点块投影、表格网格），不适配；因此加载提速采用
-> `ui.List` 虚拟化。
+编辑与预览采用块级虚拟列表，长文档帧成本主要随可见块数增长。历史测量与未解决瓶颈见 [docs/reports/](docs/reports/)。
 
 ## 许可
 

@@ -4,7 +4,7 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 
 ## 必读
 
-1. [docs/engineering-standard.md](docs/engineering-standard.md)：工程与架构标准、目标布局、依赖规则、迁移阶段。
+1. [docs/engineering-standard.md](docs/engineering-standard.md)：工程与架构标准、布局与依赖规则。
 2. [docs/architecture.md](docs/architecture.md)：各模块职责、线程模型、持久化生命周期。
 3. [.agents/skills/mygo-maintenance/SKILL.md](.agents/skills/mygo-maintenance/SKILL.md)：改 UI 前必读。
 4. [docs/configuration.md](docs/configuration.md)：改偏好/设置相关代码前必读。
@@ -14,13 +14,13 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 
 - 根目录：只有入口 `main.go`（调 `internal/app.Run()`）与工程化文件。
 - `internal/app`：MyGo UI 与应用装配（窗口、菜单、托盘、视图、实时预览、标签、设置），唯一允许依赖 MyGo 的 internal 包。
-- `internal/` 其余：纯逻辑与持久化（`markdown`、`notes`、`prefs`、`legacyconfig`、`atomicfile`），禁止依赖 MyGo 与 `internal/app`。
+- `internal/` 其余：纯逻辑与持久化（`markdown`、`codehl`、`notes`、`prefs`、`legacyconfig`、`atomicfile`），禁止依赖 MyGo 与 `internal/app`。
 - `locales/`：i18n 目录（`en.json` 源 + `zh-Hans.json`），`go tool mygo generate` 生成 `catalog_gen.go`；中英键位一致性有测试。改用户可见文案一律经 `locales.*`，不得写死字面量。
 - `vendor/` + `patches/`：MyGo 原生区间样式补丁；改依赖前读 [patches/README.md](patches/README.md)，用 `make vendor` 刷新，不能用 `-mod=mod` 绕过补丁。
 
 ## 硬规则
 
-- 纯逻辑包（`markdown`/`notes`/`prefs`/`legacyconfig`/`atomicfile`）禁止 import `github.com/egoist/mygo` 及其子包，也禁止 import `internal/app`；internal 包之间只允许标准第 3 节列出的依赖。
+- 纯逻辑包（`markdown`/`codehl`/`notes`/`prefs`/`legacyconfig`/`atomicfile`）禁止 import `github.com/egoist/mygo` 及其子包，也禁止 import `internal/app`；internal 包之间只允许 [engineering-standard.md](docs/engineering-standard.md) 第 3 节列出的依赖。
 - 禁止往 `app` 顶层新增字段；新状态放进对应的领域子结构体或 Store。
 - 禁止把 `ui.Element`、`*ui.Context` 存入状态或传给后台；持久身份用 `ui.Handle`。
 - 后台 goroutine 只碰不可变快照，回主线程只用 `Window.Update`；锁只存在于 Store 类型内部。
@@ -36,7 +36,7 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 ## 命令
 
 ```bash
-make check          # 提交前必须全绿：fmt-check + vet（含 mygo vet）+ test + race（阶段 1 起含 arch-check）
+make check          # 提交前必须全绿：fmt-check + vet（含 mygo vet）+ test + race + arch-check
 make test           # CGO_ENABLED=0 go test ./... -count=1，含 MyGo vendor 补丁测试
 make race           # go test -race ./... -count=1，含 MyGo vendor 补丁测试
 make vet            # go vet ./... && go tool mygo vet .
