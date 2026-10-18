@@ -124,7 +124,7 @@ func (a *app) appearancePage(c *ui.Context) {
 // appearanceControls 外观页：单列平铺全部设置行，分区以浅色分割线分隔，
 // 单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	ui.Column(c).FillWidth().Padding(0, 8, 0, 0).Children(func() {
+	ui.Column(c).FillWidth().Padding(0, 12, 0, 0).Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
