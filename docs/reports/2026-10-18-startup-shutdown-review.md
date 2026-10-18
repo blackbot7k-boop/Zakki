@@ -103,7 +103,7 @@ MyGo 仍固定 `v0.5.1`，没有修改系统/用户 GPU 配置，也没有替换
 
 请求耗时包含主线程排队；`Show/Focus` 返回不代表恢复后的首帧已呈现，不能把 21ms 当作 Dock 点击全链路延迟。
 普通笔记“先隐藏再退出”另测 5 次，退出为 **24–33ms**，包含仍未自动保存的模拟编辑。
-之前的真实 Dock 回归已覆盖隐藏复用和关闭重建，见[窗口与性能报告](performance-review.md)。
+之前的真实 Dock 回归已覆盖隐藏复用和关闭重建，见[窗口与性能报告](2026-10-18-performance-review.md)。
 
 表格 `Close` 自身中位数约 144ms，而发出请求到返回约 266ms，说明排队和原生窗口处理都有成本；
 退出最终写盘不足 1ms。进一步定位各层比例还需要布局/绘制及 AppKit 关闭路径采样，
@@ -144,7 +144,7 @@ MyGo 仍固定 `v0.5.1`，没有修改系统/用户 GPU 配置，也没有替换
 
 ## 复现与原始记录
 
-[原始样本、线程采样与汇总](performance/README.md)。
+[工具与汇总说明](../performance/README.md)。
 
 ```bash
 python3 docs/performance/native-lifecycle-probe.py --gpu 0 \
