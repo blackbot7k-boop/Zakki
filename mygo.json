@@ -1,7 +1,7 @@
 {
   "name": "Zakki",
   "identifier": "com.gomeen.zakki",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "out": "build",
   "macos": {
     "signingIdentity": "-"
