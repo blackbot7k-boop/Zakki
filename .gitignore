@@ -1,3 +1,4 @@
+.DS_Store
 /build/
 /.mygo/
 mygo_windows_*.syso
