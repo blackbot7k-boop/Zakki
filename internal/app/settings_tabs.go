@@ -87,8 +87,8 @@ func tabDotShapeKey(display string) string {
 func (a *app) tabsPage(c *ui.Context, t *ui.Theme, dark bool) {
 	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
 	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
-	ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
-		ui.Column(c).FillWidth().Padding(0, 24, 0, 0).Children(func() {
+	ui.Scroll(c).Fill().Grow(1).Children(func() {
+		ui.Column(c).FillWidth().Padding(0, 8, 0, 0).Children(func() {
 			settingsSectionTitle(c, locales.CardTabs())
 			ui.Column(c).FillWidth().PaddingY(10).Gap(12).Children(func() {
 				a.tabListSection(c, dark)

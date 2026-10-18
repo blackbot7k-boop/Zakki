@@ -116,7 +116,7 @@ func (a *app) migrationStatus(c *ui.Context) {
 
 // appearancePage 外观页：单列控制项卡片，全部用下拉选择。
 func (a *app) appearancePage(c *ui.Context) {
-	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
+	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).Children(func() {
 		a.appearanceControls(c)
 	})
 }
@@ -124,7 +124,7 @@ func (a *app) appearancePage(c *ui.Context) {
 // appearanceControls 外观页：单列平铺全部设置行，分区以浅色分割线分隔，
 // 单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	ui.Column(c).FillWidth().Padding(0, 24, 0, 0).Children(func() {
+	ui.Column(c).FillWidth().Padding(0, 8, 0, 0).Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
