@@ -19,18 +19,20 @@ import (
 func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		a.migrationStatus(c)
-		ui.Column(c).FillWidth().Children(func() {
-			settingsSectionTitle(c, locales.CardLanguage())
-			a.languageRow(c)
-			sectionDivider(c)
-			settingsSectionTitle(c, locales.CardWindow())
-			settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
-				if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
-					a.pushWindow()
-				}
+		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
+			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
+				settingsSectionTitle(c, locales.CardLanguage())
+				a.languageRow(c)
+				sectionDivider(c)
+				settingsSectionTitle(c, locales.CardWindow())
+				settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
+					if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
+						a.pushWindow()
+					}
+				})
+				sectionDivider(c)
+				a.cardResetFooter(c, "general", pageGeneral)
 			})
-			sectionDivider(c)
-			a.cardResetFooter(c, "general", pageGeneral)
 		})
 	})
 }
@@ -116,7 +118,7 @@ func (a *app) migrationStatus(c *ui.Context) {
 
 // appearancePage 外观页：单列控制项卡片，全部用下拉选择。
 func (a *app) appearancePage(c *ui.Context) {
-	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).Children(func() {
+	ui.Scroll(c.Key("appearance-controls")).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
 		a.appearanceControls(c)
 	})
 }
@@ -124,7 +126,7 @@ func (a *app) appearancePage(c *ui.Context) {
 // appearanceControls 外观页：单列平铺全部设置行，分区以浅色分割线分隔，
 // 单一恢复入口。
 func (a *app) appearanceControls(c *ui.Context) {
-	ui.Column(c).FillWidth().Padding(0, 12, 0, 0).Children(func() {
+	ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
 		a.colorThemeSelect(c)
@@ -558,88 +560,90 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
 
-		ui.Column(c).FillWidth().Children(func() {
-			settingsSectionTitle(c, locales.CardExternalBackup())
-			mono := monoFontStack("sfmono")
-			if dir := a.prefs.Backup.MirrorDir; dir == "" {
-				settingsRow(c, locales.MirrorUnconfigured(), locales.MirrorUnconfiguredHint(), func() {
-					if ui.Button(c, locales.ChooseFolder()).Clicked() {
-						a.pickMirrorFolder()
-					}
-				})
-			} else {
-				ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
-					ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
-					ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
-					ui.Row(c).Gap(8).Children(func() {
-						if ui.Button(c, locales.OpenFolder()).Clicked() {
-							_ = mygo.Shell.OpenPath(dir)
-						}
-						if ui.Button(c, locales.CommonChange()).Clicked() {
+		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
+			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
+				settingsSectionTitle(c, locales.CardExternalBackup())
+				mono := monoFontStack("sfmono")
+				if dir := a.prefs.Backup.MirrorDir; dir == "" {
+					settingsRow(c, locales.MirrorUnconfigured(), locales.MirrorUnconfiguredHint(), func() {
+						if ui.Button(c, locales.ChooseFolder()).Clicked() {
 							a.pickMirrorFolder()
 						}
-						if ui.Button(c, locales.CommonDisconnect()).Clicked() {
-							a.disconnectMirror()
+					})
+				} else {
+					ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
+						ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
+						ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
+						ui.Row(c).Gap(8).Children(func() {
+							if ui.Button(c, locales.OpenFolder()).Clicked() {
+								_ = mygo.Shell.OpenPath(dir)
+							}
+							if ui.Button(c, locales.CommonChange()).Clicked() {
+								a.pickMirrorFolder()
+							}
+							if ui.Button(c, locales.CommonDisconnect()).Clicked() {
+								a.disconnectMirror()
+							}
+						})
+					})
+				}
+				settingsRow(c, locales.GitAutomation(), a.gitModeDetailText(), func() {
+					if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Width(200).Changed() {
+						a.pushMirrorGitMode()
+					}
+				})
+
+				sectionDivider(c)
+				settingsSectionTitle(c, locales.CardAutoBackup())
+				settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
+					if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
+						a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
+						a.pushBackup()
+					}
+				})
+				settingsRow(c, locales.BackupKeep(), locales.BackupKeepHint(), func() {
+					if ui.NumberInput(c, &keepF, 1, 1000, 1).Changed() {
+						a.settingsUI.draft.Backup.Keep = int(keepF)
+						a.pushBackup()
+					}
+				})
+				settingsRow(c, locales.BackupOnLaunch(), locales.BackupOnLaunchHint(), func() {
+					if ui.Switch(c, &a.settingsUI.draft.Backup.OnLaunch).Label(locales.BackupOnLaunchSwitch()).Changed() {
+						a.pushBackup()
+					}
+				})
+
+				sectionDivider(c)
+				settingsSectionTitle(c, locales.CardManualActions())
+				ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
+					ui.Row(c).Gap(8).Children(func() {
+						if ui.Button(c, locales.BackupNowButton()).Clicked() {
+							if err := a.backupNow(); err != nil {
+								a.settingsUI.keyErr = locales.BackupFailedLine(err.Error())
+							} else {
+								a.settingsUI.keyErr = ""
+							}
+						}
+						if ui.Button(c, locales.OpenBackupFolder()).Clicked() {
+							_ = mygo.Shell.OpenPath(a.notes.BackupDir)
+						}
+						if ui.Button(c, locales.ShowDataLocation()).Clicked() {
+							mygo.Shell.ShowItemInFolder(a.notes.DataFile)
 						}
 					})
+					mono := monoFontStack("sfmono")
+					ui.Text(c, locales.BackupDirLine(a.notes.BackupDir)).FontSize(11).Font(mono).TextColor(tMuted(c))
+					ui.Text(c, locales.DataFileLine(a.notes.DataFile)).FontSize(11).Font(mono).TextColor(tMuted(c))
 				})
+				sectionDivider(c)
+				a.cardResetFooter(c, "backup", pageBackup)
+			})
+
+			// 本页操作错误（备份失败、目录不可用等）。
+			if a.settingsUI.keyErr != "" {
+				ui.Text(c, a.settingsUI.keyErr).FontSize(12).TextColor(t.Danger)
 			}
-			settingsRow(c, locales.GitAutomation(), a.gitModeDetailText(), func() {
-				if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Width(200).Changed() {
-					a.pushMirrorGitMode()
-				}
-			})
-
-			sectionDivider(c)
-			settingsSectionTitle(c, locales.CardAutoBackup())
-			settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
-				if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
-					a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
-					a.pushBackup()
-				}
-			})
-			settingsRow(c, locales.BackupKeep(), locales.BackupKeepHint(), func() {
-				if ui.NumberInput(c, &keepF, 1, 1000, 1).Changed() {
-					a.settingsUI.draft.Backup.Keep = int(keepF)
-					a.pushBackup()
-				}
-			})
-			settingsRow(c, locales.BackupOnLaunch(), locales.BackupOnLaunchHint(), func() {
-				if ui.Switch(c, &a.settingsUI.draft.Backup.OnLaunch).Label(locales.BackupOnLaunchSwitch()).Changed() {
-					a.pushBackup()
-				}
-			})
-
-			sectionDivider(c)
-			settingsSectionTitle(c, locales.CardManualActions())
-			ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
-				ui.Row(c).Gap(8).Children(func() {
-					if ui.Button(c, locales.BackupNowButton()).Clicked() {
-						if err := a.backupNow(); err != nil {
-							a.settingsUI.keyErr = locales.BackupFailedLine(err.Error())
-						} else {
-							a.settingsUI.keyErr = ""
-						}
-					}
-					if ui.Button(c, locales.OpenBackupFolder()).Clicked() {
-						_ = mygo.Shell.OpenPath(a.notes.BackupDir)
-					}
-					if ui.Button(c, locales.ShowDataLocation()).Clicked() {
-						mygo.Shell.ShowItemInFolder(a.notes.DataFile)
-					}
-				})
-				mono := monoFontStack("sfmono")
-				ui.Text(c, locales.BackupDirLine(a.notes.BackupDir)).FontSize(11).Font(mono).TextColor(tMuted(c))
-				ui.Text(c, locales.DataFileLine(a.notes.DataFile)).FontSize(11).Font(mono).TextColor(tMuted(c))
-			})
-			sectionDivider(c)
-			a.cardResetFooter(c, "backup", pageBackup)
 		})
-
-		// 本页操作错误（备份失败、目录不可用等）。
-		if a.settingsUI.keyErr != "" {
-			ui.Text(c, a.settingsUI.keyErr).FontSize(12).TextColor(t.Danger)
-		}
 	})
 }
 

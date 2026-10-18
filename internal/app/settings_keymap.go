@@ -64,8 +64,8 @@ func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 		})
 		ui.SearchField(c, &a.settingsUI.keySearch).Placeholder(locales.KeymapSearchPlaceholder()).FillWidth()
 
-		ui.Scroll(c).Fill().Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Gap(12).Children(func() {
+		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
+			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Gap(12).Children(func() {
 				for _, groupID := range keymapGroupIDs {
 					items := a.keymapGroupItems(groupID)
 					if len(items) == 0 {
