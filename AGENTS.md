@@ -16,6 +16,7 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 - `internal/app`：MyGo UI 与应用装配（窗口、菜单、托盘、视图、实时预览、标签、设置），唯一允许依赖 MyGo 的 internal 包。
 - `internal/` 其余：纯逻辑与持久化（`markdown`、`notes`、`prefs`、`legacyconfig`、`atomicfile`），禁止依赖 MyGo 与 `internal/app`。
 - `locales/`：i18n 目录（`en.json` 源 + `zh-Hans.json`），`go tool mygo generate` 生成 `catalog_gen.go`；中英键位一致性有测试。改用户可见文案一律经 `locales.*`，不得写死字面量。
+- `vendor/` + `patches/`：MyGo 原生区间样式补丁；改依赖前读 [patches/README.md](patches/README.md)，用 `make vendor` 刷新，不能用 `-mod=mod` 绕过补丁。
 
 ## 硬规则
 
@@ -29,18 +30,19 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 - 结构迁移不夹带行为变更；测试只能迁移，不能删除或放宽。
 - 未经用户允许不做 lint 类修改。
 - 文件迁移或职责变化时，在同一次提交里更新 `docs/architecture.md`。
-- 非测试文件超过 800 行必须拆分；禁止 `util`/`common`/`helpers` 包名。
+- 自有非测试文件超过 800 行必须拆分（`vendor/` 保留上游布局）；禁止 `util`/`common`/`helpers` 包名。
 - 注释用中文，只写代码本身表达不出的约束。
 
 ## 命令
 
 ```bash
 make check          # 提交前必须全绿：fmt-check + vet（含 mygo vet）+ test + race（阶段 1 起含 arch-check）
-make test           # CGO_ENABLED=0 go test ./... -count=1
-make race           # go test -race ./... -count=1
+make test           # CGO_ENABLED=0 go test ./... -count=1，含 MyGo vendor 补丁测试
+make race           # go test -race ./... -count=1，含 MyGo vendor 补丁测试
 make vet            # go vet ./... && go tool mygo vet .
 make build          # go tool mygo build，产物在 build/
-go list -m -f '{{.Dir}}' github.com/egoist/mygo   # 查看 MyGo 源码与示例，API 以该版本源码为准
+make vendor         # 重新生成依赖副本并应用 MyGo 补丁
+go list -f '{{.Dir}}' github.com/egoist/mygo/ui   # 查看实际参与构建的 MyGo UI 源码
 ```
 
 ## 提交

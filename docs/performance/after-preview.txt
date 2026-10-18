@@ -1,0 +1,70 @@
+
+# sample 1; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkPreviewSteady/code/1000-16         	      10	   3378880 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/code/5000-16         	      10	  18929572 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/table/1000-16        	      10	  21839224 ns/op	 1591431 B/op	   34239 allocs/op
+BenchmarkPreviewSteady/table/5000-16        	      10	 126251446 ns/op	 8183418 B/op	  182238 allocs/op
+BenchmarkPreviewSteady/paragraph/100000-16  	      10	  95937508 ns/op	46880604 B/op	     296 allocs/op
+BenchmarkPreviewSteady/paragraphs/5000-16   	      10	    322028 ns/op	   19593 B/op	     273 allocs/op
+PASS
+ok  	zakki/internal/app	19.269s
+
+# sample 2; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkPreviewSteady/code/1000-16         	      10	   3683910 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/code/5000-16         	      10	  20861402 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/table/1000-16        	      10	  20650505 ns/op	 1591400 B/op	   34238 allocs/op
+BenchmarkPreviewSteady/table/5000-16        	      10	 117338574 ns/op	 8183148 B/op	  182238 allocs/op
+BenchmarkPreviewSteady/paragraph/100000-16  	      10	 100479253 ns/op	46880609 B/op	     296 allocs/op
+BenchmarkPreviewSteady/paragraphs/5000-16   	      10	    379130 ns/op	   19593 B/op	     273 allocs/op
+PASS
+ok  	zakki/internal/app	18.596s
+
+# sample 3; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkPreviewSteady/code/1000-16         	      10	   4493096 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/code/5000-16         	      10	  25183138 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/table/1000-16        	      10	  23865460 ns/op	 1591421 B/op	   34238 allocs/op
+BenchmarkPreviewSteady/table/5000-16        	      10	 135028434 ns/op	 8183399 B/op	  182238 allocs/op
+BenchmarkPreviewSteady/paragraph/100000-16  	      10	 119409449 ns/op	46880632 B/op	     296 allocs/op
+BenchmarkPreviewSteady/paragraphs/5000-16   	      10	    324340 ns/op	   19593 B/op	     273 allocs/op
+PASS
+ok  	zakki/internal/app	22.412s
+
+# sample 4; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkPreviewSteady/code/1000-16         	      10	   4950969 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/code/5000-16         	      10	  25924657 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/table/1000-16        	      10	  26033675 ns/op	 1591437 B/op	   34239 allocs/op
+BenchmarkPreviewSteady/table/5000-16        	      10	 148907261 ns/op	 8183442 B/op	  182239 allocs/op
+BenchmarkPreviewSteady/paragraph/100000-16  	      10	 109233322 ns/op	46880523 B/op	     296 allocs/op
+BenchmarkPreviewSteady/paragraphs/5000-16   	      10	    333027 ns/op	   19593 B/op	     273 allocs/op
+PASS
+ok  	zakki/internal/app	22.790s
+
+# sample 5; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkPreviewSteady/code/1000-16         	      10	   3069859 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/code/5000-16         	      10	  16546637 ns/op	   10900 B/op	     158 allocs/op
+BenchmarkPreviewSteady/table/1000-16        	      10	  17081283 ns/op	 1591362 B/op	   34238 allocs/op
+BenchmarkPreviewSteady/table/5000-16        	      10	  97416448 ns/op	 8183148 B/op	  182238 allocs/op
+BenchmarkPreviewSteady/paragraph/100000-16  	      10	  60903283 ns/op	46880713 B/op	     297 allocs/op
+BenchmarkPreviewSteady/paragraphs/5000-16   	      10	    191951 ns/op	   19593 B/op	     273 allocs/op
+PASS
+ok  	zakki/internal/app	13.405s

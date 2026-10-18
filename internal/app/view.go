@@ -116,7 +116,8 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 		ui.Icon(c.Key("close-window"), iconCloseWindow).Size(16, 16).Label(locales.CloseWindow()).
 			TextColor(t.TextMuted).Cursor(ui.CursorPointer).OnClick(func() {
 			if a.win != nil {
-				a.win.Close()
+				// 便签常驻：复用窗口与渲染资源，菜单关闭和退出仍真正关窗。
+				a.win.Hide()
 			}
 		})
 		// 只有一个标签（且不在重命名）时不渲染标签区：顶栏只剩关闭与置顶。

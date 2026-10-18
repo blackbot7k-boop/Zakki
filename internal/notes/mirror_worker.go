@@ -71,6 +71,7 @@ func (s *Store) runMirrorJob(job mirrorJob) {
 			s.mirrorErr = mirrorErr.Error()
 		} else {
 			s.lastMirror, s.mirrorErr = job.at, ""
+			s.mirrorRevision++
 			if job.mode != "" && job.mode != "off" && job.runner != nil {
 				if gitErr != nil {
 					s.gitErr = gitErr.Error()

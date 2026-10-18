@@ -1,0 +1,476 @@
+--- a/vendor/github.com/egoist/mygo/ui/textinput.go
++++ b/vendor/github.com/egoist/mygo/ui/textinput.go
+@@ -309,22 +309,22 @@
+ 	return e
+ }
+ 
+-// TextRange styles runes Start up to End of a text input's text: their
+-// color, when its alpha is not zero, and their weight, when Weight is set,
+-// as a message field shows the mentions in what is typed.
++// TextRange 设置输入文本 [Start, End) rune 的局部样式；零值不覆盖已有属性。
++// Italic、Underline 与 WavyUnderline 只能开启，与 RichText 的 Span 语义一致。
+ type TextRange struct {
+-	Start, End int
+-	Color      Color
+-	Weight     int
+-}
+-
+-// TextRanges styles runs of a text input's text, in the frames that call
+-// it. Ranges may overlap and nest, as the attributes of an attributed
+-// string do: where they do, each of Color and Weight is that of the last
+-// range given that sets it, across the calls of the frame. They follow the
+-// text as it is: an app that finds them in the text finds them again as it
+-// changes. A password shows none; an input method's composition shows
+-// unstyled between them.
++	Start, End      int
++	Color           Color
++	Background      Color
++	Weight          int
++	Font            string
++	Italic          bool
++	Underline       bool
++	WavyUnderline   bool
++	DecorationColor Color
++}
++
++// TextRanges 设置当前帧的文字区间。重叠时，各属性独立取最后一次设置的非零值。
++// 布尔属性只能开启；区间跟随当前文本重新计算，密码与输入法组合文本保持无样式。
+ func (e *node) TextRanges(ranges ...TextRange) *node {
+ 	ed := e.st.editor
+ 	if ed == nil || e.flags&flagEditable == 0 {
+@@ -341,18 +341,16 @@
+ 
+ // rangeMerge is what sortRanges reuses from frame to frame.
+ type rangeMerge struct {
+-	given          []TextRange
+-	points, starts []int
+-	all, colors    rangeHeap
+-	weights        rangeHeap
+-}
+-
+-// sortRanges splits the ranges into runs apart, sorted by start, where
+-// each of Color and Weight is that of the last range given setting it, as
+-// TextRanges says, once the frame has given them all: a frame calling
+-// TextRanges for each range merges them once. It takes O(n log n) for n
+-// ranges: a sweep over their ends, with the ranges covering it on heaps
+-// by the order they were given in.
++	given                                        []TextRange
++	points, starts                               []int
++	all, colors                                  rangeHeap
++	backgrounds                                  rangeHeap
++	weights                                      rangeHeap
++	fonts, italics                               rangeHeap
++	underlines, wavyUnderlines, decorationColors rangeHeap
++}
++
++// sortRanges 用端点扫描与属性堆生成有序、不相交的区间；各属性独立覆盖，复杂度 O(n log n)。
+ func (ed *editor) sortRanges() {
+ 	m := &ed.merge
+ 	given := append(m.given[:0], ed.ranges...)
+@@ -364,7 +362,9 @@
+ 	slices.Sort(points)
+ 	points = slices.Compact(points)
+ 	slices.SortFunc(starts, func(a, b int) int { return given[a].Start - given[b].Start })
+-	m.all, m.colors, m.weights = m.all[:0], m.colors[:0], m.weights[:0]
++	m.all, m.colors, m.backgrounds, m.weights = m.all[:0], m.colors[:0], m.backgrounds[:0], m.weights[:0]
++	m.fonts, m.italics = m.fonts[:0], m.italics[:0]
++	m.underlines, m.wavyUnderlines, m.decorationColors = m.underlines[:0], m.wavyUnderlines[:0], m.decorationColors[:0]
+ 	out, next := ed.ranges[:0], 0
+ 	for k := 0; k+1 < len(points); k++ {
+ 		from, to := points[k], points[k+1]
+@@ -374,8 +374,26 @@
+ 			if given[i].Color.A > 0 {
+ 				m.colors.push(i)
+ 			}
++			if given[i].Background.A > 0 {
++				m.backgrounds.push(i)
++			}
+ 			if given[i].Weight != 0 {
+ 				m.weights.push(i)
++			}
++			if given[i].Font != "" {
++				m.fonts.push(i)
++			}
++			if given[i].Italic {
++				m.italics.push(i)
++			}
++			if given[i].Underline {
++				m.underlines.push(i)
++			}
++			if given[i].WavyUnderline {
++				m.wavyUnderlines.push(i)
++			}
++			if given[i].DecorationColor.A > 0 {
++				m.decorationColors.push(i)
+ 			}
+ 		}
+ 		if _, ok := m.all.top(given, from); !ok {
+@@ -385,12 +403,28 @@
+ 		if i, ok := m.colors.top(given, from); ok {
+ 			r.Color = given[i].Color
+ 		}
++		if i, ok := m.backgrounds.top(given, from); ok {
++			r.Background = given[i].Background
++		}
+ 		if i, ok := m.weights.top(given, from); ok {
+ 			r.Weight = given[i].Weight
+ 		}
+-		if n := len(out); n > 0 && out[n-1].End == from && out[n-1].Color == r.Color && out[n-1].Weight == r.Weight {
+-			out[n-1].End = to // a run as one, as an attributed string's
+-			continue
++		if i, ok := m.fonts.top(given, from); ok {
++			r.Font = given[i].Font
++		}
++		_, r.Italic = m.italics.top(given, from)
++		_, r.Underline = m.underlines.top(given, from)
++		_, r.WavyUnderline = m.wavyUnderlines.top(given, from)
++		if i, ok := m.decorationColors.top(given, from); ok {
++			r.DecorationColor = given[i].DecorationColor
++		}
++		if n := len(out); n > 0 && out[n-1].End == from {
++			previous := out[n-1]
++			previous.Start, previous.End = from, to
++			if previous == r {
++				out[n-1].End = to
++				continue
++			}
+ 		}
+ 		out = append(out, r)
+ 	}
+--- a/vendor/github.com/egoist/mygo/ui/editor_layout.go
++++ b/vendor/github.com/egoist/mygo/ui/editor_layout.go
+@@ -214,11 +214,8 @@
+ 	p.clip = saved
+ }
+ 
+-// rangeSpans returns the TextRanges in runes start up to end of the text,
+-// from start: the spans of their weights for the layout ("" when none
+-// sets one), and how to paint their colors (nil when none sets one). An
+-// input method's composition at the caret, between start and end, sits
+-// unstyled between the runs, and those after it move past it.
++// rangeSpans 返回 [start, end) rune 相对 start 的布局 key 与绘制属性。
++// 输入法组合文本保持无样式，其后的区间移动到组合文本之后。
+ func (ed *editor) rangeSpans(start, end int) (string, *spanPaint) {
+ 	if !ed.apart {
+ 		ed.sortRanges()
+@@ -253,15 +250,17 @@
+ 	}
+ 	var styles []text.Span
+ 	var spans []Span
+-	weighted, colored := false, false
++	shaped, painted := false, false
+ 	at := 0
+ 	add := func(from, to int, r TextRange) {
+ 		if from > at {
+ 			styles = append(styles, text.Span{End: from})
+ 			spans = append(spans, Span{})
+ 		}
+-		styles = append(styles, text.Span{End: to, Weight: r.Weight})
+-		spans = append(spans, Span{Color: r.Color, Weight: r.Weight})
++		span := Span{Font: r.Font, Italic: r.Italic, Color: r.Color, Background: r.Background, Weight: r.Weight,
++			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor}
++		styles = append(styles, spanStyle(span, to))
++		spans = append(spans, span)
+ 		at = to
+ 	}
+ 	for _, r := range ranges {
+@@ -278,15 +277,31 @@
+ 		} else {
+ 			add(local(from, true), local(to, false), r)
+ 		}
+-		weighted = weighted || r.Weight > 0
+-		colored = colored || r.Color.A > 0
++		shaped = shaped || r.Font != "" || r.Italic || r.Weight > 0
++		painted = painted || r.Color.A > 0 || r.Background.A > 0 || r.Underline || r.WavyUnderline || r.DecorationColor.A > 0
+ 	}
+ 	key := ""
+-	if weighted {
+-		key = text.EncodeSpans(styles)
++	if shaped {
++		// 绘制拆段不影响布局 key；比较完整布局属性时先归一 End，并省略无样式尾部。
++		layout := make([]text.Span, 0, len(styles))
++		for _, style := range styles {
++			if n := len(layout); n > 0 {
++				previous := layout[n-1]
++				previous.End = style.End
++				if previous == style {
++					layout[n-1].End = style.End
++					continue
++				}
++			}
++			layout = append(layout, style)
++		}
++		if n := len(layout); n > 0 && layout[n-1] == (text.Span{End: layout[n-1].End}) {
++			layout = layout[:n-1]
++		}
++		key = text.EncodeSpans(layout)
+ 	}
+ 	var sp *spanPaint
+-	if colored {
++	if painted {
+ 		sp = &spanPaint{spans: spans, styles: styles}
+ 	}
+ 	return key, sp
+--- a/vendor/github.com/egoist/mygo/ui/api_gen.go
++++ b/vendor/github.com/egoist/mygo/ui/api_gen.go
+@@ -5322,13 +5322,8 @@
+ 	return wrapElement(_node.TextColor(c))
+ }
+ 
+-// TextRanges styles runs of a text input's text, in the frames that call
+-// it. Ranges may overlap and nest, as the attributes of an attributed
+-// string do: where they do, each of Color and Weight is that of the last
+-// range given that sets it, across the calls of the frame. They follow the
+-// text as it is: an app that finds them in the text finds them again as it
+-// changes. A password shows none; an input method's composition shows
+-// unstyled between them.
++// TextRanges 设置当前帧的文字区间。重叠时，各属性独立取最后一次设置的非零值。
++// 布尔属性只能开启；区间跟随当前文本重新计算，密码与输入法组合文本保持无样式。
+ func (_handle Element) TextRanges(ranges ...TextRange) Element {
+ 	_node := _handle.node()
+ 	if _node == nil {
+--- /dev/null
++++ b/vendor/github.com/egoist/mygo/ui/textinput_background_test.go
+@@ -0,0 +1,52 @@
++package ui
++
++import "testing"
++
++func TestTextRangeBackgroundKeepsShapeKey(t *testing.T) {
++	ed := newEditor()
++	ed.setText("abcdefghij")
++	key := func(ranges ...TextRange) string {
++		ed.ranges, ed.apart = append(ed.ranges[:0], ranges...), false
++		key, _ := ed.rangeSpans(0, 10)
++		return key
++	}
++	weight := TextRange{Start: 2, End: 8, Weight: 700}
++	want := key(weight)
++	for _, bg := range []TextRange{
++		{Start: 0, End: 10, Background: RGB(230, 200, 50)},
++		{Start: 3, End: 6, Background: RGB(230, 200, 50)},
++		{Start: 8, End: 10, Background: RGB(230, 200, 50)},
++	} {
++		if got := key(weight, bg); got != want {
++			t.Errorf("背景改变形状 key：range=%+v got=%q want=%q", bg, got, want)
++		}
++	}
++	if got := key(TextRange{Start: 1, End: 5, Background: RGB(230, 200, 50)}); got != "" {
++		t.Errorf("纯背景产生形状 key：%q", got)
++	}
++}
++
++func TestTextRangeBackgroundCompositionSplit(t *testing.T) {
++	ed := newEditor()
++	ed.setText("abcdef")
++	ed.caret, ed.compose = 3, "中文😀"
++	bg := RGB(230, 200, 50)
++	ed.ranges = []TextRange{{Start: 1, End: 5, Background: bg, Weight: 700}}
++	_, paint := ed.rangeSpans(0, 6)
++	if paint == nil || len(paint.styles) != 4 {
++		t.Fatalf("组合文本未拆分原生背景区间：%+v", paint)
++	}
++	for _, tc := range []struct{ rune, span int }{{1, 1}, {3, 2}, {5, 2}, {6, 3}} {
++		index := paint.at(tc.rune)
++		if index != tc.span {
++			t.Fatalf("rune=%d 的背景区间=%d want=%d", tc.rune, index, tc.span)
++		}
++		want := bg
++		if tc.span == 2 {
++			want = Color{}
++		}
++		if got := paint.spans[index].Background; got != want {
++			t.Errorf("rune=%d 背景=%v want=%v", tc.rune, got, want)
++		}
++	}
++}
+--- /dev/null
++++ b/vendor/github.com/egoist/mygo/ui/textinput_styles_test.go
+@@ -0,0 +1,187 @@
++package ui
++
++import (
++	"slices"
++	"testing"
++
++	"github.com/egoist/mygo/internal/text"
++)
++
++func TestTextRangeStylesMergeIndependently(t *testing.T) {
++	red, blue, yellow := RGB(220, 30, 40), RGB(20, 60, 220), RGB(240, 220, 80)
++	base := TextRange{Start: 0, End: 10, Font: "serif", Italic: true, Underline: true, WavyUnderline: true, DecorationColor: red, Color: red, Background: yellow, Weight: 400}
++	ed := newEditor()
++	ed.ranges = []TextRange{
++		base,
++		{Start: 2, End: 8, Font: "monospace"},
++		{Start: 3, End: 7, Color: blue},
++		{Start: 4, End: 6, Weight: 700, Background: blue},
++		{Start: 5, End: 9, DecorationColor: blue},
++		{Start: 1, End: 9},
++	}
++	ed.sortRanges()
++	want := []TextRange{
++		base,
++		{Start: 2, End: 3, Font: "monospace"},
++		{Start: 3, End: 4, Font: "monospace", Color: blue},
++		{Start: 4, End: 5, Font: "monospace", Color: blue, Background: blue, Weight: 700},
++		{Start: 5, End: 6, Font: "monospace", Color: blue, Background: blue, Weight: 700, DecorationColor: blue},
++		{Start: 6, End: 7, Font: "monospace", Color: blue, DecorationColor: blue},
++		{Start: 7, End: 8, Font: "monospace", DecorationColor: blue},
++		{Start: 8, End: 9, DecorationColor: blue},
++		base,
++	}
++	want[0].End = 2
++	want[len(want)-1].Start = 9
++	for i := 1; i+1 < len(want); i++ {
++		r := &want[i]
++		r.Italic, r.Underline, r.WavyUnderline = true, true, true
++		if r.Font == "" {
++			r.Font = base.Font
++		}
++		if r.Color.A == 0 {
++			r.Color = base.Color
++		}
++		if r.Background.A == 0 {
++			r.Background = base.Background
++		}
++		if r.DecorationColor.A == 0 {
++			r.DecorationColor = base.DecorationColor
++		}
++		if r.Weight == 0 {
++			r.Weight = base.Weight
++		}
++	}
++	if !slices.Equal(ed.ranges, want) {
++		t.Fatalf("合并区间=%+v，期望=%+v", ed.ranges, want)
++	}
++}
++
++func TestTextRangeLayoutStylesShapeKey(t *testing.T) {
++	for _, tc := range []struct {
++		name       string
++		rangeStyle TextRange
++		style      text.Span
++	}{
++		{"font", TextRange{Font: "monospace"}, text.Span{Family: "monospace"}},
++		{"italic", TextRange{Italic: true}, text.Span{Italic: true}},
++		{"weight", TextRange{Weight: 700}, text.Span{Weight: 700}},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ed := newEditor()
++			r := tc.rangeStyle
++			r.Start, r.End = 2, 8
++			ed.ranges = []TextRange{r}
++			key, paint := ed.rangeSpans(0, 10)
++			style := tc.style
++			style.End = 8
++			want := []text.Span{{End: 2}, style}
++			if got := text.DecodeSpans(key); !slices.Equal(got, want) {
++				t.Fatalf("布局样式=%+v，期望=%+v", got, want)
++			}
++			if paint != nil {
++				t.Fatalf("纯布局样式产生绘制属性：%+v", paint)
++			}
++			switch tc.name {
++			case "font":
++				r.Font = "serif"
++			case "italic":
++				r.Italic = false
++			case "weight":
++				r.Weight = 400
++			}
++			ed.ranges, ed.apart = []TextRange{r}, false
++			if changed, _ := ed.rangeSpans(0, 10); changed == key {
++				t.Fatal("改变布局属性后 key 未变化")
++			}
++		})
++	}
++}
++
++func TestTextRangePaintStylesKeepShapeKey(t *testing.T) {
++	ed := newEditor()
++	key := func(ranges ...TextRange) string {
++		ed.ranges, ed.apart = append(ed.ranges[:0], ranges...), false
++		key, _ := ed.rangeSpans(0, 10)
++		return key
++	}
++	color := RGB(20, 80, 200)
++	for _, layout := range []TextRange{
++		{}, {Font: "monospace"}, {Italic: true}, {Weight: 700},
++		{Font: "monospace", Italic: true, Weight: 700},
++	} {
++		layout.Start, layout.End = 2, 8
++		want := key(layout)
++		for _, paint := range []TextRange{
++			{Color: color}, {Background: color}, {Underline: true},
++			{WavyUnderline: true}, {DecorationColor: color},
++		} {
++			for _, bounds := range [][2]int{{0, 10}, {3, 6}, {8, 10}} {
++				paint.Start, paint.End = bounds[0], bounds[1]
++				if got := key(layout, paint); got != want {
++					t.Errorf("绘制改变布局 key：layout=%+v paint=%+v", layout, paint)
++				}
++			}
++		}
++	}
++	font, italic := TextRange{Start: 1, End: 4, Font: "monospace"}, TextRange{Start: 4, End: 8, Italic: true}
++	want := []text.Span{{End: 1}, {End: 4, Family: "monospace"}, {End: 8, Italic: true}}
++	if got := text.DecodeSpans(key(font, italic, TextRange{Start: 3, End: 6, Background: color})); !slices.Equal(got, want) {
++		t.Fatalf("绘制拆段丢失布局边界：got=%+v want=%+v", got, want)
++	}
++}
++
++func TestTextRangeDecorationOnlyPaint(t *testing.T) {
++	color := RGB(20, 80, 200)
++	for _, r := range []TextRange{
++		{Underline: true}, {WavyUnderline: true}, {DecorationColor: color},
++	} {
++		r.Start, r.End = 1, 4
++		ed := newEditor()
++		ed.ranges = []TextRange{r}
++		key, paint := ed.rangeSpans(0, 6)
++		if key != "" || paint == nil {
++			t.Fatalf("纯装饰 key=%q paint=%+v，期望无布局 key 且有绘制属性", key, paint)
++		}
++		want := Span{Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor}
++		if len(paint.styles) != 2 || paint.styles[1].End != 4 || paint.spans[1] != want {
++			t.Fatalf("装饰绘制属性丢失：%+v %+v", paint.styles, paint.spans)
++		}
++	}
++}
++
++func TestTextRangeStylesCompositionSplitAndRestore(t *testing.T) {
++	color, bg := RGB(20, 80, 200), RGB(240, 220, 80)
++	r := TextRange{Start: 2, End: 8, Font: "monospace", Italic: true, Weight: 700, Color: color, Background: bg, Underline: true, WavyUnderline: true, DecorationColor: color}
++	styled := Span{Font: r.Font, Italic: true, Weight: 700, Color: color, Background: bg, Underline: true, WavyUnderline: true, DecorationColor: color}
++	for _, tc := range []struct {
++		name   string
++		caret  int
++		styles []text.Span
++		spans  []Span
++	}{
++		{"before", 2, []text.Span{{End: 4}, {End: 10, Family: r.Font, Italic: true, Weight: 700}}, []Span{{}, styled}},
++		{"inside", 5, []text.Span{{End: 1}, {End: 4, Family: r.Font, Italic: true, Weight: 700}, {End: 7}, {End: 10, Family: r.Font, Italic: true, Weight: 700}}, []Span{{}, styled, {}, styled}},
++		{"after", 8, []text.Span{{End: 1}, {End: 7, Family: r.Font, Italic: true, Weight: 700}}, []Span{{}, styled}},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ed := newEditor()
++			ed.setText("甲乙丙丁戊己庚辛壬癸")
++			ed.ranges = []TextRange{r}
++			before, _ := ed.rangeSpans(1, 9)
++			ed.caret, ed.compose = tc.caret, "中文😀"
++			key, paint := ed.rangeSpans(1, 9)
++			if got := text.DecodeSpans(key); !slices.Equal(got, tc.styles) {
++				t.Fatalf("IME 布局区间=%+v，期望=%+v", got, tc.styles)
++			}
++			if paint == nil || !slices.Equal(paint.styles, tc.styles) || !slices.Equal(paint.spans, tc.spans) {
++				t.Fatalf("IME 绘制区间=%+v，期望 styles=%+v spans=%+v", paint, tc.styles, tc.spans)
++			}
++			ed.compose = ""
++			key, paint = ed.rangeSpans(1, 9)
++			if key != before || paint == nil || len(paint.spans) != 2 || paint.spans[1] != styled {
++				t.Fatalf("组合结束未恢复样式：key=%q paint=%+v", key, paint)
++			}
++		})
++	}
++}

@@ -48,11 +48,27 @@ func Run() {
 		a.refreshSettingsWindow()
 	})
 	mygo.App.OnSecondInstance(func([]string, string) { a.showWindow() })
-	// 关闭窗口后留在托盘，等全局热键或托盘再唤起。
+	// Dock 点击发送重新激活事件，不会启动第二个实例。
+	mygo.App.OnActivate(func(hasVisibleWindows bool) {
+		if !hasVisibleWindows {
+			a.showWindow()
+		}
+	})
+	// 关闭窗口后驻留，允许 Dock、全局热键或托盘再次唤起。
 	mygo.App.OnWindowAllClosed(func() {})
 	// OnWillQuit 在所有窗口关闭后、事件循环停止前调用：取消防抖定时器、
 	// 最终保存数据与偏好并等它完成，之后忽略新的保存请求。
 	mygo.App.OnWillQuit(a.finishQuit)
+
+	startupTasksStarted := false
+	mygo.App.OnWindowCreated(func(win *mygo.Window) {
+		win.OnReadyToShow(func() {
+			if !startupTasksStarted {
+				startupTasksStarted = true
+				a.startStartupTasks()
+			}
+		})
+	})
 
 	mygo.App.WhenReady(func() {
 		a.ready = true // 之后偏好变更可安全触达原生 API
@@ -65,12 +81,6 @@ func Run() {
 		if key := a.prefs.Appearance.BodyFont; key == "hand" || key == "hannotate" {
 			registerHandFont()
 		}
-		if err := a.loadLastBackupTime(); err != nil {
-			slog.Warn("读取最近备份时间失败", "error", err)
-		}
-		if err := a.notes.LoadMirrorTime(); err != nil {
-			slog.Warn("读取外部备份状态失败", "error", err)
-		}
 		applyTheme(a.cfg.ThemeSource)
 		a.buildMenu()
 		a.setupTray()
@@ -81,18 +91,6 @@ func Run() {
 		} else {
 			a.createWindow()
 		}
-		// 启动备份开窗后异步做：磁盘慢或镜像大时不拖慢首窗；
-		// 预取偏好值与窗口引用，避免与主线程的偏好变更/窗口重建产生数据竞争。
-		enabled, keep := a.prefs.Backup.OnLaunch, a.prefs.Backup.Keep
-		win := a.win
-		go func() {
-			if err := a.backupOnLaunchAsync(enabled, keep); err != nil {
-				slog.Warn("启动备份失败", "error", err)
-			}
-			if win != nil {
-				win.Update(func() {}) // 回主线程刷新状态栏的备份时间
-			}
-		}()
 		slog.Info("应用就绪", "data", a.notes.DataFile, "prefs", a.preferencesPath())
 	})
 
@@ -165,6 +163,7 @@ func applyTheme(src string) {
 // createWindow 新建主窗口（关闭后可重建）。位置尺寸记忆由 StateKey 提供，
 // 「记忆主窗口位置与尺寸」开关从下次创建主窗口起生效。
 func (a *app) createWindow() {
+	a.resetWindowUI()
 	win := mygo.NewWindow(a.windowOptions())
 	a.win = win
 	a.mainWindow.Store(win)

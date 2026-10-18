@@ -1,0 +1,60 @@
+
+# sample 1; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkEditorRangesCodeScaling/lines_1000-16         	       3	  13462452 ns/op	   1.56 MB/s	 1308072 B/op	    6021 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_2000-16         	       3	  59187364 ns/op	   0.71 MB/s	 2974189 B/op	   12024 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_4000-16         	       3	 289280168 ns/op	   0.29 MB/s	 6365616 B/op	   24029 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_8000-16         	       3	1189513620 ns/op	   0.14 MB/s	13167469 B/op	   48030 allocs/op
+PASS
+ok  	zakki/internal/app	8.443s
+
+# sample 2; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkEditorRangesCodeScaling/lines_1000-16         	       3	  15457658 ns/op	   1.36 MB/s	 1308072 B/op	    6021 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_2000-16         	       3	  61150935 ns/op	   0.69 MB/s	 2976053 B/op	   12027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_4000-16         	       3	 289872507 ns/op	   0.29 MB/s	 6363757 B/op	   24027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_8000-16         	       3	1186394922 ns/op	   0.14 MB/s	13167469 B/op	   48030 allocs/op
+PASS
+ok  	zakki/internal/app	7.210s
+
+# sample 3; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkEditorRangesCodeScaling/lines_1000-16         	       3	  13546623 ns/op	   1.55 MB/s	 1309930 B/op	    6023 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_2000-16         	       3	  61491671 ns/op	   0.68 MB/s	 2974194 B/op	   12024 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_4000-16         	       3	 284932160 ns/op	   0.29 MB/s	 6363757 B/op	   24027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_8000-16         	       3	1188026939 ns/op	   0.14 MB/s	13167469 B/op	   48030 allocs/op
+PASS
+ok  	zakki/internal/app	7.209s
+
+# sample 4; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkEditorRangesCodeScaling/lines_1000-16         	       3	  13788651 ns/op	   1.52 MB/s	 1308072 B/op	    6021 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_2000-16         	       3	  60728338 ns/op	   0.69 MB/s	 2974189 B/op	   12024 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_4000-16         	       3	 291484522 ns/op	   0.29 MB/s	 6363757 B/op	   24027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_8000-16         	       3	1191602797 ns/op	   0.14 MB/s	13167469 B/op	   48030 allocs/op
+PASS
+ok  	zakki/internal/app	7.182s
+
+# sample 5; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkEditorRangesCodeScaling/lines_1000-16         	       3	  13692138 ns/op	   1.53 MB/s	 1308072 B/op	    6021 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_2000-16         	       3	  60426502 ns/op	   0.70 MB/s	 2976058 B/op	   12027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_4000-16         	       3	 284716234 ns/op	   0.30 MB/s	 6363762 B/op	   24027 allocs/op
+BenchmarkEditorRangesCodeScaling/lines_8000-16         	       3	1193902808 ns/op	   0.14 MB/s	13167469 B/op	   48030 allocs/op
+PASS
+ok  	zakki/internal/app	7.188s

@@ -1,0 +1,3327 @@
+{
+  "units": "milliseconds",
+  "environment": "Intel i9-9880H, darwin/amd64, macOS 26.7.1, MyGo v0.5.1",
+  "exclusions": {
+    "native-lifecycle-close-harness-race.jsonl": "旧探针非原子发布命令，读到空命令；用于诊断探针，不计应用失败或性能样本"
+  },
+  "limitations": [
+    "直接执行独立临时 bundle 的可执行文件，不包含 Finder/LaunchServices 点击开销",
+    "首帧后投递空主线程回调确认事件循环可响应；不是自动化输入完整编辑验证",
+    "每组最多 5 次，失败后省略同场景剩余重复并显式记录；GPU 默认后续组为 3 次",
+    "未清空系统/驱动缓存，不将第一次测量等同于重启后冷启动",
+    "内部 Window.Show 返回时间不代表恢复后的首帧，Dock 全链路另见原生回归",
+    "模拟待保存编辑直接在主线程改模型并走正常 scheduleSave；不代表真实键盘/IME 输入"
+  ],
+  "groups": [
+    {
+      "file": "native-lifecycle-close.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "closed",
+      "settleMS": 1000,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "hideRequestToEndMS": {
+          "median": 38.11,
+          "min": 34.75,
+          "max": 41.675,
+          "samples": [
+            38.11,
+            34.75,
+            37.065,
+            41.675,
+            38.241
+          ]
+        },
+        "showRequestToEndMS": {
+          "median": 20.584,
+          "min": 18.337,
+          "max": 32.512,
+          "samples": [
+            19.813,
+            20.584,
+            18.337,
+            23.497,
+            32.512
+          ]
+        },
+        "closeRequestToEndMS": {
+          "median": 26.277,
+          "min": 9.749,
+          "max": 28.812,
+          "samples": [
+            28.812,
+            26.277,
+            26.288,
+            13.369,
+            9.749
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 1.752,
+          "min": 1.53,
+          "max": 2.687,
+          "samples": [
+            2.687,
+            1.899,
+            1.53,
+            1.742,
+            1.752
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 608.367,
+          "min": 501.027,
+          "max": 2861.013,
+          "samples": [
+            2861.013,
+            502.129,
+            501.027,
+            608.367,
+            620.324
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 608.406,
+          "min": 501.076,
+          "max": 2861.075,
+          "samples": [
+            2861.075,
+            502.172,
+            501.076,
+            608.406,
+            620.374
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 16.768,
+          "min": 11.109,
+          "max": 16.876,
+          "samples": [
+            11.109,
+            16.81,
+            16.768,
+            16.876,
+            14.709
+          ]
+        },
+        "startupMS": {
+          "median": 0.06,
+          "min": 0.038,
+          "max": 0.119,
+          "samples": [
+            0.038,
+            0.06,
+            0.119,
+            0.041,
+            0.061
+          ]
+        },
+        "notes_loadMS": {
+          "median": 1.276,
+          "min": 0.689,
+          "max": 1.352,
+          "samples": [
+            0.689,
+            1.321,
+            1.276,
+            0.767,
+            1.352
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.355,
+          "min": 0.209,
+          "max": 0.48,
+          "samples": [
+            0.224,
+            0.48,
+            0.355,
+            0.209,
+            0.408
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.061,
+          "min": 0.049,
+          "max": 0.066,
+          "samples": [
+            0.049,
+            0.061,
+            0.05,
+            0.062,
+            0.066
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.008,
+          "max": 0.009,
+          "samples": [
+            0.009,
+            0.009,
+            0.008,
+            0.009,
+            0.009
+          ]
+        },
+        "createMS": {
+          "median": 162.663,
+          "min": 126.818,
+          "max": 168.281,
+          "samples": [
+            126.818,
+            162.663,
+            161.953,
+            167.553,
+            168.281
+          ]
+        },
+        "hideMS": {
+          "median": 35.615,
+          "min": 31.944,
+          "max": 39.222,
+          "samples": [
+            35.615,
+            31.944,
+            34.788,
+            39.222,
+            36.02
+          ]
+        },
+        "showMS": {
+          "median": 4.208,
+          "min": 3.781,
+          "max": 16.381,
+          "samples": [
+            3.886,
+            3.781,
+            4.208,
+            7.952,
+            16.381
+          ]
+        },
+        "closeMS": {
+          "median": 21.588,
+          "min": 7.966,
+          "max": 25.616,
+          "samples": [
+            25.616,
+            21.588,
+            22.721,
+            9.848,
+            7.966
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.628,
+          "min": 0.609,
+          "max": 0.693,
+          "samples": [
+            0.615,
+            0.628,
+            0.609,
+            0.693,
+            0.661
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.495,
+          "min": 0.465,
+          "max": 0.51,
+          "samples": [
+            0.465,
+            0.504,
+            0.475,
+            0.495,
+            0.51
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-close.jsonl",
+      "case": "table",
+      "gpu": "0",
+      "quitState": "closed",
+      "settleMS": 1000,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "hideRequestToEndMS": {
+          "median": 45.331,
+          "min": 39.339,
+          "max": 58.922,
+          "samples": [
+            58.545,
+            45.331,
+            39.339,
+            58.922,
+            41.051
+          ]
+        },
+        "showRequestToEndMS": {
+          "median": 128.592,
+          "min": 120.166,
+          "max": 143.131,
+          "samples": [
+            120.166,
+            130.711,
+            128.592,
+            128.14,
+            143.131
+          ]
+        },
+        "closeRequestToEndMS": {
+          "median": 266.167,
+          "min": 240.233,
+          "max": 276.961,
+          "samples": [
+            249.234,
+            240.233,
+            266.167,
+            276.961,
+            266.338
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 2.028,
+          "min": 0.797,
+          "max": 2.395,
+          "samples": [
+            2.395,
+            0.797,
+            2.249,
+            0.847,
+            2.028
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 798.891,
+          "min": 703.097,
+          "max": 886.515,
+          "samples": [
+            703.097,
+            783.131,
+            798.891,
+            886.515,
+            847.057
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 798.952,
+          "min": 703.159,
+          "max": 886.585,
+          "samples": [
+            703.159,
+            783.184,
+            798.952,
+            886.585,
+            847.122
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 48.736,
+          "min": 36.793,
+          "max": 53.443,
+          "samples": [
+            43.891,
+            36.793,
+            48.736,
+            53.443,
+            50.755
+          ]
+        },
+        "startupMS": {
+          "median": 0.058,
+          "min": 0.045,
+          "max": 0.1,
+          "samples": [
+            0.054,
+            0.058,
+            0.059,
+            0.1,
+            0.045
+          ]
+        },
+        "notes_loadMS": {
+          "median": 5.808,
+          "min": 5.557,
+          "max": 16.793,
+          "samples": [
+            5.567,
+            5.557,
+            6.328,
+            16.793,
+            5.808
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.284,
+          "min": 0.249,
+          "max": 0.356,
+          "samples": [
+            0.249,
+            0.284,
+            0.265,
+            0.356,
+            0.303
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.065,
+          "min": 0.053,
+          "max": 0.273,
+          "samples": [
+            0.053,
+            0.273,
+            0.065,
+            0.059,
+            0.067
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.011,
+          "min": 0.009,
+          "max": 0.012,
+          "samples": [
+            0.009,
+            0.012,
+            0.011,
+            0.011,
+            0.011
+          ]
+        },
+        "createMS": {
+          "median": 184.029,
+          "min": 178.556,
+          "max": 214.629,
+          "samples": [
+            180.849,
+            184.029,
+            178.556,
+            191.246,
+            214.629
+          ]
+        },
+        "hideMS": {
+          "median": 43.052,
+          "min": 37.187,
+          "max": 56.475,
+          "samples": [
+            46.396,
+            43.052,
+            37.187,
+            56.475,
+            39.08
+          ]
+        },
+        "showMS": {
+          "median": 4.901,
+          "min": 3.738,
+          "max": 10.292,
+          "samples": [
+            4.901,
+            3.738,
+            4.865,
+            7.557,
+            10.292
+          ]
+        },
+        "closeMS": {
+          "median": 143.997,
+          "min": 132.859,
+          "max": 149.369,
+          "samples": [
+            135.541,
+            132.859,
+            146.825,
+            149.369,
+            143.997
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.901,
+          "min": 0.838,
+          "max": 1.031,
+          "samples": [
+            0.845,
+            0.838,
+            0.901,
+            0.91,
+            1.031
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.548,
+          "min": 0.522,
+          "max": 0.611,
+          "samples": [
+            0.525,
+            0.522,
+            0.611,
+            0.548,
+            0.579
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-gpu-default-repeat.jsonl",
+      "case": "ordinary",
+      "gpu": "default",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 3
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 2.419,
+          "min": 2.3,
+          "max": 2.724,
+          "samples": [
+            2.724,
+            2.419,
+            2.3
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 940.684,
+          "min": 916.107,
+          "max": 1949.517,
+          "samples": [
+            1949.517,
+            940.684,
+            916.107
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 940.736,
+          "min": 916.163,
+          "max": 1949.571,
+          "samples": [
+            1949.571,
+            940.736,
+            916.163
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 220.293,
+          "min": 92.11,
+          "max": 280.007,
+          "samples": [
+            280.007,
+            92.11,
+            220.293
+          ]
+        },
+        "startupMS": {
+          "median": 0.055,
+          "min": 0.052,
+          "max": 0.058,
+          "samples": [
+            0.055,
+            0.058,
+            0.052
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.903,
+          "min": 0.902,
+          "max": 1.024,
+          "samples": [
+            1.024,
+            0.902,
+            0.903
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.417,
+          "min": 0.256,
+          "max": 0.798,
+          "samples": [
+            0.798,
+            0.256,
+            0.417
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.07,
+          "min": 0.068,
+          "max": 0.074,
+          "samples": [
+            0.068,
+            0.07,
+            0.074
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.012,
+          "min": 0.011,
+          "max": 0.012,
+          "samples": [
+            0.011,
+            0.012,
+            0.012
+          ]
+        },
+        "createMS": {
+          "median": 273.691,
+          "min": 264.131,
+          "max": 275.742,
+          "samples": [
+            275.742,
+            273.691,
+            264.131
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.94,
+          "min": 0.895,
+          "max": 1.384,
+          "samples": [
+            1.384,
+            0.895,
+            0.94
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.653,
+          "min": 0.596,
+          "max": 0.704,
+          "samples": [
+            0.653,
+            0.596,
+            0.704
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-gpu-default.jsonl",
+      "case": "ordinary",
+      "gpu": "default",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 1
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 1.886,
+          "min": 1.886,
+          "max": 1.886,
+          "samples": [
+            1.886
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 12877.318,
+          "min": 12877.318,
+          "max": 12877.318,
+          "samples": [
+            12877.318
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 12877.385,
+          "min": 12877.385,
+          "max": 12877.385,
+          "samples": [
+            12877.385
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 530.225,
+          "min": 530.225,
+          "max": 530.225,
+          "samples": [
+            530.225
+          ]
+        },
+        "startupMS": {
+          "median": 0.049,
+          "min": 0.049,
+          "max": 0.049,
+          "samples": [
+            0.049
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.956,
+          "min": 0.956,
+          "max": 0.956,
+          "samples": [
+            0.956
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.36,
+          "min": 0.36,
+          "max": 0.36,
+          "samples": [
+            0.36
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.082,
+          "min": 0.082,
+          "max": 0.082,
+          "samples": [
+            0.082
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.012,
+          "min": 0.012,
+          "max": 0.012,
+          "samples": [
+            0.012
+          ]
+        },
+        "createMS": {
+          "median": 283.727,
+          "min": 283.727,
+          "max": 283.727,
+          "samples": [
+            283.727
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.925,
+          "min": 0.925,
+          "max": 0.925,
+          "samples": [
+            0.925
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.651,
+          "min": 0.651,
+          "max": 0.651,
+          "samples": [
+            0.651
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-gpu.jsonl",
+      "case": "ordinary",
+      "gpu": "1",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "timeout": 1
+      },
+      "failures": [
+        {
+          "sample": 1,
+          "failure": "responsive"
+        }
+      ],
+      "allSuccessfulSamplesPreserveContent": null,
+      "metricsMS": {}
+    },
+    {
+      "file": "native-lifecycle-hidden.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "hidden",
+      "settleMS": 1000,
+      "pendingEdit": true,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "editRequestToEndMS": {
+          "median": 2.388,
+          "min": 1.276,
+          "max": 2.609,
+          "samples": [
+            2.553,
+            2.609,
+            2.328,
+            1.276,
+            2.388
+          ]
+        },
+        "hideRequestToEndMS": {
+          "median": 48.171,
+          "min": 45.982,
+          "max": 54.191,
+          "samples": [
+            54.191,
+            52.671,
+            45.982,
+            47.312,
+            48.171
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 0.876,
+          "min": 0.618,
+          "max": 2.036,
+          "samples": [
+            1.117,
+            0.876,
+            0.875,
+            0.618,
+            2.036
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 552.082,
+          "min": 478.717,
+          "max": 2475.315,
+          "samples": [
+            2475.315,
+            548.024,
+            478.717,
+            552.082,
+            568.733
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 552.136,
+          "min": 478.76,
+          "max": 2475.351,
+          "samples": [
+            2475.351,
+            548.067,
+            478.76,
+            552.136,
+            568.78
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 30.765,
+          "min": 23.809,
+          "max": 32.716,
+          "samples": [
+            32.716,
+            24.092,
+            30.765,
+            31.81,
+            23.809
+          ]
+        },
+        "startupMS": {
+          "median": 0.078,
+          "min": 0.036,
+          "max": 0.113,
+          "samples": [
+            0.036,
+            0.113,
+            0.063,
+            0.084,
+            0.078
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.942,
+          "min": 0.646,
+          "max": 1.471,
+          "samples": [
+            0.646,
+            1.336,
+            1.471,
+            0.942,
+            0.875
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.34,
+          "min": 0.256,
+          "max": 0.434,
+          "samples": [
+            0.318,
+            0.402,
+            0.434,
+            0.256,
+            0.34
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.052,
+          "min": 0.049,
+          "max": 0.072,
+          "samples": [
+            0.058,
+            0.049,
+            0.052,
+            0.072,
+            0.049
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.008,
+          "min": 0.008,
+          "max": 0.009,
+          "samples": [
+            0.009,
+            0.008,
+            0.008,
+            0.008,
+            0.009
+          ]
+        },
+        "createMS": {
+          "median": 146.228,
+          "min": 116.13,
+          "max": 155.719,
+          "samples": [
+            116.13,
+            155.719,
+            151.43,
+            146.228,
+            143.718
+          ]
+        },
+        "hideMS": {
+          "median": 35.343,
+          "min": 31.585,
+          "max": 41.221,
+          "samples": [
+            41.221,
+            39.246,
+            31.585,
+            35.343,
+            32.286
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.656,
+          "min": 0.642,
+          "max": 0.679,
+          "samples": [
+            0.642,
+            0.679,
+            0.658,
+            0.651,
+            0.656
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.438,
+          "min": 0.424,
+          "max": 0.487,
+          "samples": [
+            0.487,
+            0.438,
+            0.438,
+            0.424,
+            0.446
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-large-blocks.jsonl",
+      "case": "long-paragraph",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 722.597,
+          "min": 608.701,
+          "max": 1434.548,
+          "samples": [
+            1434.548,
+            745.721,
+            722.597,
+            712.056,
+            608.701
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 722.636,
+          "min": 608.753,
+          "max": 1434.592,
+          "samples": [
+            1434.592,
+            745.763,
+            722.636,
+            712.103,
+            608.753
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 81.099,
+          "min": 68.62,
+          "max": 83.581,
+          "samples": [
+            73.98,
+            83.581,
+            81.099,
+            83.088,
+            68.62
+          ]
+        },
+        "startupMS": {
+          "median": 0.056,
+          "min": 0.031,
+          "max": 0.123,
+          "samples": [
+            0.031,
+            0.123,
+            0.039,
+            0.056,
+            0.056
+          ]
+        },
+        "notes_loadMS": {
+          "median": 6.715,
+          "min": 5.285,
+          "max": 9.661,
+          "samples": [
+            5.285,
+            9.661,
+            6.629,
+            6.715,
+            7.07
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.264,
+          "min": 0.24,
+          "max": 0.634,
+          "samples": [
+            0.24,
+            0.634,
+            0.264,
+            0.531,
+            0.258
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.061,
+          "min": 0.052,
+          "max": 0.073,
+          "samples": [
+            0.052,
+            0.073,
+            0.061,
+            0.055,
+            0.063
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.008,
+          "max": 0.013,
+          "samples": [
+            0.008,
+            0.013,
+            0.009,
+            0.008,
+            0.009
+          ]
+        },
+        "createMS": {
+          "median": 168.472,
+          "min": 163.646,
+          "max": 193.626,
+          "samples": [
+            163.646,
+            166.098,
+            193.626,
+            168.472,
+            172.089
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.814,
+          "min": 0.793,
+          "max": 0.926,
+          "samples": [
+            0.926,
+            0.883,
+            0.814,
+            0.793,
+            0.804
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.419,
+          "min": 0.406,
+          "max": 0.461,
+          "samples": [
+            0.461,
+            0.442,
+            0.408,
+            0.419,
+            0.406
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-large-blocks.jsonl",
+      "case": "table",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 807.817,
+          "min": 757.863,
+          "max": 844.049,
+          "samples": [
+            757.863,
+            791.983,
+            844.049,
+            821.292,
+            807.817
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 807.872,
+          "min": 757.899,
+          "max": 844.097,
+          "samples": [
+            757.899,
+            792.041,
+            844.097,
+            821.352,
+            807.872
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 537.792,
+          "min": 528.415,
+          "max": 544.006,
+          "samples": [
+            538.812,
+            537.792,
+            537.656,
+            528.415,
+            544.006
+          ]
+        },
+        "startupMS": {
+          "median": 0.048,
+          "min": 0.043,
+          "max": 0.072,
+          "samples": [
+            0.047,
+            0.072,
+            0.048,
+            0.043,
+            0.054
+          ]
+        },
+        "notes_loadMS": {
+          "median": 5.721,
+          "min": 5.251,
+          "max": 7.04,
+          "samples": [
+            5.721,
+            6.751,
+            5.63,
+            5.251,
+            7.04
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.303,
+          "min": 0.245,
+          "max": 0.538,
+          "samples": [
+            0.495,
+            0.303,
+            0.538,
+            0.249,
+            0.245
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.05,
+          "min": 0.05,
+          "max": 0.063,
+          "samples": [
+            0.05,
+            0.05,
+            0.05,
+            0.051,
+            0.063
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.008,
+          "max": 0.009,
+          "samples": [
+            0.008,
+            0.009,
+            0.008,
+            0.009,
+            0.009
+          ]
+        },
+        "createMS": {
+          "median": 176.612,
+          "min": 168.677,
+          "max": 193.759,
+          "samples": [
+            182.504,
+            172.323,
+            193.759,
+            176.612,
+            168.677
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.904,
+          "min": 0.89,
+          "max": 1.92,
+          "samples": [
+            1.532,
+            0.904,
+            1.92,
+            0.903,
+            0.89
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.457,
+          "min": 0.427,
+          "max": 0.594,
+          "samples": [
+            0.427,
+            0.594,
+            0.457,
+            0.453,
+            0.475
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-large-blocks.jsonl",
+      "case": "source-code",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 662.91,
+          "min": 588.956,
+          "max": 704.992,
+          "samples": [
+            704.992,
+            685.811,
+            638.719,
+            588.956,
+            662.91
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 662.982,
+          "min": 589.011,
+          "max": 705.04,
+          "samples": [
+            705.04,
+            685.858,
+            638.773,
+            589.011,
+            662.982
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 80.979,
+          "min": 67.054,
+          "max": 85.211,
+          "samples": [
+            83.585,
+            80.979,
+            85.211,
+            72.082,
+            67.054
+          ]
+        },
+        "startupMS": {
+          "median": 0.05,
+          "min": 0.039,
+          "max": 0.074,
+          "samples": [
+            0.039,
+            0.074,
+            0.05,
+            0.052,
+            0.049
+          ]
+        },
+        "notes_loadMS": {
+          "median": 4.476,
+          "min": 3.796,
+          "max": 4.973,
+          "samples": [
+            4.035,
+            3.796,
+            4.973,
+            4.83,
+            4.476
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.287,
+          "min": 0.261,
+          "max": 0.407,
+          "samples": [
+            0.313,
+            0.407,
+            0.287,
+            0.265,
+            0.261
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.053,
+          "min": 0.048,
+          "max": 0.053,
+          "samples": [
+            0.048,
+            0.053,
+            0.053,
+            0.053,
+            0.048
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.008,
+          "max": 0.009,
+          "samples": [
+            0.009,
+            0.009,
+            0.008,
+            0.009,
+            0.008
+          ]
+        },
+        "createMS": {
+          "median": 176.374,
+          "min": 174.835,
+          "max": 198.55,
+          "samples": [
+            175.297,
+            181.756,
+            176.374,
+            174.835,
+            198.55
+          ]
+        },
+        "final_notesMS": {
+          "median": 1.415,
+          "min": 1.073,
+          "max": 1.487,
+          "samples": [
+            1.415,
+            1.339,
+            1.421,
+            1.487,
+            1.073
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.451,
+          "min": 0.418,
+          "max": 0.482,
+          "samples": [
+            0.47,
+            0.451,
+            0.434,
+            0.482,
+            0.418
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-pending.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 2000,
+      "pendingEdit": true,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "editRequestToEndMS": {
+          "median": 2.71,
+          "min": 2.355,
+          "max": 3.032,
+          "samples": [
+            2.849,
+            2.589,
+            2.355,
+            3.032,
+            2.71
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 1.094,
+          "min": 0.933,
+          "max": 1.184,
+          "samples": [
+            0.933,
+            0.96,
+            1.184,
+            1.094,
+            1.126
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 666.278,
+          "min": 588.475,
+          "max": 1723.255,
+          "samples": [
+            1723.255,
+            624.595,
+            588.475,
+            666.278,
+            690.159
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 666.329,
+          "min": 588.519,
+          "max": 1723.3,
+          "samples": [
+            1723.3,
+            624.64,
+            588.519,
+            666.329,
+            690.209
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 67.163,
+          "min": 59.11,
+          "max": 71.613,
+          "samples": [
+            63.492,
+            59.11,
+            71.613,
+            67.163,
+            71.503
+          ]
+        },
+        "startupMS": {
+          "median": 0.061,
+          "min": 0.035,
+          "max": 0.108,
+          "samples": [
+            0.035,
+            0.061,
+            0.108,
+            0.057,
+            0.068
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.941,
+          "min": 0.674,
+          "max": 1.291,
+          "samples": [
+            0.674,
+            0.941,
+            1.291,
+            0.873,
+            1.006
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.265,
+          "min": 0.226,
+          "max": 0.337,
+          "samples": [
+            0.231,
+            0.265,
+            0.337,
+            0.226,
+            0.265
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.057,
+          "min": 0.053,
+          "max": 0.065,
+          "samples": [
+            0.065,
+            0.058,
+            0.053,
+            0.055,
+            0.057
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.009,
+          "max": 0.016,
+          "samples": [
+            0.009,
+            0.009,
+            0.016,
+            0.009,
+            0.01
+          ]
+        },
+        "createMS": {
+          "median": 183.139,
+          "min": 155.107,
+          "max": 187.475,
+          "samples": [
+            155.107,
+            186.463,
+            183.139,
+            168.427,
+            187.475
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.748,
+          "min": 0.643,
+          "max": 0.833,
+          "samples": [
+            0.718,
+            0.763,
+            0.643,
+            0.748,
+            0.833
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.443,
+          "min": 0.426,
+          "max": 0.486,
+          "samples": [
+            0.44,
+            0.443,
+            0.426,
+            0.486,
+            0.443
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-pending.jsonl",
+      "case": "table",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 2000,
+      "pendingEdit": true,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "editRequestToEndMS": {
+          "median": 1.539,
+          "min": 1.422,
+          "max": 2.602,
+          "samples": [
+            1.432,
+            1.422,
+            2.602,
+            1.97,
+            1.539
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 1.239,
+          "min": 0.523,
+          "max": 2.237,
+          "samples": [
+            1.484,
+            2.237,
+            0.757,
+            0.523,
+            1.239
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 813.189,
+          "min": 759.839,
+          "max": 917.651,
+          "samples": [
+            759.839,
+            800.544,
+            813.189,
+            849.114,
+            917.651
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 813.234,
+          "min": 759.886,
+          "max": 917.715,
+          "samples": [
+            759.886,
+            800.593,
+            813.234,
+            849.168,
+            917.715
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 329.226,
+          "min": 307.668,
+          "max": 355.669,
+          "samples": [
+            307.668,
+            318.187,
+            344.617,
+            329.226,
+            355.669
+          ]
+        },
+        "startupMS": {
+          "median": 0.045,
+          "min": 0.04,
+          "max": 0.176,
+          "samples": [
+            0.04,
+            0.045,
+            0.045,
+            0.176,
+            0.097
+          ]
+        },
+        "notes_loadMS": {
+          "median": 5.655,
+          "min": 5.264,
+          "max": 6.232,
+          "samples": [
+            5.555,
+            6.232,
+            5.655,
+            5.264,
+            6.001
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.264,
+          "min": 0.258,
+          "max": 0.777,
+          "samples": [
+            0.264,
+            0.777,
+            0.263,
+            0.258,
+            0.579
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.055,
+          "min": 0.047,
+          "max": 0.07,
+          "samples": [
+            0.052,
+            0.055,
+            0.047,
+            0.059,
+            0.07
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.011,
+          "min": 0.009,
+          "max": 0.012,
+          "samples": [
+            0.009,
+            0.012,
+            0.009,
+            0.011,
+            0.011
+          ]
+        },
+        "createMS": {
+          "median": 183.457,
+          "min": 167.213,
+          "max": 217.76,
+          "samples": [
+            183.457,
+            167.213,
+            167.668,
+            203.82,
+            217.76
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.873,
+          "min": 0.806,
+          "max": 1.07,
+          "samples": [
+            0.806,
+            0.851,
+            0.873,
+            0.97,
+            1.07
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.502,
+          "min": 0.444,
+          "max": 0.604,
+          "samples": [
+            0.444,
+            0.454,
+            0.502,
+            0.516,
+            0.604
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-slow-write.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 1000,
+      "pendingEdit": true,
+      "writeDelayMS": 150,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "editRequestToEndMS": {
+          "median": 2.034,
+          "min": 1.248,
+          "max": 2.667,
+          "samples": [
+            1.641,
+            2.552,
+            1.248,
+            2.034,
+            2.667
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 1.099,
+          "min": 0.531,
+          "max": 1.666,
+          "samples": [
+            1.646,
+            1.099,
+            1.666,
+            0.531,
+            1.014
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 941.737,
+          "min": 924.173,
+          "max": 1911.488,
+          "samples": [
+            1911.488,
+            930.069,
+            924.173,
+            941.737,
+            942.73
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 941.798,
+          "min": 924.233,
+          "max": 1911.568,
+          "samples": [
+            1911.568,
+            930.122,
+            924.233,
+            941.798,
+            942.784
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 237.55,
+          "min": 233.575,
+          "max": 241.926,
+          "samples": [
+            233.575,
+            237.55,
+            237.292,
+            241.926,
+            240.272
+          ]
+        },
+        "startupMS": {
+          "median": 0.068,
+          "min": 0.049,
+          "max": 0.088,
+          "samples": [
+            0.051,
+            0.076,
+            0.088,
+            0.049,
+            0.068
+          ]
+        },
+        "notes_loadMS": {
+          "median": 1.258,
+          "min": 0.931,
+          "max": 2.032,
+          "samples": [
+            0.931,
+            2.032,
+            0.964,
+            1.258,
+            1.372
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.307,
+          "min": 0.278,
+          "max": 0.811,
+          "samples": [
+            0.286,
+            0.811,
+            0.278,
+            0.307,
+            0.33
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.076,
+          "min": 0.068,
+          "max": 0.107,
+          "samples": [
+            0.076,
+            0.085,
+            0.068,
+            0.107,
+            0.07
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.013,
+          "min": 0.011,
+          "max": 0.014,
+          "samples": [
+            0.011,
+            0.013,
+            0.012,
+            0.014,
+            0.013
+          ]
+        },
+        "createMS": {
+          "median": 288.302,
+          "min": 269.207,
+          "max": 290.819,
+          "samples": [
+            290.819,
+            273.755,
+            288.302,
+            269.207,
+            289.462
+          ]
+        },
+        "final_notesMS": {
+          "median": 151.104,
+          "min": 151.05,
+          "max": 151.497,
+          "samples": [
+            151.05,
+            151.072,
+            151.497,
+            151.104,
+            151.192
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.727,
+          "min": 0.677,
+          "max": 0.839,
+          "samples": [
+            0.677,
+            0.839,
+            0.727,
+            0.694,
+            0.733
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-software.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "closed",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 619.846,
+          "min": 553.957,
+          "max": 1611.545,
+          "samples": [
+            1611.545,
+            553.957,
+            648.676,
+            619.846,
+            577.608
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 619.889,
+          "min": 553.997,
+          "max": 1611.606,
+          "samples": [
+            1611.606,
+            553.997,
+            648.714,
+            619.889,
+            577.645
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 17.466,
+          "min": 14.705,
+          "max": 26.392,
+          "samples": [
+            14.705,
+            16.962,
+            17.466,
+            17.808,
+            26.392
+          ]
+        },
+        "startupMS": {
+          "median": 0.04,
+          "min": 0.03,
+          "max": 0.043,
+          "samples": [
+            0.03,
+            0.04,
+            0.041,
+            0.032,
+            0.043
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.887,
+          "min": 0.647,
+          "max": 1.14,
+          "samples": [
+            0.647,
+            0.935,
+            0.887,
+            0.704,
+            1.14
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.3,
+          "min": 0.207,
+          "max": 0.495,
+          "samples": [
+            0.236,
+            0.356,
+            0.495,
+            0.207,
+            0.3
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.058,
+          "min": 0.049,
+          "max": 0.071,
+          "samples": [
+            0.049,
+            0.071,
+            0.058,
+            0.071,
+            0.053
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.008,
+          "min": 0.007,
+          "max": 0.009,
+          "samples": [
+            0.007,
+            0.008,
+            0.008,
+            0.009,
+            0.008
+          ]
+        },
+        "createMS": {
+          "median": 154.914,
+          "min": 110.131,
+          "max": 160.432,
+          "samples": [
+            154.914,
+            110.131,
+            160.432,
+            160.244,
+            115.077
+          ]
+        },
+        "hideMS": {
+          "median": 38.911,
+          "min": 31.292,
+          "max": 40.785,
+          "samples": [
+            39.362,
+            40.785,
+            31.292,
+            34.921,
+            38.911
+          ]
+        },
+        "showMS": {
+          "median": 3.488,
+          "min": 3.089,
+          "max": 8.832,
+          "samples": [
+            7.198,
+            3.373,
+            3.488,
+            8.832,
+            3.089
+          ]
+        },
+        "closeMS": {
+          "median": 3.837,
+          "min": 3.47,
+          "max": 11.112,
+          "samples": [
+            3.47,
+            11.112,
+            3.837,
+            3.556,
+            8.158
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.637,
+          "min": 0.6,
+          "max": 0.927,
+          "samples": [
+            0.637,
+            0.927,
+            0.634,
+            0.6,
+            0.651
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.48,
+          "min": 0.439,
+          "max": 0.636,
+          "samples": [
+            0.439,
+            0.547,
+            0.636,
+            0.455,
+            0.48
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-table-idle.jsonl",
+      "case": "table",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 2000,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 2.187,
+          "min": 1.478,
+          "max": 17.95,
+          "samples": [
+            1.478,
+            2.187,
+            17.95,
+            2.685,
+            2.112
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 1267.757,
+          "min": 1062.739,
+          "max": 3060.805,
+          "samples": [
+            3060.805,
+            1213.926,
+            1062.739,
+            1267.757,
+            1356.713
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 1267.821,
+          "min": 1062.787,
+          "max": 3060.859,
+          "samples": [
+            3060.859,
+            1213.987,
+            1062.787,
+            1267.821,
+            1356.792
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 287.361,
+          "min": 247.376,
+          "max": 319.401,
+          "samples": [
+            247.376,
+            263.477,
+            319.401,
+            291.776,
+            287.361
+          ]
+        },
+        "startupMS": {
+          "median": 0.055,
+          "min": 0.045,
+          "max": 0.087,
+          "samples": [
+            0.045,
+            0.054,
+            0.079,
+            0.055,
+            0.087
+          ]
+        },
+        "notes_loadMS": {
+          "median": 8.689,
+          "min": 6.129,
+          "max": 10.844,
+          "samples": [
+            6.129,
+            9.713,
+            8.689,
+            7.075,
+            10.844
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.448,
+          "min": 0.295,
+          "max": 1.231,
+          "samples": [
+            0.295,
+            1.231,
+            0.555,
+            0.319,
+            0.448
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.075,
+          "min": 0.064,
+          "max": 0.083,
+          "samples": [
+            0.064,
+            0.069,
+            0.083,
+            0.075,
+            0.081
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.013,
+          "min": 0.011,
+          "max": 0.014,
+          "samples": [
+            0.011,
+            0.013,
+            0.013,
+            0.013,
+            0.014
+          ]
+        },
+        "createMS": {
+          "median": 307.629,
+          "min": 265.873,
+          "max": 335.57,
+          "samples": [
+            265.873,
+            307.629,
+            302.166,
+            332.806,
+            335.57
+          ]
+        },
+        "final_notesMS": {
+          "median": 1.211,
+          "min": 1.093,
+          "max": 1.294,
+          "samples": [
+            1.093,
+            1.211,
+            1.124,
+            1.26,
+            1.294
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.747,
+          "min": 0.709,
+          "max": 0.942,
+          "samples": [
+            0.747,
+            0.791,
+            0.709,
+            0.942,
+            0.711
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-visible.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 669.034,
+          "min": 652.041,
+          "max": 1342.717,
+          "samples": [
+            1342.717,
+            725.468,
+            669.034,
+            662.171,
+            652.041
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 669.077,
+          "min": 652.083,
+          "max": 1342.771,
+          "samples": [
+            1342.771,
+            725.527,
+            669.077,
+            662.232,
+            652.083
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 82.963,
+          "min": 68.907,
+          "max": 95.54,
+          "samples": [
+            82.145,
+            68.907,
+            95.54,
+            90.703,
+            82.963
+          ]
+        },
+        "startupMS": {
+          "median": 0.036,
+          "min": 0.036,
+          "max": 0.067,
+          "samples": [
+            0.036,
+            0.043,
+            0.036,
+            0.036,
+            0.067
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.793,
+          "min": 0.701,
+          "max": 0.884,
+          "samples": [
+            0.701,
+            0.884,
+            0.793,
+            0.857,
+            0.785
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.222,
+          "min": 0.201,
+          "max": 0.551,
+          "samples": [
+            0.222,
+            0.551,
+            0.201,
+            0.218,
+            0.229
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.059,
+          "min": 0.053,
+          "max": 0.069,
+          "samples": [
+            0.059,
+            0.053,
+            0.054,
+            0.069,
+            0.059
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.009,
+          "min": 0.008,
+          "max": 0.011,
+          "samples": [
+            0.009,
+            0.009,
+            0.008,
+            0.01,
+            0.011
+          ]
+        },
+        "createMS": {
+          "median": 168.492,
+          "min": 166.234,
+          "max": 196.776,
+          "samples": [
+            166.234,
+            196.776,
+            168.46,
+            176.192,
+            168.492
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.7,
+          "min": 0.686,
+          "max": 0.785,
+          "samples": [
+            0.785,
+            0.7,
+            0.686,
+            0.762,
+            0.687
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.46,
+          "min": 0.443,
+          "max": 0.479,
+          "samples": [
+            0.46,
+            0.467,
+            0.443,
+            0.479,
+            0.448
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-visible.jsonl",
+      "case": "1m-paragraphs",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 697.933,
+          "min": 602.236,
+          "max": 723.234,
+          "samples": [
+            723.234,
+            710.258,
+            692.132,
+            697.933,
+            602.236
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 697.972,
+          "min": 602.286,
+          "max": 723.273,
+          "samples": [
+            723.273,
+            710.299,
+            692.184,
+            697.972,
+            602.286
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 94.873,
+          "min": 76.514,
+          "max": 113.764,
+          "samples": [
+            86.915,
+            94.873,
+            100.114,
+            113.764,
+            76.514
+          ]
+        },
+        "startupMS": {
+          "median": 0.078,
+          "min": 0.039,
+          "max": 0.084,
+          "samples": [
+            0.084,
+            0.081,
+            0.076,
+            0.039,
+            0.078
+          ]
+        },
+        "notes_loadMS": {
+          "median": 77.504,
+          "min": 76.179,
+          "max": 84.982,
+          "samples": [
+            84.982,
+            77.504,
+            76.179,
+            82.656,
+            77.258
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.225,
+          "min": 0.22,
+          "max": 0.248,
+          "samples": [
+            0.226,
+            0.22,
+            0.248,
+            0.222,
+            0.225
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.061,
+          "min": 0.051,
+          "max": 0.066,
+          "samples": [
+            0.051,
+            0.061,
+            0.061,
+            0.058,
+            0.066
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.008,
+          "min": 0.008,
+          "max": 0.012,
+          "samples": [
+            0.008,
+            0.008,
+            0.012,
+            0.012,
+            0.008
+          ]
+        },
+        "createMS": {
+          "median": 190.041,
+          "min": 166.59,
+          "max": 201.827,
+          "samples": [
+            201.827,
+            190.041,
+            169.88,
+            196.673,
+            166.59
+          ]
+        },
+        "final_notesMS": {
+          "median": 8.557,
+          "min": 6.736,
+          "max": 10.335,
+          "samples": [
+            8.143,
+            8.557,
+            8.728,
+            10.335,
+            6.736
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.551,
+          "min": 0.434,
+          "max": 0.693,
+          "samples": [
+            0.47,
+            0.693,
+            0.551,
+            0.613,
+            0.434
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-lifecycle-visible.jsonl",
+      "case": "10m-background",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "startupFirstDrawMS": {
+          "median": 667.751,
+          "min": 631.669,
+          "max": 682.724,
+          "samples": [
+            657.303,
+            631.669,
+            682.724,
+            667.751,
+            672.33
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 667.809,
+          "min": 631.714,
+          "max": 682.779,
+          "samples": [
+            657.36,
+            631.714,
+            682.779,
+            667.809,
+            672.385
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 127.35,
+          "min": 103.547,
+          "max": 159.681,
+          "samples": [
+            103.547,
+            127.35,
+            129.796,
+            118.614,
+            159.681
+          ]
+        },
+        "startupMS": {
+          "median": 0.039,
+          "min": 0.032,
+          "max": 0.068,
+          "samples": [
+            0.038,
+            0.044,
+            0.068,
+            0.039,
+            0.032
+          ]
+        },
+        "notes_loadMS": {
+          "median": 39.053,
+          "min": 37.193,
+          "max": 44.483,
+          "samples": [
+            37.28,
+            39.053,
+            44.483,
+            41.181,
+            37.193
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.236,
+          "min": 0.233,
+          "max": 0.363,
+          "samples": [
+            0.363,
+            0.233,
+            0.235,
+            0.309,
+            0.236
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.05,
+          "min": 0.048,
+          "max": 0.151,
+          "samples": [
+            0.048,
+            0.151,
+            0.049,
+            0.05,
+            0.054
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.008,
+          "min": 0.008,
+          "max": 0.014,
+          "samples": [
+            0.008,
+            0.014,
+            0.008,
+            0.008,
+            0.009
+          ]
+        },
+        "createMS": {
+          "median": 180.246,
+          "min": 165.662,
+          "max": 193.835,
+          "samples": [
+            180.246,
+            165.662,
+            185.682,
+            193.835,
+            166.391
+          ]
+        },
+        "final_notesMS": {
+          "median": 34.246,
+          "min": 33.446,
+          "max": 35.042,
+          "samples": [
+            34.246,
+            35.042,
+            34.84,
+            33.865,
+            33.446
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.506,
+          "min": 0.459,
+          "max": 0.524,
+          "samples": [
+            0.522,
+            0.524,
+            0.506,
+            0.459,
+            0.486
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-startup-local-after.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "after-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 2.039,
+          "min": 1.198,
+          "max": 2.715,
+          "samples": [
+            1.198,
+            1.283,
+            2.451,
+            2.715,
+            2.039
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 526.515,
+          "min": 487.099,
+          "max": 1207.682,
+          "samples": [
+            1207.682,
+            526.515,
+            496.689,
+            554.943,
+            487.099
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 526.611,
+          "min": 487.163,
+          "max": 1207.746,
+          "samples": [
+            1207.746,
+            526.611,
+            496.759,
+            554.999,
+            487.163
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 68.178,
+          "min": 62.394,
+          "max": 80.486,
+          "samples": [
+            68.178,
+            80.486,
+            62.394,
+            68.215,
+            64.734
+          ]
+        },
+        "startupMS": {
+          "median": 0.046,
+          "min": 0.036,
+          "max": 0.058,
+          "samples": [
+            0.038,
+            0.036,
+            0.058,
+            0.052,
+            0.046
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.724,
+          "min": 0.646,
+          "max": 0.976,
+          "samples": [
+            0.646,
+            0.724,
+            0.847,
+            0.976,
+            0.662
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.214,
+          "min": 0.189,
+          "max": 0.304,
+          "samples": [
+            0.214,
+            0.198,
+            0.247,
+            0.304,
+            0.189
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.132,
+          "min": 0.121,
+          "max": 0.165,
+          "samples": [
+            0.135,
+            0.121,
+            0.125,
+            0.132,
+            0.165
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.055,
+          "min": 0.043,
+          "max": 0.153,
+          "samples": [
+            0.153,
+            0.051,
+            0.058,
+            0.055,
+            0.043
+          ]
+        },
+        "createMS": {
+          "median": 107.473,
+          "min": 106.533,
+          "max": 157.083,
+          "samples": [
+            157.083,
+            107.473,
+            106.533,
+            145.284,
+            106.676
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.634,
+          "min": 0.559,
+          "max": 0.675,
+          "samples": [
+            0.665,
+            0.675,
+            0.634,
+            0.603,
+            0.559
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.419,
+          "min": 0.409,
+          "max": 0.429,
+          "samples": [
+            0.429,
+            0.419,
+            0.429,
+            0.416,
+            0.409
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-startup-local-after.jsonl",
+      "case": "1m-paragraphs",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 0,
+      "sourceState": "after-startup-optimization",
+      "statusCounts": {
+        "ok": 5
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 1.558,
+          "min": 0.849,
+          "max": 2.119,
+          "samples": [
+            2.119,
+            1.671,
+            1.361,
+            1.558,
+            0.849
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 608.664,
+          "min": 603.472,
+          "max": 623.772,
+          "samples": [
+            623.772,
+            605.355,
+            603.472,
+            608.664,
+            610.005
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 608.728,
+          "min": 603.536,
+          "max": 623.828,
+          "samples": [
+            623.828,
+            605.411,
+            603.536,
+            608.728,
+            610.059
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 85.602,
+          "min": 77.192,
+          "max": 98.098,
+          "samples": [
+            77.192,
+            85.602,
+            86.552,
+            80.502,
+            98.098
+          ]
+        },
+        "startupMS": {
+          "median": 0.04,
+          "min": 0.034,
+          "max": 0.069,
+          "samples": [
+            0.042,
+            0.034,
+            0.036,
+            0.069,
+            0.04
+          ]
+        },
+        "notes_loadMS": {
+          "median": 70.242,
+          "min": 68.778,
+          "max": 72.893,
+          "samples": [
+            70.242,
+            70.16,
+            68.778,
+            72.149,
+            72.893
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.234,
+          "min": 0.218,
+          "max": 0.243,
+          "samples": [
+            0.234,
+            0.218,
+            0.243,
+            0.226,
+            0.24
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.1,
+          "min": 0.08,
+          "max": 0.115,
+          "samples": [
+            0.08,
+            0.115,
+            0.1,
+            0.109,
+            0.082
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 0.03,
+          "min": 0.026,
+          "max": 0.085,
+          "samples": [
+            0.085,
+            0.055,
+            0.028,
+            0.03,
+            0.026
+          ]
+        },
+        "createMS": {
+          "median": 149.002,
+          "min": 141.656,
+          "max": 157.188,
+          "samples": [
+            157.188,
+            149.002,
+            152.957,
+            141.656,
+            142.793
+          ]
+        },
+        "final_notesMS": {
+          "median": 8.475,
+          "min": 7.83,
+          "max": 9.009,
+          "samples": [
+            7.83,
+            8.475,
+            8.23,
+            9.009,
+            8.483
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.453,
+          "min": 0.438,
+          "max": 0.51,
+          "samples": [
+            0.438,
+            0.476,
+            0.453,
+            0.51,
+            0.44
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-startup-scan-after.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": true,
+      "writeDelayMS": 0,
+      "scanDelayMS": 3000,
+      "sourceState": "after-startup-optimization",
+      "statusCounts": {
+        "ok": 3
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "editRequestToEndMS": {
+          "median": 17.364,
+          "min": 16.54,
+          "max": 33.385,
+          "samples": [
+            33.385,
+            16.54,
+            17.364
+          ]
+        },
+        "quitRequestToEndMS": {
+          "median": 1.579,
+          "min": 1.499,
+          "max": 2.647,
+          "samples": [
+            1.499,
+            2.647,
+            1.579
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 519.037,
+          "min": 489.595,
+          "max": 1424.735,
+          "samples": [
+            1424.735,
+            519.037,
+            489.595
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 519.103,
+          "min": 489.656,
+          "max": 1424.829,
+          "samples": [
+            1424.829,
+            519.103,
+            489.656
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 74.1,
+          "min": 63.04,
+          "max": 84.745,
+          "samples": [
+            63.04,
+            84.745,
+            74.1
+          ]
+        },
+        "startupMS": {
+          "median": 0.042,
+          "min": 0.034,
+          "max": 0.045,
+          "samples": [
+            0.034,
+            0.042,
+            0.045
+          ]
+        },
+        "notes_loadMS": {
+          "median": 0.654,
+          "min": 0.647,
+          "max": 0.655,
+          "samples": [
+            0.655,
+            0.654,
+            0.647
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.197,
+          "min": 0.186,
+          "max": 0.206,
+          "samples": [
+            0.206,
+            0.197,
+            0.186
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.108,
+          "min": 0.098,
+          "max": 0.168,
+          "samples": [
+            0.168,
+            0.098,
+            0.108
+          ]
+        },
+        "createMS": {
+          "median": 110.528,
+          "min": 100.974,
+          "max": 147.114,
+          "samples": [
+            147.114,
+            110.528,
+            100.974
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.681,
+          "min": 0.612,
+          "max": 0.769,
+          "samples": [
+            0.769,
+            0.681,
+            0.612
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.434,
+          "min": 0.417,
+          "max": 0.525,
+          "samples": [
+            0.525,
+            0.434,
+            0.417
+          ]
+        }
+      }
+    },
+    {
+      "file": "native-startup-scan-before.jsonl",
+      "case": "ordinary",
+      "gpu": "0",
+      "quitState": "visible",
+      "settleMS": 0,
+      "pendingEdit": false,
+      "writeDelayMS": 0,
+      "scanDelayMS": 3000,
+      "sourceState": "before-startup-optimization",
+      "statusCounts": {
+        "ok": 3
+      },
+      "failures": [],
+      "allSuccessfulSamplesPreserveContent": true,
+      "metricsMS": {
+        "quitRequestToEndMS": {
+          "median": 2.202,
+          "min": 1.824,
+          "max": 2.313,
+          "samples": [
+            2.313,
+            2.202,
+            1.824
+          ]
+        },
+        "startupFirstDrawMS": {
+          "median": 3637.526,
+          "min": 3516.819,
+          "max": 5752.504,
+          "samples": [
+            5752.504,
+            3637.526,
+            3516.819
+          ]
+        },
+        "startupResponsiveMS": {
+          "median": 3637.569,
+          "min": 3516.876,
+          "max": 5752.54,
+          "samples": [
+            5752.54,
+            3637.569,
+            3516.876
+          ]
+        },
+        "quitToExitObservedMS": {
+          "median": 65.018,
+          "min": 57.48,
+          "max": 68.065,
+          "samples": [
+            65.018,
+            68.065,
+            57.48
+          ]
+        },
+        "startupMS": {
+          "median": 0.046,
+          "min": 0.036,
+          "max": 0.143,
+          "samples": [
+            0.036,
+            0.143,
+            0.046
+          ]
+        },
+        "notes_loadMS": {
+          "median": 1.168,
+          "min": 0.67,
+          "max": 1.465,
+          "samples": [
+            0.67,
+            1.465,
+            1.168
+          ]
+        },
+        "prefs_loadMS": {
+          "median": 0.272,
+          "min": 0.213,
+          "max": 0.394,
+          "samples": [
+            0.213,
+            0.272,
+            0.394
+          ]
+        },
+        "backup_scanMS": {
+          "median": 0.05,
+          "min": 0.046,
+          "max": 0.058,
+          "samples": [
+            0.046,
+            0.058,
+            0.05
+          ]
+        },
+        "mirror_scanMS": {
+          "median": 3000.323,
+          "min": 3000.221,
+          "max": 3000.343,
+          "samples": [
+            3000.343,
+            3000.221,
+            3000.323
+          ]
+        },
+        "createMS": {
+          "median": 102.657,
+          "min": 101.229,
+          "max": 139.801,
+          "samples": [
+            102.657,
+            101.229,
+            139.801
+          ]
+        },
+        "final_notesMS": {
+          "median": 0.679,
+          "min": 0.677,
+          "max": 0.722,
+          "samples": [
+            0.722,
+            0.677,
+            0.679
+          ]
+        },
+        "final_prefsMS": {
+          "median": 0.45,
+          "min": 0.435,
+          "max": 0.451,
+          "samples": [
+            0.451,
+            0.435,
+            0.45
+          ]
+        }
+      }
+    }
+  ]
+}

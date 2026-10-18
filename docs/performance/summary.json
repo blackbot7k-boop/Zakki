@@ -1,0 +1,199 @@
+{
+  "baselineCommit": "09fa67df21eccab9cd3e2f980bd39898cf619744",
+  "platform": "darwin/amd64, Intel Core i9-9880H, MyGo v0.5.1",
+  "sampling": "median of 5 independent processes; before/after order alternated; undo-steady separately uses count=5 in one process",
+  "metrics": {
+    "highlight": {
+      "before": {
+        "BenchmarkEditorRangesCodeScaling/lines_1000": {
+          "ns/op": 13692138.0,
+          "MB/s": 1.53,
+          "B/op": 1308072.0,
+          "allocs/op": 6021.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_2000": {
+          "ns/op": 60728338.0,
+          "MB/s": 0.69,
+          "B/op": 2974194.0,
+          "allocs/op": 12024.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_4000": {
+          "ns/op": 289280168.0,
+          "MB/s": 0.29,
+          "B/op": 6363757.0,
+          "allocs/op": 24027.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_8000": {
+          "ns/op": 1189513620.0,
+          "MB/s": 0.14,
+          "B/op": 13167469.0,
+          "allocs/op": 48030.0
+        }
+      },
+      "after": {
+        "BenchmarkEditorRangesCodeScaling/lines_1000": {
+          "ns/op": 1755439.0,
+          "MB/s": 11.97,
+          "B/op": 1310760.0,
+          "allocs/op": 6022.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_2000": {
+          "ns/op": 2963804.0,
+          "MB/s": 14.17,
+          "B/op": 2981418.0,
+          "allocs/op": 12027.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_4000": {
+          "ns/op": 6104580.0,
+          "MB/s": 13.76,
+          "B/op": 6374642.0,
+          "allocs/op": 24028.0
+        },
+        "BenchmarkEditorRangesCodeScaling/lines_8000": {
+          "ns/op": 11334908.0,
+          "MB/s": 14.82,
+          "B/op": 13189234.0,
+          "allocs/op": 48031.0
+        }
+      }
+    },
+    "preview": {
+      "before": {
+        "BenchmarkPreviewSteady/code/1000": {
+          "ns/op": 5978505.0,
+          "B/op": 1011181.0,
+          "allocs/op": 10160.0
+        },
+        "BenchmarkPreviewSteady/code/5000": {
+          "ns/op": 32304155.0,
+          "B/op": 5011448.0,
+          "allocs/op": 50161.0
+        },
+        "BenchmarkPreviewSteady/table/1000": {
+          "ns/op": 23606991.0,
+          "B/op": 2286331.0,
+          "allocs/op": 50264.0
+        },
+        "BenchmarkPreviewSteady/table/5000": {
+          "ns/op": 126842618.0,
+          "B/op": 11630361.0,
+          "allocs/op": 262264.0
+        },
+        "BenchmarkPreviewSteady/paragraph/100000": {
+          "ns/op": 101482731.0,
+          "B/op": 64027564.0,
+          "allocs/op": 366.0
+        },
+        "BenchmarkPreviewSteady/paragraphs/5000": {
+          "ns/op": 643292.0,
+          "B/op": 117673.0,
+          "allocs/op": 474.0
+        }
+      },
+      "after": {
+        "BenchmarkPreviewSteady/code/1000": {
+          "ns/op": 3683910.0,
+          "B/op": 10900.0,
+          "allocs/op": 158.0
+        },
+        "BenchmarkPreviewSteady/code/5000": {
+          "ns/op": 20861402.0,
+          "B/op": 10900.0,
+          "allocs/op": 158.0
+        },
+        "BenchmarkPreviewSteady/table/1000": {
+          "ns/op": 21839224.0,
+          "B/op": 1591421.0,
+          "allocs/op": 34238.0
+        },
+        "BenchmarkPreviewSteady/table/5000": {
+          "ns/op": 126251446.0,
+          "B/op": 8183399.0,
+          "allocs/op": 182238.0
+        },
+        "BenchmarkPreviewSteady/paragraph/100000": {
+          "ns/op": 100479253.0,
+          "B/op": 46880609.0,
+          "allocs/op": 296.0
+        },
+        "BenchmarkPreviewSteady/paragraphs/5000": {
+          "ns/op": 324340.0,
+          "B/op": 19593.0,
+          "allocs/op": 273.0
+        }
+      }
+    },
+    "undo": {
+      "before": {
+        "BenchmarkUndoRetainedMemory": {
+          "ns/op": 148583025.0,
+          "retained-B/op": 211384008.0,
+          "B/op": 264240856.0,
+          "allocs/op": 269.0
+        }
+      },
+      "after": {
+        "BenchmarkUndoRetainedMemory": {
+          "ns/op": 47397497.0,
+          "retained-B/op": 1106928.0,
+          "B/op": 264266080.0,
+          "allocs/op": 783.0
+        }
+      }
+    },
+    "save": {
+      "before": {
+        "BenchmarkSaveContention/status": {
+          "ns/op": 151299535.0,
+          "injected-ms": 150.0,
+          "B/op": 1496.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkSaveContention/schedule": {
+          "ns/op": 151190890.0,
+          "injected-ms": 150.0,
+          "B/op": 1544.0,
+          "allocs/op": 13.0
+        },
+        "BenchmarkSaveSnapshot/1MiB": {
+          "ns/op": 3293930.0,
+          "MB/s": 318.34,
+          "B/op": 2328972.0,
+          "allocs/op": 18.0
+        },
+        "BenchmarkSaveSnapshot/10MiB": {
+          "ns/op": 29182458.0,
+          "MB/s": 359.32,
+          "B/op": 25189080.0,
+          "allocs/op": 19.0
+        }
+      },
+      "after": {
+        "BenchmarkSaveContention/status": {
+          "ns/op": 2526.0,
+          "injected-ms": 150.0,
+          "B/op": 0.0,
+          "allocs/op": 0.0
+        },
+        "BenchmarkSaveContention/schedule": {
+          "ns/op": 4207.0,
+          "injected-ms": 150.0,
+          "B/op": 372.0,
+          "allocs/op": 3.0
+        },
+        "BenchmarkSaveSnapshot/1MiB": {
+          "ns/op": 3380743.0,
+          "MB/s": 310.16,
+          "B/op": 2539355.0,
+          "allocs/op": 18.0
+        },
+        "BenchmarkSaveSnapshot/10MiB": {
+          "ns/op": 29497198.0,
+          "MB/s": 355.48,
+          "B/op": 25189057.0,
+          "allocs/op": 19.0
+        }
+      }
+    }
+  }
+}

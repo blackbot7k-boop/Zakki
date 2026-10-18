@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func newTestStore(t *testing.T, now func() time.Time) *Store {
+func newTestStore(t testing.TB, now func() time.Time) *Store {
 	t.Helper()
 	dir := t.TempDir()
 	if now == nil {

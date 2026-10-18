@@ -7,7 +7,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"zakki/internal/codehl"
 	"zakki/locales"
 )
 
@@ -38,10 +37,7 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
 	// 虚拟化列表：只构建视口内外的少数块，长文档的首帧与稳态帧成本与
 	// 可见块数相关，而与文档总块数无关（编辑器仍按块工作，见 live_edit.go）。
-	blockStarts := make([]int, len(blocks))
-	for i := 1; i < len(blocks); i++ {
-		blockStarts[i] = blockStarts[i-1] + utf8.RuneCountInString(blocks[i-1].raw) + 1
-	}
+	blockStarts := a.mdCacheOffsets
 	// 快照 active：块内 Enter 可能在本轮构建中把 mdActive 挤到别的块，
 	// 同一帧不能因此误建第二个编辑器（同 handle 冲突），重建交给下一帧。
 	active := a.mdActive
@@ -63,13 +59,13 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 				return
 			}
 			start := blockStarts[i]
-			blockEnd := start + utf8.RuneCountInString(blk.raw)
+			blockEnd := blockStarts[i+1] - 1
 			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1)
 		})
 		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
 			TrackScroll(&a.liveScroll).
 			Padding(style.padX, style.padY).Gap(style.blockGap).
-			Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight)
+			TextColor(style.text).Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight)
 		if style.sketch {
 			// 纸面画在滚动视口上而不是内容行上：内容比视口短时，下方空白同样是纸。
 			dots := withAlpha(style.textMuted, 0.22)
@@ -91,7 +87,10 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 // activeBlock keeps the block's rendered structure while editing visible contents.
 func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 	blk := a.mdBlocks()[a.mdActive]
-	projection := projectBlock(blk)
+	var projection liveProjection
+	if blk.kind != bkTable {
+		projection = a.previewProjection(blk)
+	}
 	if a.fenceDraft && isFenceDraftLine(blk.raw) {
 		projection = projectRegion(blk.raw, 0, utf8.RuneCountInString(blk.raw), false, false)
 		// 回车确认前保持原生输入框层级不变，避免重挂到代码卡片时重复输入或错位光标。
@@ -107,6 +106,14 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 		switch blk.kind {
 		case bkTable:
 			a.editTable(c, t, blk)
+		case bkHeading:
+			if md.sketch {
+				sketchHeadingFrame(c, md, blk, projection.text).Children(func() {
+					a.activeText(c, t, blk, projection)
+				})
+			} else {
+				a.activeText(c, t, blk, projection)
+			}
 		case bkTask:
 			a.taskCheckbox(c, blk, md)
 			a.activeText(c, t, blk, projection)
@@ -184,14 +191,17 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		ta.Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
 	case bkTable:
 		ta.FontSize(md.codeSize)
-		if len(blk.table.rows) > 0 && p.start < tableCellPositions(blk.raw)[len(blk.table.rows[0])-1].end {
+		if len(blk.table.rows) > 0 && p.start < a.previewTable(blk).positions[len(blk.table.rows[0])-1].end {
 			ta.Bold()
 		}
 	}
-	if len(p.styles) == 1 && p.styles[0].start == 0 && p.styles[0].end == len(p.units) && p.styles[0].kind == spanItalic {
-		ta.Italic()
+	ranges := p.textRangesInBlock(a.query, t, md, blk, a.prefs.Appearance.CodeTheme)
+	if a.selDoc {
+		for i := range ranges {
+			ranges[i].Background = ui.Color{}
+		}
 	}
-	ta.TextRanges(p.textRangesInBlock(a.query, t, md.accent, blk, a.prefs.Appearance.CodeTheme)...)
+	ta.TextRanges(ranges...)
 
 	// Native selections are visible offsets; the existing document pipeline
 	// continues to use source offsets. IME composition stays with the widget.
@@ -364,7 +374,7 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 			a.sketchHeading(c, t, md, blk)
 			return
 		}
-		h := projectBlock(blk).content(c, t, md).TextColor(t.Text)
+		h := a.previewProjection(blk).content(c, t, md).TextColor(t.Text)
 		styleHeading(h, blk.level, md)
 	case bkRule:
 		ruleLine(c, md, uint32(blk.start))
@@ -376,17 +386,20 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 	case bkCode:
 		codeCard(c, md, t, uint32(blk.start)).Fill().Children(func() {
 			cp, codeOn := codePaletteFor(a.prefs.Appearance.CodeTheme, t)
-			lang := codehl.Lang(blk.info)
+			var spans [][]ui.Span
+			if codeOn {
+				spans = a.previewCode(blk, cp)
+			}
 			lines := blk.lines
 			if len(lines) == 0 {
 				lines = []string{" "}
 			}
-			for _, l := range lines {
+			for i, l := range lines {
 				if l == "" {
 					l = " "
 				}
 				if codeOn {
-					ui.RichText(c, codeLineSpans(l, codehl.Line(lang, l), cp, ui.Color{})...).
+					ui.RichText(c, spans[i]...).
 						Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
 				} else {
 					ui.Text(c, l).Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
@@ -398,9 +411,9 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlo
 		inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
 	case bkTask:
 		a.taskCheckbox(c, blk, md)
-		projectBlock(blk).content(c, t, md).Grow(1)
+		a.previewProjection(blk).content(c, t, md).Grow(1)
 	default:
-		projectBlock(blk).content(c, t, md).Grow(1)
+		a.previewProjection(blk).content(c, t, md).Grow(1)
 	}
 }
 
@@ -418,7 +431,6 @@ func inlineContent(c *ui.Context, t *ui.Theme, md resolvedStyle, text string, sp
 // renderInline 在当前 RichText 段落内输出带样式的行内片段。
 // spans 是切分时预计算的行内标记（勿传 nil 渲染带标记的文本）。
 func renderInline(c *ui.Context, t *ui.Theme, md resolvedStyle, text string, spans []mSpan) {
-	accent := md.accent
 	if len(spans) == 0 {
 		ui.Text(c, text)
 		return
@@ -429,28 +441,9 @@ func renderInline(c *ui.Context, t *ui.Theme, md resolvedStyle, text string, spa
 		if sp.start > prev {
 			ui.Text(c, string(rs[prev:sp.start]))
 		}
-		styled := ui.Text(c, spanText(text, sp))
-		switch sp.kind {
-		case spanBold:
-			styled.Bold()
-			if md.sketch {
-				styled.TextBackground(sketchMark(md))
-			}
-		case spanItalic:
-			styled.Italic()
-		case spanCode:
-			styled.Font("monospace").TextColor(t.TextMuted)
-			if md.sketch {
-				styled.TextBackground(md.codeBackground)
-			}
-		case spanLink:
-			styled.TextColor(accent)
-			if md.sketch {
-				styled.WavyUnderline().DecorationColor(accent)
-			} else {
-				styled.Underline()
-			}
-		}
+		styled := inlineStyle(sp.kind, t, md)
+		styled.Text = spanText(text, sp)
+		ui.RichText(c, styled)
 		prev = sp.end
 	}
 	if prev < len(rs) {

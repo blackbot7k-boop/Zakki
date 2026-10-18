@@ -161,12 +161,19 @@ func (a *app) paperBackground(base ui.Color, dark, vibrancy bool) ui.Color {
 // sketchHeading 一、二级标题在文字下半部垫荧光笔，三级及以下画一道铅笔下划线；
 // 宽度跟随文字。
 func (a *app) sketchHeading(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBlock) {
+	projection := a.previewProjection(blk)
+	sketchHeadingFrame(c, md, blk, projection.text).Children(func() {
+		h := projection.content(c, t, md).TextColor(t.Text)
+		styleHeading(h, blk.level, md)
+	})
+}
+
+func sketchHeadingFrame(c *ui.Context, md resolvedStyle, blk liveBlock, text string) ui.Element {
 	size := md.headingSizes[clamp(blk.level, 1, 6)-1]
-	text := projectBlock(blk).text
 	mark := withAlpha(md.quoteBorder, 0.42)
 	under := withAlpha(md.accent, 0.75)
 	seed := uint32(blk.start)
-	ui.Box(c).FillWidth().Draw(func(p *ui.Painter, r ui.Rect) {
+	return ui.Box(c).FillWidth().Draw(func(p *ui.Painter, r ui.Rect) {
 		w, _ := p.MeasureText(r.W, ui.Span{Text: text, Font: md.headingFont, Size: size, Weight: 700})
 		w = min(w+8, r.W)
 		if blk.level <= 2 {
@@ -174,9 +181,6 @@ func (a *app) sketchHeading(c *ui.Context, t *ui.Theme, md resolvedStyle, blk li
 			return
 		}
 		sketchLine(p, r.X, r.Y+r.H-1.5, r.X+w-6, r.Y+r.H-0.5, 1.5, under, seed)
-	}).Children(func() {
-		h := projectBlock(blk).content(c, t, md).TextColor(t.Text)
-		styleHeading(h, blk.level, md)
 	})
 }
 

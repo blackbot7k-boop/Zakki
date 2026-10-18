@@ -51,6 +51,8 @@ zakki/                      # 模块名；工作目录名可与应用不同名
 ├── resources/                # 图标等打包资源
 ├── docs/                     # 文档；docs/demo 为设计原型，不参与构建
 ├── .agents/skills/           # 项目内 agent skill
+├── vendor/                   # Go 依赖副本，保留许可证与上游源码格式
+├── patches/                  # 可重放的最小依赖补丁与维护说明
 ├── build/  .mygo/            # 生成目录，已 gitignore，禁止提交
 └── .github/workflows/ci.yml
 ```
@@ -193,7 +195,7 @@ arch-check:
 
 ### 5.1 文件与命名
 
-- 非测试文件软上限 **600 行**，超过 **800 行必须拆分**。一个文件只负责一个领域。
+- 自有非测试文件软上限 **600 行**，超过 **800 行必须拆分**。一个文件只负责一个领域；`vendor/` 保留上游文件布局。
 - `internal/app` 文件按领域前缀命名：`live_*`、`tab_*`、`table_*`、`settings_*`、`menu_*`、`view_*`。
   新文件立即遵守；既有文件在阶段 5 统一重命名，之前不单独改名。
 - 测试文件与被测文件同前缀（`live_edit.go` ↔ `live_edit_test.go`）。
@@ -239,10 +241,11 @@ arch-check:
 
 | 命令 | 内容 |
 |---|---|
-| `make fmt-check` | gofmt（排除 `build/`、`.mygo/`） |
+| `make fmt-check` | gofmt（排除 `build/`、`.mygo/`、`vendor/`） |
+| `make vendor` | 重新生成依赖副本并应用 `patches/` 中的 MyGo 补丁；升级冲突必须人工适配 |
 | `make vet` | `go vet ./...` + `go tool mygo vet .` |
-| `make test` | `CGO_ENABLED=0 go test ./... -count=1` |
-| `make race` | `go test -race ./... -count=1` |
+| `make test` | `CGO_ENABLED=0 go test ./... -count=1`，另执行 MyGo vendor 补丁测试 |
+| `make race` | `go test -race ./... -count=1`，另执行 MyGo vendor 补丁测试 |
 | `make arch-check` | 第 3.1 节依赖校验（阶段 1 起） |
 | `make check` | 以上全部；**每次提交前必须全绿** |
 | `make build` | `go tool mygo build` 打包 `.app`/`.dmg` 到 `build/` |

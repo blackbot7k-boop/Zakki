@@ -1,0 +1,45 @@
+
+# sample 1; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkUndoRetainedMemory-16    	       1	  55245008 ns/op	   1106960 retained-B/op	264266144 B/op	     783 allocs/op
+PASS
+ok  	zakki/internal/app	0.794s
+
+# sample 2; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkUndoRetainedMemory-16    	       1	  53305988 ns/op	   1112216 retained-B/op	264271384 B/op	     788 allocs/op
+PASS
+ok  	zakki/internal/app	0.759s
+
+# sample 3; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkUndoRetainedMemory-16    	       1	  47397497 ns/op	   1106928 retained-B/op	264266080 B/op	     782 allocs/op
+PASS
+ok  	zakki/internal/app	0.715s
+
+# sample 4; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkUndoRetainedMemory-16    	       1	  45887056 ns/op	   1106784 retained-B/op	264265936 B/op	     780 allocs/op
+PASS
+ok  	zakki/internal/app	0.699s
+
+# sample 5; execution order alternated
+goos: darwin
+goarch: amd64
+pkg: zakki/internal/app
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+BenchmarkUndoRetainedMemory-16    	       1	  45931383 ns/op	   1106832 retained-B/op	264265968 B/op	     783 allocs/op
+PASS
+ok  	zakki/internal/app	0.686s

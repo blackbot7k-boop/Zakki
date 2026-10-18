@@ -26,7 +26,7 @@ func (a *app) taskCheckbox(c *ui.Context, blk liveBlock, md resolvedStyle) {
 		a.onEdited()
 	}
 	key := c.Key("task-" + strconv.Itoa(blk.start))
-	label := locales.EditorTaskDone(projectBlock(blk).text)
+	label := locales.EditorTaskDone(a.previewProjection(blk).text)
 	if md.sketch {
 		sketchCheckbox(c, key, label, blk.checked, md, uint32(blk.start), toggle)
 		return
@@ -169,12 +169,16 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 	if cols == 0 {
 		return
 	}
-	positions := tableCellPositions(blk.raw)
+	preview := a.previewTable(blk)
+	positions := preview.positions
 	pos := a.mdCaret
 	if a.selSyncStart >= 0 {
 		pos = a.selSyncStart
 	}
-	target := tableCellAt(positions, pos)
+	target := -1
+	if editing {
+		target = tableCellAt(positions, pos)
+	}
 	blockIndex := a.mdActive
 	if !editing {
 		for i, b := range a.mdBlocks() {
@@ -232,7 +236,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 					}
 					cell.Children(func() {
 						if editing && ci == target && col < len(cells) {
-							p := projectRegion(blk.raw, positions[ci].start, positions[ci].end, true, true)
+							p := preview.tableEditor(positions[ci])
 							// Alignment and header weight are inherited by the input.
 							ui.Box(c).FillWidth().TextAlign(tableAlignment(blk.table.align[col])).Children(func() {
 								a.activeText(c, t, blk, p)
@@ -240,7 +244,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 						} else {
 							p := liveProjection{text: " "}
 							if col < len(cells) {
-								p = projectRegion(cells[col].text, 0, utf8.RuneCountInString(cells[col].text), true, true)
+								p = preview.cells[row][col]
 							}
 							p.content(c, t, md).FillWidth().FontSize(md.codeSize).TextAlign(tableAlignment(blk.table.align[col]))
 						}
@@ -273,7 +277,7 @@ func (a *app) focusTableCell(block, row, col int) {
 	if a.materializeMissingTableCell(b, row, col) {
 		return
 	}
-	cells := tableCellPositions(b.raw)
+	cells := a.previewTable(b).positions
 	index := col
 	for i := 0; i < row; i++ {
 		index += len(b.table.rows[i])

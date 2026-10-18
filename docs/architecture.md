@@ -7,11 +7,17 @@
 项目分两层：`internal/app` 是 UI 与应用装配（唯一允许依赖 MyGo 的 internal 包）；
 `internal/` 其余包是纯逻辑与持久化，禁止依赖 MyGo 与 `internal/app`。根目录只有入口 `main.go`。
 
+依赖通过标准 `vendor/` 固定。MyGo v0.5.1 的原生文字区间样式补丁在
+`patches/mygo-text-range-background.patch`，刷新依赖使用 `make vendor`，维护约束见
+[依赖补丁](../patches/README.md)。字体／斜体／字重进入原生布局，底色／颜色／下划线仅参与绘制；
+区间合并、IME、选区和滚动仍复用输入控件，不另建文本布局。
+
 ## 模块职责
 
 | 文件 | 职责 |
 |---|---|
-| `main.go` / `internal/app/lifecycle.go` | 入口 `main()` 只调 `app.Run()`；生命周期：单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`，Typora 式分工）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「段落/格式」两个顶层菜单分别收块级与行内 Markdown 命令并展示当前绑定；「编辑」收系统编辑操作、复制标签全文与查找组（查找/查找下一个/查找上一个）；「显示」保留源码模式/置顶与上/下一个标签、「切换标签」子菜单；「窗口」除系统项外提供「显示主窗口」（关闭窗口驻留托盘）；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `finishQuit` → `shutdownForQuit`；保存失败阻止退出/更新重启并重开主窗口）。装配在 `internal/app`；窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）。 |
+| `main.go` / `internal/app/lifecycle.go` | 入口 `main()` 只调 `app.Run()`；生命周期：单实例锁（`RequestSingleInstanceLock`，第二个实例把参数交给第一个后退出）、日志落盘（`setupLogging`）、macOS 菜单（`buildMenu` / `createMenu`，Typora 式分工）：应用菜单统一提供「设置… ⌘,」入口，快捷键等页面从设置窗口导航进入，无配置文件入口；「段落/格式」两个顶层菜单分别收块级与行内 Markdown 命令并展示当前绑定；「编辑」收系统编辑操作、复制标签全文与查找组（查找/查找下一个/查找上一个）；「显示」保留源码模式/置顶与上/下一个标签、「切换标签」子菜单；「窗口」除系统项外提供「显示主窗口」（关闭窗口驻留托盘）；托盘（`setupTray`：显示/隐藏、设置、退出）、全局热键（`syncGlobalHotkey`，动态改键）、退出收尾（`OnWillQuit` → `finishQuit` → `shutdownForQuit`；保存失败阻止退出/更新重启并重开主窗口）。装配在 `internal/app`；窗口创建 `createWindow`：`Frameless: true` 无边框窗口（无红绿灯），`StateKey: "main"` 记住位置大小（偏好开关控制），关闭窗口驻留托盘（`OnWindowAllClosed` 空实现）；`OnActivate` 在没有可见窗口时复用 `showWindow`，响应 Dock 重新打开事件。 |
+| `internal/app/startup_jobs.go` | 首个窗口（含首启向导）完成首帧后仅启动一次后台任务；本地备份时间恢复与启动备份在同一 worker 按序执行，镜像状态扫描独立运行；快照预取在主线程，完成后经活窗口 `Window.Update` 刷新。 |
 | `internal/app/updates.go` | 注册 MyGo `plugins/updater/native` 原生更新窗口（中文、默认手动检查）；应用菜单与托盘提供「检查更新…」。`finishQuit` 让更新重启也经过最终保存，失败则取消退出。更新公钥与 `gomeen/Zakki` 分发地址在 `mygo.json`；tag 经全量检查后分别构建 macOS universal 与 Windows x64，双平台均成功再汇总到草稿 Release；流程在 `.github/workflows/release.yml`，操作见 [release.md](release.md)。 |
 | `internal/app/prefs_runtime.go` / `internal/app/prefs_bridge.go` | 偏好运行时集成：`loadPreferences`/`updatePreferences`；写盘委托 `prefs.Store`。类型别名在 `prefs_bridge.go`。 |
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
@@ -22,11 +28,11 @@
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
-| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责本地持久化与镜像快照提交，`mirror_worker.go` 负责外部镜像/Git 的单 worker 调度。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
+| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责载入、本地备份与镜像快照提交，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责备份/镜像时间的后台恢复与过时结果丢弃，`mirror_worker.go` 负责外部镜像/Git 的单 worker 调度。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
 | `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
-| `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
+| `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），用每 rune 一位的占用位图判交，保留搜索优先与重叠候选整段拒绝；代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
 | `internal/app/view_codehl.go` | 代码配色方案表 `codeSchemes`（柔和/明快 × 浅深）与解析 `codePaletteFor`；`codeLineSpans`（实时预览 RichText）与 `codeSourceRanges`（源码 TextRange）把 `internal/codehl` 词法片段套色。 |
 | `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
 | `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。 |
@@ -34,21 +40,24 @@
 | `internal/app/live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
 | `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"` 独立记忆位置尺寸），左侧导航常规/外观/标签与外观/备份与数据/快捷键五页；控件绑定草稿（`settingsUIState`）+ 统一推入 `updatePreferences`；常规页含界面语言选择（`appearance.language` 经 `App.SetLocale` 生效）；外观页双主题选择卡片与只读预览；快捷键页搜索、按键录制、解除/恢复，全局热键动态重注册（`syncGlobalHotkey`：先注 |册新键成功后再注销旧键）。 |
 | `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。 |
-| `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）、点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
-| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`。 |
+| `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）；标题装饰容器 `sketchHeadingFrame` 在预览态与编辑态共用。点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
+| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
 | `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`、`mirrorLabel`。 |
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
 | `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
 | `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何；非当前标签形状可配置（`tabDotPath` 11 种形状，圆环描边且不参与液态桥接），`TabMotionOff` 关闭补间（与系统 ReduceMotion 同路径）。 |
 | `internal/app/settings_tabs.go` | 设置窗口「标签与外观」页。 |
-| `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Close`，保留笔记与标签，关闭后可由托盘或全局热键重新打开。只有一个标签且不在重命名时隐藏标签区（`tabStripHidden`），并复位标签几何避免恢复多标签时残留补间。 |
-| `internal/app/view_live.go` | 实时预览块列表：`livePane`（`ui.List` 虚拟化，只构建可见块；外层 Column 兜底左右留白与行间空隙的空白点击）、焦点块 `activeText` 与非焦点块渲染。 |
+| `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Hide`，保留笔记、标签和原生渲染资源，避免每次唤起都重建 Metal 管线；Dock、托盘或全局热键可重新显示。菜单关闭（⌘W）仍销毁窗口，后续由 `showWindow` 重建；退出流程不被隐藏逻辑拦截。只有一个标签且不在重命名时隐藏标签区（`tabStripHidden`），并复位标签几何避免恢复多标签时残留补间。 |
+| `internal/app/view_live.go` | 实时预览块列表：`livePane`（`ui.List` 虚拟化，只构建可见块；外层 Column 兜底左右留白与行间空隙的空白点击）、焦点块 `activeText` 与非焦点块渲染；列表显式绑定解析后的正文颜色、字体与行高，避免帧末恢复外框主题时覆盖内容继承。 |
 | `internal/app/live_blocks.go` | 按行切块：`liveBlocks` / `parseLines`。焦点块保留排版并编辑可见文字；Markdown 标记留在源文本中。 |
-| `internal/app/live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存。 |
+| `internal/app/live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存与 rune 首偏移表。文档重切换代时清理预览派生缓存；偏移表重建分配新切片，不覆写当前构建帧持有的旧代。 |
+| `internal/app/live_preview_cache.go` | 当前文档块代际的有限缓存（最多 64 块）：可见文字投影、表格 cell/偏移与代码 token spans；只保存纯数据，不保存 UI 元素/Context，不保留历史版本。切标签、重切和编辑失效，代码颜色随完整 palette 失效；仍由原控件整体布局单个大块。 |
 | `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块。 |
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
-| `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
+| `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
+| `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索仅覆盖颜色与字重，保留字体、斜体、装饰与底色；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
+| `internal/app/live_history.go` | 大文档撤销差分：64KiB 起将非栈顶的小改动存为克隆的字节差分；整篇替换仍共享原快照，避免反向放大内存。撤销/重做各自栈顶保留完整快照做精确文本校验，用已验证的相邻事务展开下一个栈顶；不靠整文档 hash、不减少 200 条历史、不扩大输入合并范围。差分发布后不可变，标签会话可按值复制并共享；弹栈清零底层槽以释放全文引用。 |
 | `internal/app/table_edit.go` | 表格编辑：`createTableOnEnter`、`navigateTable`、`tableEnter`。 |
 | `internal/app/table_actions.go` | 表格工具状态 `tableTools` 与行列增删。 |
 | `internal/app/table_toolbar.go` | 表格悬浮工具栏。 |
@@ -79,15 +88,21 @@
 ### 保存
 
 1. **防抖**：每次改动调 `scheduleSave`，默认 800ms（`Advanced.AutosaveDelayMS`）内没有新改动才落盘（`time.AfterFunc`）；
-   防抖到期由 `notes.Store.flushPending` 在后台取走最新快照写盘（新快照取代旧的排队快照）。
-2. **原子写**：`notes.Store.writeFileLocked` 经 `atomicfile.WriteBytes` 先写 `zakki.json.tmp` 再 `os.Rename` 替换；
+   防抖到期由 `notes.Store.flushPending` 的单 worker 在后台取走最新快照写盘；忙碌时只保留一个最新排队快照，且须等该快照自身的防抖到期，旧定时回调不能提前触发新快照。
+2. **原子写**：`notes.Store.writeFile` 经 `atomicfile.WriteBytes` 先写 `zakki.json.tmp` 再 `os.Rename` 替换；
    rename 失败如实上报，不装作保存成功。目录自动 `MkdirAll`。
+   `writeMu` 串行自动/直接/最终保存及写保护切换，保存修订号防止排队的旧直接保存覆盖已接受的新版本（新版本写失败也不会被旧请求掩盖）；状态 `mu` 不覆盖 JSON 编码和磁盘写入；慢盘时 UI 状态查询和提交新快照不等待 I/O。最终保存先拒绝新请求、清理排队快照，再等待在途写入并写最终快照；`shutdownMu` 防止并发退出调用提前报告完成。
 3. **写保护**：数据文件损坏、版本高于当前支持，或恢复到这两类文件关联的暂存内容时，
    `notes.Store.saveBlocked = true`；此后写入转到暂存文件 `zakki.json.pending`，绝不覆盖原路径。启动时先验证并恢复
    `.pending`，仍保持写保护；用户在设置页点「写回数据文件」（`confirmWriteBack`）确认后才写回原路径并清理暂存文件
    （写回失败则维持写保护）。
 
 ### 备份（`backups/` 目录，文件名 `zakki-<时间戳>.json`，同秒多次加序号）
+
+备份时间在首帧后后台恢复。`backupMu` 串行一次性本地时间初始化与备份；周期备份若先到达，
+也必须在同一串行区内恢复历史时间再判断节流。初始化不持状态锁、不阻塞快照保存或最终保存，
+已完成的新备份不再被迟到扫描覆盖。外部镜像扫描不占本地串行区；配置版本与镜像状态修订号
+拒绝换目录、同配置新镜像完成后过时的扫描，退出开始后不再发布扫描结果。
 
 | 入口 | 行为 |
 |---|---|
@@ -159,7 +174,8 @@
 `Run` 先调用 `resolveDataDir()` 完成目录迁移；成功后才把同一个显式目录传给 `newAppAt` 构造 Store，失败则不构造 Store，在 `WhenReady` 显示原生错误后退出。随后 `load` 恢复笔记数据（含编辑会话状态）→ `loadPreferences`
 读取 `preferences.json`（缺失时执行一次性迁移：默认值 → 笔记内旧设置 →
 旧 config.toml / config.json 显式值，TOML 优先；结果原子写入，旧文件原样保留）→
-`WhenReady` 里创建窗口、应用主题并注册全局热键（`a.ready` 之后偏好变更才触达原生 API）。
+`WhenReady` 里创建窗口、应用主题并注册全局热键（`a.ready` 之后偏好变更才触达原生 API），
+目录状态恢复与启动备份等到首个窗口的 `OnReadyToShow` 后分别在后台执行。
 运行期所有偏好变更走 `updatePreferences` 统一入口：校验 → 应用运行时 → 同步菜单/窗口/热键 →
 防抖自动保存；磁盘写经 `prefs.Store.WriteSnapshot` 内部的 `writeMu` 串行化、tmp/rename 原子替换，修订号防旧快照覆盖新值。
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
@@ -184,6 +200,7 @@
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），
   **绝不写真实用户目录**。保存、备份与写保护在 `internal/notes`；`persistence_test.go` 覆盖载入映射与清空标签。
+- **原生生命周期回归**：`ZAKKI_NATIVE_TEST=1 MYGO_LOCALE=zh-Hans go test ./internal/app -run '^TestNativeDockReopen$' -count=1 -v` 在 macOS 图形会话中构建独立 bundle、使用临时数据目录，验证关闭重建、隐藏复用、最小化恢复和可见时不重复开窗。默认 `MYGO_GPU=0` 隔离驱动初始化；显式 `MYGO_GPU=1` 可复测 Metal 路径，耗时与稳定性受驱动影响。
 - **`ui.NewTester(a.view, w, h)`**：无窗口跑视图（构建/断言文本、模拟按键），
   `main_test.go`/`tab_style_test.go`/`live_boundary_test.go`/`live_focus_test.go` 用它。
 - **偏好测试**：`internal/prefs` 的测试覆盖迁移优先级（TOML/JSON/笔记旧设置）、

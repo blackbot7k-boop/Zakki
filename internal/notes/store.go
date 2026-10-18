@@ -29,17 +29,27 @@ type Store struct {
 	RunGit GitRunner
 	// SetOnMirrorSettled 安装镜像/Git 结束回调；回调可从后台 goroutine 调用，
 	// app 用它回主线程刷新状态栏。
-	mu          sync.Mutex
-	pending     *pendingSave
-	stopped     bool
-	saveBlocked bool
-	lastBackup  time.Time
-	lastSaveErr string
-	saveTimer   *time.Timer
+	mu            sync.Mutex
+	pending       *pendingSave
+	stopped       bool
+	saveBlocked   bool
+	lastBackup    time.Time
+	lastSaveErr   string
+	saveTimer     *time.Timer
+	saveRunning   bool
+	saveRevision  uint64
+	saveCompleted uint64
+	saveResult    error
+	stateWrite    func(string, []byte) error
+	statusReadDir func(string) ([]os.DirEntry, error)
 
-	// backupMu 串行本地备份文件的命名、写入与修剪，并保护同秒命名序号；
-	// 它不保护可查询状态。
+	// writeMu 串行笔记写入与写保护切换，不保护 UI 查询的状态。
+	writeMu    sync.Mutex
+	shutdownMu sync.Mutex
+
+	// backupMu 串行备份状态初始化、本地备份的命名、写入与修剪；不保护可查询状态。
 	backupMu       sync.Mutex
+	backupLoaded   bool
 	backupStamp    string
 	backupSequence int
 	// mirrorMu 只串行外部镜像与 Git I/O，不保护可查询状态。
@@ -54,6 +64,7 @@ type Store struct {
 	mirrorErr       string // 最近一次镜像拷贝失败原因（空 = 正常）
 	gitErr          string // 最近一次 Git 提交/推送失败原因（空 = 正常）
 	mirrorVersion   uint64 // 配置变更使已启动任务的状态失效
+	mirrorRevision  uint64 // 本进程的镜像结果使尚未完成的状态扫描失效
 	onMirrorSettled func()
 	mirrorWrite     func(string, []byte) error
 }
@@ -70,10 +81,12 @@ type MirrorStatus struct {
 }
 
 type pendingSave struct {
+	revision       uint64
 	file           File
 	backupInterval time.Duration
 	backupKeep     int
 	after          func()
+	ready          bool
 }
 
 type mirrorJob struct {
@@ -100,6 +113,7 @@ func NewStore(dataFile, backupDir string, now func() time.Time, migrate MigrateO
 		Now:         now,
 		Migrate:     migrate,
 		mirrorWrite: atomicfile.WriteBytes,
+		stateWrite:  atomicfile.WriteBytes,
 	}
 }
 
@@ -129,6 +143,8 @@ func (s *Store) SaveBlocked() bool {
 
 // SetSaveBlocked 设置写保护标志。
 func (s *Store) SetSaveBlocked(blocked bool) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 	s.mu.Lock()
 	s.saveBlocked = blocked
 	s.mu.Unlock()
@@ -220,106 +236,6 @@ func (s *Store) LoadNewestBackup() (File, string, bool) {
 	return File{}, "", false
 }
 
-// SaveNow 同步写入快照；直接保存会取代排队的防抖快照。
-func (s *Store) SaveNow(f File) error {
-	s.mu.Lock()
-	stopped := s.stopped
-	var err error
-	if !stopped {
-		s.pending = nil
-		err = s.writeFileLocked(f)
-	}
-	s.mu.Unlock()
-	if stopped {
-		return nil
-	}
-	s.ReportPersist("保存失败", err)
-	return err
-}
-
-// ScheduleDebounced 防抖保存：delay 内无新改动才落盘，必要时顺带周期备份。
-func (s *Store) ScheduleDebounced(f File, delay, backupInterval time.Duration, backupKeep int, after func()) {
-	s.mu.Lock()
-	if s.stopped {
-		s.mu.Unlock()
-		return
-	}
-	s.pending = &pendingSave{
-		file:           f,
-		backupInterval: backupInterval,
-		backupKeep:     backupKeep,
-		after:          after,
-	}
-	s.mu.Unlock()
-	if s.saveTimer != nil {
-		s.saveTimer.Stop()
-	}
-	s.saveTimer = time.AfterFunc(delay, s.flushPending)
-}
-
-func (s *Store) flushPending() {
-	s.mu.Lock()
-	req := s.pending
-	s.pending = nil
-	stopped := s.stopped
-	var err error
-	var after func()
-	if !stopped && req != nil {
-		after = req.after
-		err = s.writeFileLocked(req.file)
-	}
-	s.mu.Unlock()
-	if stopped || req == nil {
-		return
-	}
-	if err != nil {
-		s.ReportPersist("保存失败", err)
-		return
-	}
-	if err := s.maybeWritePeriodicBackup(req.backupInterval, req.backupKeep); err != nil {
-		s.ReportPersist("备份失败", err)
-	}
-	if after != nil {
-		after()
-	}
-}
-
-// StopSaveTimer 取消防抖定时器（退出前调用）。
-func (s *Store) StopSaveTimer() {
-	if s.saveTimer != nil {
-		s.saveTimer.Stop()
-		s.saveTimer = nil
-	}
-}
-
-// Shutdown 退出最终保存：停止接受新请求并写入最终快照。
-func (s *Store) Shutdown(f File) error {
-	s.StopSaveTimer()
-	s.mu.Lock()
-	if s.stopped {
-		s.mu.Unlock()
-		return nil
-	}
-	s.stopped = true
-	s.pending = nil
-	err := s.writeFileLocked(f)
-	s.mu.Unlock()
-	if err != nil {
-		slog.Error("退出前最终保存失败", "error", err)
-		return err
-	}
-	return nil
-}
-
-func (s *Store) writeFileLocked(f File) error {
-	raw, err := json.MarshalIndent(f, "", "  ")
-	if err != nil {
-		return err
-	}
-	target := s.currentDataPathLocked()
-	return atomicfile.WriteBytes(target, raw)
-}
-
 // BackupNow 在已保存数据基础上无条件写一份本地备份，并在后台镜像。
 func (s *Store) BackupNow(keep int) error {
 	name, err := s.writeBackup(keep, 0, false)
@@ -345,6 +261,9 @@ func (s *Store) writeBackup(keep int, interval time.Duration, periodic bool) (st
 	s.backupMu.Lock()
 	defer s.backupMu.Unlock()
 
+	if err := s.loadLastBackupTimeLocked(); err != nil {
+		slog.Warn("读取最近备份时间失败", "error", err)
+	}
 	s.mu.Lock()
 	if s.stopped || periodic && !s.lastBackup.IsZero() && s.Now().Sub(s.lastBackup) <= interval {
 		s.mu.Unlock()
@@ -575,38 +494,6 @@ func (s *Store) MirrorStatus() MirrorStatus {
 	return MirrorStatus{Dir: s.mirrorDir, Mode: s.gitMode, Last: s.lastMirror, Err: err}
 }
 
-// LoadMirrorTime 启动时从镜像目录恢复最近镜像时间（未配置或目录不存在时静默）。
-func (s *Store) LoadMirrorTime() error {
-	s.mu.Lock()
-	dir, version := s.mirrorDir, s.mirrorVersion
-	s.mu.Unlock()
-	if dir == "" {
-		return nil
-	}
-	entries, err := os.ReadDir(dir)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	var newest time.Time
-	for _, e := range entries {
-		if e.IsDir() || !isBackupFileName(e.Name()) {
-			continue
-		}
-		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
-			newest = info.ModTime()
-		}
-	}
-	s.mu.Lock()
-	if dir == s.mirrorDir && version == s.mirrorVersion {
-		s.lastMirror = newest
-	}
-	s.mu.Unlock()
-	return nil
-}
-
 func (s *Store) uniqueBackupName() string {
 	stamp := s.Now().Format("20060102-150405")
 	sequence := 1
@@ -709,25 +596,4 @@ func (s *Store) LastBackupTime() time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastBackup
-}
-
-// LoadLastBackupTime 启动时从备份目录恢复最近备份时间。
-func (s *Store) LoadLastBackupTime() error {
-	entries, err := os.ReadDir(s.BackupDir)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	var newest time.Time
-	for _, e := range entries {
-		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
-			newest = info.ModTime()
-		}
-	}
-	s.mu.Lock()
-	s.lastBackup = newest
-	s.mu.Unlock()
-	return nil
 }

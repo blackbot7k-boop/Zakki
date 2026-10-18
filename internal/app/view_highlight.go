@@ -9,6 +9,44 @@ import (
 	"zakki/internal/codehl"
 )
 
+// 每个 rune 占一位；判交只访问候选覆盖的字，不扫描已接受区间。
+// 必须先完整判交再标记，重叠候选整段拒绝，不占用其余空闲位置。
+type editorRangeOccupancy struct {
+	total int
+	words []uint64
+}
+
+func (o editorRangeOccupancy) add(start, end int) bool {
+	if start < 0 || start >= end || end > o.total {
+		return false
+	}
+	first, last := start/64, (end-1)/64
+	firstMask := ^uint64(0) << uint(start%64)
+	lastMask := ^uint64(0) >> uint(63-(end-1)%64)
+	if first == last {
+		mask := firstMask & lastMask
+		if o.words[first]&mask != 0 {
+			return false
+		}
+		o.words[first] |= mask
+		return true
+	}
+	if o.words[first]&firstMask != 0 || o.words[last]&lastMask != 0 {
+		return false
+	}
+	for i := first + 1; i < last; i++ {
+		if o.words[i] != 0 {
+			return false
+		}
+	}
+	o.words[first] |= firstMask
+	for i := first + 1; i < last; i++ {
+		o.words[i] = ^uint64(0)
+	}
+	o.words[last] |= lastMask
+	return true
+}
+
 // editorRanges 为编辑器生成互不重叠的着色区间：搜索命中优先，
 // 其次是行级结构（标题/引用/代码/列表/待办），再次是行内标记。
 // 可选 cp 非零时，围栏代码行按 token 上色，其余代码部分沿用 muted。
@@ -20,15 +58,11 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePa
 	}
 	var accepted []ui.TextRange
 	total := utf8.RuneCountInString(text)
+	occupied := editorRangeOccupancy{total: total, words: make([]uint64, (total+63)/64)}
 
 	add := func(tr ui.TextRange) bool {
-		if tr.Start >= tr.End || tr.Start < 0 || tr.End > total {
+		if !occupied.add(tr.Start, tr.End) {
 			return false
-		}
-		for _, a := range accepted {
-			if tr.Start < a.End && a.Start < tr.End {
-				return false
-			}
 		}
 		accepted = append(accepted, tr)
 		return true

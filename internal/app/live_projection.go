@@ -247,7 +247,6 @@ func (p liveProjection) fragment(start, end int) string {
 }
 
 func (p liveProjection) content(c *ui.Context, t *ui.Theme, md resolvedStyle) ui.Element {
-	accent := md.accent
 	text := p.text
 	if text == "" {
 		text = " "
@@ -262,26 +261,8 @@ func (p liveProjection) content(c *ui.Context, t *ui.Theme, md resolvedStyle) ui
 		if s.start > prev {
 			spans = append(spans, ui.Span{Text: string(rs[prev:s.start])})
 		}
-		sp := ui.Span{Text: string(rs[s.start:s.end])}
-		switch s.kind {
-		case spanBold:
-			sp.Weight = 700
-			if md.sketch {
-				sp.Background = sketchMark(md)
-			}
-		case spanItalic:
-			sp.Italic = true
-		case spanCode:
-			sp.Font, sp.Color = "monospace", t.TextMuted
-			if md.sketch {
-				sp.Background = md.codeBackground
-			}
-		case spanLink:
-			sp.Color, sp.Underline = accent, true
-			if md.sketch {
-				sp.Underline, sp.WavyUnderline, sp.DecorationColor = false, true, accent
-			}
-		}
+		sp := inlineStyle(s.kind, t, md)
+		sp.Text = string(rs[s.start:s.end])
 		spans = append(spans, sp)
 		prev = s.end
 	}
@@ -291,19 +272,14 @@ func (p liveProjection) content(c *ui.Context, t *ui.Theme, md resolvedStyle) ui
 	return ui.RichText(c, spans...)
 }
 
-func (p liveProjection) textRanges(query string, t *ui.Theme, accent ui.Color) []ui.TextRange {
-	// Per-rune style merging gives search priority without overlapping ranges.
+func (p liveProjection) textRanges(query string, t *ui.Theme, md resolvedStyle) []ui.TextRange {
+	accent := md.accent
+	// 搜索只覆盖颜色与字重，保留字体、斜体、装饰和底色。
 	ranges := make([]ui.TextRange, len(p.units))
 	for _, s := range p.styles {
+		r := inlineTextRange(inlineStyle(s.kind, t, md))
 		for i := s.start; i < s.end; i++ {
-			switch s.kind {
-			case spanBold:
-				ranges[i].Weight = 700
-			case spanCode:
-				ranges[i].Color = t.TextMuted
-			case spanLink:
-				ranges[i].Color = accent
-			}
+			ranges[i] = r
 		}
 	}
 	for _, m := range findMatches(p.text, query) {
@@ -313,15 +289,19 @@ func (p liveProjection) textRanges(query string, t *ui.Theme, accent ui.Color) [
 	}
 	var out []ui.TextRange
 	for i, r := range ranges {
-		if r.Color == (ui.Color{}) && r.Weight == 0 {
+		if r == (ui.TextRange{}) {
 			continue
 		}
-		if n := len(out); n > 0 && out[n-1].End == i && out[n-1].Color == r.Color && out[n-1].Weight == r.Weight {
-			out[n-1].End++
-		} else {
-			r.Start, r.End = i, i+1
-			out = append(out, r)
+		if n := len(out); n > 0 && out[n-1].End == i {
+			previous := out[n-1]
+			previous.Start, previous.End = 0, 0
+			if previous == r {
+				out[n-1].End++
+				continue
+			}
 		}
+		r.Start, r.End = i, i+1
+		out = append(out, r)
 	}
 	return out
 }
@@ -347,6 +327,7 @@ const (
 type liveEdit struct {
 	before, after liveSnapshot
 	kind          editKind
+	delta         *liveEditDelta
 }
 
 func (a *app) liveSnapshot() liveSnapshot {
@@ -366,13 +347,12 @@ func (a *app) liveSnapshot() liveSnapshot {
 		start, end = a.selSyncStart, a.selSyncEnd
 	}
 	blocks := a.mdBlocks()
-	off := 0
-	for i, b := range blocks {
-		if i == a.mdActive {
-			break
-		}
-		off += utf8.RuneCountInString(b.raw) + 1
+	block := a.mdActive
+	if block < 0 {
+		// 无焦点块时沿用旧扫描的末尾偏移（包含最后一个合成换行）。
+		block = len(blocks)
 	}
+	off := a.blockRuneOffset(block)
 	return liveSnapshot{a.activeTab().Text, off + max(start, 0), off + max(end, 0)}
 }
 
@@ -383,12 +363,13 @@ func (a *app) rememberLiveEdit(before liveSnapshot, kind editKind) {
 	if after.doc == before.doc {
 		return
 	}
-	if len(a.liveUndo) > 0 && a.liveUndo[len(a.liveUndo)-1].after.doc != before.doc {
+	if len(a.liveUndo) > 0 && !a.liveUndo[len(a.liveUndo)-1].matchesAfter(before.doc) {
 		a.liveUndo = nil
 	}
 	if n := len(a.liveUndo); n > 0 && kind == editFencePair {
 		last := &a.liveUndo[n-1]
-		if last.kind == editInput && last.after.doc == before.doc {
+		if last.kind == editInput && last.matchesAfter(before.doc) {
+			*last, _ = last.expanded(before.doc, false)
 			last.after = after
 			last.kind = editCommand
 			a.liveRedo = nil
@@ -401,13 +382,17 @@ func (a *app) rememberLiveEdit(before liveSnapshot, kind editKind) {
 		grew := len(after.doc) >= len(before.doc)
 		contiguous := before.start == before.end && last.after.start == last.after.end &&
 			last.after.end == before.start
-		if last.kind == editInput && last.after.doc == before.doc && contiguous && grew {
+		if last.kind == editInput && last.matchesAfter(before.doc) && contiguous && grew {
+			*last, _ = last.expanded(before.doc, false)
 			last.after = after
 			a.liveRedo = nil
 			return
 		}
 	}
-	a.liveUndo = append(a.liveUndo, liveEdit{before, after, kind})
+	if n := len(a.liveUndo); n > 0 {
+		a.liveUndo[n-1] = a.liveUndo[n-1].compressed()
+	}
+	a.liveUndo = append(a.liveUndo, liveEdit{before: before, after: after, kind: kind})
 	if len(a.liveUndo) > 200 {
 		a.liveUndo[0] = liveEdit{}
 		a.liveUndo = a.liveUndo[1:]
@@ -423,16 +408,29 @@ func (a *app) undoLive(redo bool) {
 	if len(*from) == 0 {
 		return
 	}
-	e := (*from)[len(*from)-1]
-	want, current := e.before, e.after
-	if redo {
-		want, current = e.after, e.before
-	}
-	if a.activeTab().Text != current.doc {
+	top := (*from)[len(*from)-1]
+	e, ok := top.expanded(a.activeTab().Text, redo)
+	if top.delta != nil || !ok {
 		a.liveUndo, a.liveRedo = nil, nil
 		return
 	}
+	want := e.before
+	if redo {
+		want = e.after
+	}
+	(*from)[len(*from)-1] = liveEdit{}
 	*from = (*from)[:len(*from)-1]
+	if n := len(*from); n > 0 {
+		next, valid := (*from)[n-1].expanded(want.doc, redo)
+		if !valid {
+			a.liveUndo, a.liveRedo = nil, nil
+			return
+		}
+		(*from)[n-1] = next
+	}
+	if n := len(*to); n > 0 {
+		(*to)[n-1] = (*to)[n-1].compressed()
+	}
 	*to = append(*to, e)
 	a.clearDocSelection()
 	a.activeTab().Text = want.doc
@@ -459,8 +457,8 @@ func (a *app) undoLive(redo bool) {
 // 代码块在其空隙上叠加 token 配色（跟随文本时无 token 层，原样返回）。
 // 焦点块的编辑路径（activeText）与非焦点块的 RichText 路径共用同一套配色，
 // 避免编辑中的代码块褪色为单色文本。
-func (p liveProjection) textRangesInBlock(query string, t *ui.Theme, accent ui.Color, blk liveBlock, codeTheme string) []ui.TextRange {
-	ranges := p.textRanges(query, t, accent)
+func (p liveProjection) textRangesInBlock(query string, t *ui.Theme, md resolvedStyle, blk liveBlock, codeTheme string) []ui.TextRange {
+	ranges := p.textRanges(query, t, md)
 	if blk.kind != bkCode {
 		return ranges
 	}

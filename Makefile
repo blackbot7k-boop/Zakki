@@ -1,7 +1,7 @@
 # Zakki 本地/CI 统一检查入口。Makefile 必须用 tab 缩进，勿改空格。
 
-# 只检查仓库源码的 *.go，排除 build/ 与 .mygo/ 等生成目录。
-GO_FILES := $(shell find . -name '*.go' -not -path './build/*' -not -path './.mygo/*')
+# 只检查仓库源码；vendor 保留第三方源码格式，补丁单独维护。
+GO_FILES := $(shell find . -name '*.go' -not -path './build/*' -not -path './.mygo/*' -not -path './vendor/*')
 
 # 纯逻辑包 → 允许依赖的 internal 包（空格分隔，空表示无）。
 # 这些包禁止依赖 MyGo，也禁止反向依赖 internal/app（UI 层）。
@@ -13,10 +13,10 @@ ARCH_RULES := \
 	notes:atomicfile \
 	prefs:legacyconfig,atomicfile
 
-.PHONY: fmt-check vet test race arch-check check build build-windows
+.PHONY: fmt-check vet test race arch-check check build build-windows vendor
 
 fmt-check:
-	@echo "==> gofmt 检查：以下 *.go 必须已格式化（排除 build/ 与 .mygo/）"
+	@echo "==> gofmt 检查：仓库源码（排除 build/、.mygo/ 与 vendor/）"
 	@out="$$(gofmt -l $(GO_FILES))"; \
 	if [ -n "$$out" ]; then echo "未通过 gofmt 的文件:"; echo "$$out"; exit 1; fi
 	@echo "    gofmt 通过"
@@ -30,10 +30,12 @@ vet:
 test:
 	@echo "==> go test：全量测试（CGO 关闭，-count=1 不用缓存）"
 	CGO_ENABLED=0 go test ./... -count=1
+	CGO_ENABLED=0 go test ./vendor/github.com/egoist/mygo/ui -count=1
 
 race:
 	@echo "==> go test -race：竞态检测"
 	go test -race ./... -count=1
+	go test -race ./vendor/github.com/egoist/mygo/ui -count=1
 
 arch-check:
 	@echo "==> arch-check：纯逻辑包不得依赖 MyGo 与 internal/app，且只允许约定的 internal 依赖"
@@ -51,6 +53,10 @@ arch-check:
 
 check: fmt-check vet test race arch-check
 	@echo "==> make check 全部通过"
+
+vendor:
+	go mod vendor
+	git apply patches/mygo-text-range-background.patch
 
 build:
 	@echo "==> go tool mygo build：打包通用 .app / .dmg 到 build/darwin-universal/"

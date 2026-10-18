@@ -97,14 +97,15 @@ func (a *app) mdBlocks() []liveBlock {
 		case a.mdCacheValid && a.mdCacheDoc != "" && a.mdCacheDoc != doc:
 			blocks, lines, _ = spliceBlocks(a.mdCacheDoc, a.mdCacheLines, a.mdCacheBlocks, doc)
 		default:
-			blocks = liveBlocks(doc)
 			lines = strings.Split(doc, "\n")
+			blocks = parseLines(lines, 0, len(lines))
 		}
 	}
 	a.spliceHintDoc, a.spliceHintLines = "", nil
 	a.mdCacheDoc = doc
 	a.mdCacheLines = lines
 	a.mdCacheBlocks = blocks
+	a.previewCache = livePreviewCache{}
 	a.rebuildRuneOffsets()
 	a.mdCacheValid = true
 	return blocks
@@ -114,7 +115,8 @@ func (a *app) mdBlocks() []liveBlock {
 // widths[i] 为块 i 含换行的 rune 宽度。供 blockRuneOffset/blockOfRuneOffset 以
 // 二分替代每次提交 O(全文) 的逐块扫描。
 func (a *app) rebuildRuneOffsets() {
-	offsets := a.mdCacheOffsets[:0]
+	// 当前构建可能仍持有上一代偏移表；编辑中重切不能覆写该帧的快照。
+	offsets := make([]int, 0, len(a.mdCacheBlocks)+1)
 	off := 0
 	for _, b := range a.mdCacheBlocks {
 		offsets = append(offsets, off)
