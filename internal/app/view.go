@@ -47,8 +47,8 @@ func (a *app) view(c *ui.Context) {
 			a.win.Hide()
 		}
 	}
-	// 标签快捷键（有菜单时 accelerator 在系统层先消费；这里兜底无菜单环境）。
-	a.handleTabShortcuts(c)
+	// 窗口级快捷键兜底：与菜单同一键位表，见 shortcut_fallback.go。
+	a.handleWindowShortcuts(c)
 
 	ui.Column(c).Fill().Children(func() {
 		a.header(c, &t, dark)
@@ -272,28 +272,6 @@ func (a *app) tabInk(i int, dark bool) ui.Color {
 		return emptyDotInk(dark)
 	}
 	return a.tabColor(i)
-}
-
-// handleTabShortcuts 标签栏快捷键（窗口作用域兜底，有菜单时由
-// accelerator 先消费）：⌘1–⌘9 切换、⌘T 新增、⌘R 重命名、⌘⌥←/→ 循环。
-func (a *app) handleTabShortcuts(c *ui.Context) {
-	for k := ui.Key1; k <= ui.Key9; k++ {
-		n := int(k - ui.Key1)
-		if n < len(a.tabs) && c.Shortcut(ui.Ctrl, k) {
-			a.switchTab(n)
-			return
-		}
-	}
-	switch {
-	case c.Shortcut(ui.Super, ui.KeyT):
-		a.addTab()
-	case c.Shortcut(ui.Super, ui.KeyR):
-		a.beginRename(a.active)
-	case c.Shortcut(ui.Super|ui.Alt, ui.KeyLeft):
-		a.cycleTab(-1)
-	case c.Shortcut(ui.Super|ui.Alt, ui.KeyRight):
-		a.cycleTab(1)
-	}
 }
 
 // iconPin 置顶开关：激活时用强调色并加粗。

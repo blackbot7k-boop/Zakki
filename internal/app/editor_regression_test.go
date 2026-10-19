@@ -154,7 +154,7 @@ func TestSourceSelectionDoesNotLeakAcrossTabSwitch(t *testing.T) {
 	tt := ui.NewTester(a.view, 500, 600)
 	a.menuSelectAll()
 	tt.Frame()
-	tt.Key(ui.Ctrl, ui.Key2)
+	tt.Key(ui.Super, ui.Key2)
 	tt.Frame()
 	tt.Type("X")
 	if got := a.tabs[1].Text; got != "BBBX" {

@@ -44,17 +44,22 @@ func (a *app) editMenuItems() []*mygo.MenuItem {
 				Label:       locales.MenuCopyTabText(),
 				Accelerator: "Shift+CmdOrCtrl+C",
 				Click: func(*mygo.MenuItem, *mygo.Window) {
-					text := a.activeTab().Text
-					if a.clipSvcOK {
-						a.clipSvc.WriteClipboard(text)
-					} else {
-						mygo.Clipboard.WriteText(text)
-					}
+					a.copyTabTextToClipboard()
 				},
 			})
 		}
 	}
 	return items
+}
+
+// copyTabTextToClipboard 收整当前标签全文进剪贴板（菜单与快捷键兑底共用）。
+func (a *app) copyTabTextToClipboard() {
+	text := a.activeTab().Text
+	if a.clipSvcOK {
+		a.clipSvc.WriteClipboard(text)
+	} else {
+		mygo.Clipboard.WriteText(text)
+	}
 }
 
 func (a *app) setDocumentMenu(document bool) {

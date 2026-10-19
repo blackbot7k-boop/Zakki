@@ -605,16 +605,16 @@ func TestTabShortcuts(t *testing.T) {
 	}
 	tt := ui.NewTester(a.view, 460, 540)
 
-	// ⌃1–⌃9 切换。
-	tt.Key(ui.Ctrl, ui.Key3)
+	// ⌘1–⌘9 切换（主修饰键+数字，两平台同形）。
+	tt.Key(ui.Super, ui.Key3)
 	tt.Frame()
 	if a.active != 2 {
-		t.Fatalf("⌃3 后 active=%d", a.active)
+		t.Fatalf("⌘3 后 active=%d", a.active)
 	}
-	tt.Key(ui.Ctrl, ui.Key1)
+	tt.Key(ui.Super, ui.Key1)
 	tt.Frame()
 	if a.active != 0 {
-		t.Fatalf("⌃1 后 active=%d", a.active)
+		t.Fatalf("⌘1 后 active=%d", a.active)
 	}
 
 	// ⌘⌥←/→ 循环。
@@ -644,7 +644,7 @@ func TestTabShortcuts(t *testing.T) {
 	}
 
 	// ⌘R 打开重命名，输入后 Enter 提交。
-	tt.Key(ui.Ctrl, ui.Key1)
+	tt.Key(ui.Super, ui.Key1)
 	tt.Frame()
 	tt.Key(ui.Super, ui.KeyR)
 	tt.Frame()
