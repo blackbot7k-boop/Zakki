@@ -14,8 +14,8 @@
   每种架构独立订阅清单，后续不要随意切换目标，否则已有版本会收不到更新；目前不发布 Windows ARM64 原生包。
 - Release 附件：两个安装包、两个签名更新归档、两个更新清单，以及从当前 Latest 到
   新版本的签名增量包（`*.delta`）；不生成 SHA256SUMS（完整性由清单内的 Ed25519
-  签名保证，校验失败不写入应用）。`mygo.json` 的 `updates.deltas` 为 `3`：
-  MyGo 为最近 3 个已发布版本保留增量来源；应用优先使用匹配 delta，补丁缺失、
+  签名保证，校验失败不写入应用）。`mygo.json` 的 `updates.deltas` 为 `1`：
+  只为当前 Latest 生成到新版本的增量包，更早版本直接下载完整归档。应用优先使用匹配 delta，补丁缺失、
   无体积优势、校验失败或本地应用被修改时自动回退完整签名归档，兜底不能关闭。
 - **没有 Apple 开发者账号**：`macos.signingIdentity` 为 `-`，仅 ad-hoc 签名，不做公证。
   Windows 尚无 Authenticode 代码签名，SmartScreen 可能显示未知发布者。
