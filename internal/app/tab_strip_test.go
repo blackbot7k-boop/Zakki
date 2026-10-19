@@ -26,7 +26,7 @@ func TestCTabStripSolidDotsAndSelectedSize(t *testing.T) {
 		r    ui.Rect
 		want int
 		ink  ui.Color
-	}{{selected, 22, a.tabInk(0, false)}, {other, 12, a.tabInk(1, false)}} {
+	}{{selected, 12, a.tabInk(0, false)}, {other, 12, muteTabInk(a.tabInk(1, false), false)}} {
 		cy := item.r.Y + item.r.H/2
 		cx := item.r.X + item.r.W/2
 		center := tabPixel(tt, cx, cy)
@@ -186,45 +186,22 @@ func TestCTitlesFitAndStayInsideCapsule(t *testing.T) {
 		t.Cleanup(a.shutdown)
 		a.tabs[0].Name = name
 		a.tabs[1].Name = name + " next"
-		clk := &fakeAnimClock{cur: time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)}
-		a.animNow = clk.now
 		tt := ui.NewTester(a.view, 400, 540)
-		if a.lastBody.title == name || !strings.HasSuffix(a.lastBody.title, "…") || a.lastBody.textW > a.lastBody.w-22 {
+		if a.lastBody.title == name || !strings.HasSuffix(a.lastBody.title, "…") {
 			t.Fatalf("title not fitted: %+v", a.lastBody)
 		}
-		a.switchTab(1)
-		tt.Frame()
-		start := a.morph.start
-		for _, progress := range []float32{0, 0.2, 0.6, 0.9, 1} {
-			clk.cur = start.Add(time.Duration(float32(a.tabAnimDuration()) * progress))
-			body := a.morph.bodyAt(clk.now())
-			render := func() *ui.Tester {
-				return ui.NewTester(func(c *ui.Context) {
-					ui.Box(c).Fill().Draw(func(p *ui.Painter, r ui.Rect) { a.paintTabStrip(p, ui.Rect{X: 30, Y: 0.5, W: 340, H: 38}, false) })
-				}, 400, 40)
-			}
-			withText := render().Image()
-			oldFrom, oldTo := a.morph.fromBody, a.morph.toBody
-			a.morph.fromBody.title = ""
-			a.morph.toBody.title = ""
-			plain := render().Image()
-			a.morph.fromBody = oldFrom
-			a.morph.toBody = oldTo
-			for y := 0; y < 40; y++ {
-				for x := 0; x < 400; x++ {
-					if withText.RGBAAt(x, y) == plain.RGBAAt(x, y) {
-						continue
-					}
-					if float32(x) < 30+body.cx-body.w/2+pillPadX-1 || float32(x) > 30+body.cx+body.w/2-pillPadX+1 || y < 8 || y > 31 {
-						t.Fatalf("title escaped capsule at %d,%d (t=%g)", x, y, progress)
-					}
-				}
+		if a.lastBody.h != pillHeight || a.lastBody.w < a.lastBody.textW+2*pillPadX {
+			t.Fatalf("title should stay inside the capsule: %+v", a.lastBody)
+		}
+		for i, s := range a.lastSlots {
+			if i != a.active && s.w != dotDiameter {
+				t.Fatalf("inactive slot %d width = %g, want %g", i, s.w, dotDiameter)
 			}
 		}
 		a.tabs[a.active].Name = ""
 		tt.Frame()
-		if a.lastBody.w != 22 || a.lastBody.title != "" {
-			t.Fatal("cleared name did not restore enlarged circle")
+		if a.lastBody.w != dotDiameter || a.lastBody.title != "" {
+			t.Fatal("cleared name should return to a same-sized dot")
 		}
 	}
 }
@@ -271,7 +248,7 @@ func TestHeaderHidesStripWithSingleTab(t *testing.T) {
 	if tt.HasText("标签 1") {
 		t.Fatalf("单标签顶栏不应有标签元素, texts=%q", tt.Texts())
 	}
-	// 新增第二个标签：标签区恢复，当前标签以胶囊+标题呈现。
+	// 新增第二个标签：标签区恢复，当前标签以同大圆点呈现。
 	a.tabs = append(a.tabs, tab{ID: 2})
 	tt.Frame()
 	if a.tabStripHidden() {
@@ -282,20 +259,18 @@ func TestHeaderHidesStripWithSingleTab(t *testing.T) {
 	}
 }
 
-// TestTabDotShapesRender 每种形状都能画出像素，未知值回退圆点；
-// 圆环是描边（中心透明），其余形状中心不透明。
+// TestTabDotShapesRender 圆点填充、圆环描边；当前标记与其余标记同大。
+// 已去掉的形状视为非法，载入时回退圆点。
 func TestTabDotShapesRender(t *testing.T) {
 	a := newTestApp(t)
 	a.tabs = a.tabs[:1]
 	a.tabs = append(a.tabs, tab{ID: 2, Color: "#0f75e9"})
-	// 先用真实 tabStrip 布一帧，得到 slot 几何。
 	prep := ui.NewTester(func(c *ui.Context) { a.tabStrip(c, false) }, 300, 38)
 	prep.Frame()
-	// 非当前标签在当前胶囊右侧；取第二个 slot 的圆心。
+	activeX := a.lastSlots[0].cx
 	cx := a.lastSlots[1].cx
 	cy := float32(19)
-	for _, shape := range []string{"dot", "ring", "square", "rsquare", "pill", "diamond",
-		"hexagon", "triangle", "star", "drop", "leaf"} {
+	for _, shape := range []string{"dot", "ring"} {
 		a.cfg.TabDotShape = shape
 		tt := ui.NewTester(func(c *ui.Context) {
 			c.Root().Background(ui.Transparent)
@@ -305,25 +280,30 @@ func TestTabDotShapesRender(t *testing.T) {
 		}, 300, 38)
 		tt.Frame()
 		center := tabPixel(tt, cx, cy)
+		active := tabPixel(tt, activeX, cy)
+		if tabPixel(tt, cx, cy-8).A != 0 || tabPixel(tt, activeX, cy-8).A != 0 {
+			t.Fatalf("%s 当前与其余标记应一样大，外侧 8px 不应有像素", shape)
+		}
 		if shape == "ring" {
-			if center.A != 0 {
-				t.Fatalf("%s 圆环中心应透明: %+v", shape, center)
+			if center.A != 0 || active.A != 0 {
+				t.Fatalf("%s 圆环中心应透明: inactive=%+v active=%+v", shape, center, active)
 			}
-			if tabPixel(tt, cx, cy-4.5).A == 0 {
+			if tabPixel(tt, cx, cy-4.5).A == 0 || tabPixel(tt, activeX, cy-4.5).A == 0 {
 				t.Fatalf("%s 圆环描边应有像素", shape)
 			}
 			continue
 		}
-		if center.A == 0 {
-			t.Fatalf("%s 中心应有像素（回退到圆点了吗？）", shape)
+		if center.A == 0 || active.A == 0 {
+			t.Fatalf("%s 中心应有像素", shape)
 		}
 	}
-	// 未知值非法（渲染与载入路径据此回退圆点）。
-	if isValidTabDotShape("nope") {
-		t.Fatal("未知形状应被视为非法值")
+	for _, gone := range []string{"square", "hexagon", "star", "nope"} {
+		if isValidTabDotShape(gone) {
+			t.Fatalf("%s 已从可选形状中去掉", gone)
+		}
 	}
-	if !isValidTabDotShape("") || !isValidTabDotShape(tabDotShapeDot) {
-		t.Fatal("空串与默认形状应为合法值")
+	if !isValidTabDotShape("") || !isValidTabDotShape(tabDotShapeDot) || !isValidTabDotShape(tabDotShapeRing) {
+		t.Fatal("空串、圆点与圆环应为合法值")
 	}
 }
 

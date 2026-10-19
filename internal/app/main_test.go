@@ -615,7 +615,7 @@ func TestNoDirectProductionAppInTests(t *testing.T) {
 func TestSettingsTabMotionAndShapeRoundtrip(t *testing.T) {
 	a := newTestApp(t)
 	a.cfg.TabMotionOff = true
-	a.cfg.TabDotShape = "hexagon"
+	a.cfg.TabDotShape = "ring"
 	if err := a.notes.SaveNow(a.snapshotFile()); err != nil {
 		t.Fatal(err)
 	}
@@ -630,12 +630,13 @@ func TestSettingsTabMotionAndShapeRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.applySavedFile(f)
-	if !b.cfg.TabMotionOff || b.cfg.TabDotShape != "hexagon" {
+	if !b.cfg.TabMotionOff || b.cfg.TabDotShape != "ring" {
 		t.Fatalf("顶栏动效/形状未回读: %+v", b.cfg)
 	}
-	// 未知形状清洗为默认圆点。
-	b.cfg.TabDotShape = "bogus"
-	if !isValidTabDotShape("dot") || isValidTabDotShape("bogus") {
-		t.Fatal("形状校验应拒绝未知值")
+	// 已去掉的形状按未知值回退圆点。
+	f.Settings.TabDotShape = "hexagon"
+	b.applySavedFile(f)
+	if b.cfg.TabDotShape != "" || isValidTabDotShape("hexagon") || isValidTabDotShape("bogus") {
+		t.Fatalf("旧形状应回退: %q", b.cfg.TabDotShape)
 	}
 }

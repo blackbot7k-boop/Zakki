@@ -87,8 +87,11 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt = ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
-	if !tt.HasText("自动备份最小间隔") || !tt.HasText("立即备份") || !tt.HasText("备份目录：") {
-		t.Fatalf("备份页缺少卡片或路径: %v", tt.Texts())
+	if !tt.HasText(a.notes.BackupDir) || !tt.HasText("打开备份目录") {
+		t.Fatalf("备份页缺少路径: %v", tt.Texts())
+	}
+	if tt.HasText("本机自动备份") || tt.HasText("立即备份") || tt.HasText("Git 自动化") {
+		t.Fatalf("备份页不应再有间隔、立即备份或 Git 自动化: %v", tt.Texts())
 	}
 }
 
@@ -241,6 +244,31 @@ func TestSettingsInvalidNumericTextAndErrorSurviveFrames(t *testing.T) {
 	}
 	if a.prefs.Appearance.BodySize != 18 || a.settingsUI.bodySizeText != "18" {
 		t.Fatalf("合法修正未提交或未规范化: prefs=%v text=%q", a.prefs.Appearance.BodySize, a.settingsUI.bodySizeText)
+	}
+}
+
+func TestSettingsDefaultWindowSize(t *testing.T) {
+	a := newTestApp(t)
+	a.openSettings(pageGeneral)
+	tt := ui.NewTester(a.settingsView, 900, 620)
+	if _, ok := tt.Find("默认宽度"); !ok {
+		t.Fatalf("常规页应有默认宽度: %v", tt.Texts())
+	}
+	if _, ok := tt.Find("默认高度"); !ok {
+		t.Fatalf("常规页应有默认高度: %v", tt.Texts())
+	}
+	if err := a.updatePreferences(func(p *preferences) {
+		p.Advanced.WindowWidth = 480
+		p.Advanced.WindowHeight = 640
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if a.prefs.Advanced.WindowWidth != 480 || a.settingsUI.draft.Advanced.WindowWidth != 480 || a.settingsUI.draft.Advanced.WindowHeight != 640 {
+		t.Fatalf("默认尺寸未写入: prefs=%+v draft=%+v", a.prefs.Advanced, a.settingsUI.draft.Advanced)
+	}
+	a.resetPageDefaults(pageGeneral)
+	if a.prefs.Advanced.WindowWidth != 400 || a.prefs.Advanced.WindowHeight != 540 {
+		t.Fatalf("恢复本页默认应回到 400×540: %+v", a.prefs.Advanced)
 	}
 }
 

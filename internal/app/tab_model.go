@@ -330,7 +330,7 @@ func (a *app) setTabColor(i int, color string) {
 	a.withWindow(func() {})
 }
 
-// beginRename 进入当前标签的重命名（双击胶囊或 ⌘R）：胶囊内嵌输入框，
+// beginRename 进入当前标签的重命名（双击色条或 ⌘R）：名字写在色条里的输入框，
 // Enter 提交，Escape 取消，焦点离开等同提交。
 func (a *app) beginRename(i int) {
 	if i < 0 || i >= len(a.tabs) {

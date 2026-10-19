@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -37,6 +38,9 @@ func TestTabStripStyles(t *testing.T) {
 						t.Fatalf("hit area too small: %+v", r)
 					}
 					want := a.tabInk(i, dark)
+					if i != a.active {
+						want = muteTabInk(want, dark)
+					}
 					c := pixel(i, 0, 0)
 					if c.R != want.R || c.G != want.G || c.B != want.B {
 						t.Fatalf("solid dot %d center=%+v want=%+v", i, c, want)
@@ -58,15 +62,16 @@ func TestTabStripStyles(t *testing.T) {
 				if a.active != 2 {
 					t.Fatal("gray empty dot is not clickable")
 				}
-				want := emptyDotInk(dark)
+				want := muteTabInk(emptyDotInk(dark), dark)
 				c := pixel(0, 0, 0)
 				if c.R != want.R || c.G != want.G || c.B != want.B {
-					t.Fatal("old empty tab should become solid gray")
+					t.Fatal("old empty tab should become muted gray")
 				}
 				a.tabs[1].Text = ""
 				a.tabs[3].Text = "new note"
 				tt.Frame()
-				if pixel(1, 0, 0) == before || pixel(3, 0, 0).R == want.R {
+				filled := pixel(3, 0, 0)
+				if pixel(1, 0, 0) == before || (filled.R == want.R && filled.G == want.G && filled.B == want.B) {
 					t.Fatal("dot colors did not follow content")
 				}
 			})
@@ -74,53 +79,49 @@ func TestTabStripStyles(t *testing.T) {
 	}
 }
 
-// 命名标签显示为带标题的胶囊；标题超宽省略；未命名只显示圆点。
+// 未命名时当前标记与其他标记一样大。有名字时，名字画在当前标签的色条里，色条随标题变宽。
 func TestTabStripCapsule(t *testing.T) {
 	a := newTestApp(t)
 	a.tabs[1].Name = "短名"
 	a.tabs[2].Name = "这是一个非常非常非常长的中文标签标题超出宽度上限"
 	tt := ui.NewTester(a.view, 760, 540)
-	const maxPillW = float32(22 + 120)
-	// 未命名 active：槽位只有圆点宽。
 	r0, ok := tt.Find(fmt.Sprintf("标签 %d", 1))
 	if !ok || r0.W != 24 {
 		t.Fatalf("unnamed active hit area = %+v, want width 24", r0)
 	}
-	// 切到命名标签：胶囊出现并带标题（ButtonBase 无障碍名即命名标题）。
+	if a.lastBody.w != dotDiameter || a.lastBody.title != "" {
+		t.Fatalf("unnamed active should stay a dot: %+v", a.lastBody)
+	}
 	if err := tt.Click("短名"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
 	r1, ok := tt.Find("短名")
-	if !ok {
-		t.Fatalf("named pill should show its title, texts=%q", tt.Texts())
+	if !ok || r1.W <= 24 {
+		t.Fatalf("named capsule = %+v, want wider than a dot", r1)
 	}
-	if r1.W <= 18 || r1.W > maxPillW {
-		t.Fatalf("named slot width=%g, want within (18, %g]", r1.W, maxPillW)
+	if a.lastBody.title != "短名" || a.lastBody.h != pillHeight || a.lastSlots[a.active].w <= dotDiameter {
+		t.Fatalf("name should sit on the active capsule: body=%+v slot=%+v", a.lastBody, a.lastSlots[a.active])
 	}
-	// 超长标题：胶囊宽度封顶。
 	longTitle := a.tabs[2].Name
 	if err := tt.Click(longTitle); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	r2, ok := tt.Find(longTitle)
-	if !ok {
-		t.Fatalf("overlong pill should show its title, texts=%q", tt.Texts())
+	if !strings.HasSuffix(a.lastBody.title, "…") {
+		t.Fatalf("overlong title was not truncated: %q", a.lastBody.title)
 	}
-	if r2.W != maxPillW {
-		t.Fatalf("overlong title slot width=%g, want capped at %g", r2.W, maxPillW)
+	if a.lastBody.w < a.lastBody.textW+2*pillPadX || a.lastSlots[a.active].w <= dotDiameter {
+		t.Fatalf("overlong title should widen the capsule: body=%+v", a.lastBody)
 	}
-	// 未命名标签的无障碍名是「标签 N」。
 	if !tt.HasText(fmt.Sprintf("标签 %d", 1)) {
 		t.Error("unnamed tab should expose 标签 1")
 	}
-	// 点击胶囊切换当前标签。
 	if err := tt.Click("短名"); err != nil {
 		t.Fatal(err)
 	}
 	if a.active != 1 {
-		t.Fatalf("click pill switch active=%d", a.active)
+		t.Fatalf("click capsule switch active=%d", a.active)
 	}
 }
 

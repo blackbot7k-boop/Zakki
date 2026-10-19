@@ -30,6 +30,24 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 						a.pushWindow()
 					}
 				})
+				widthF := float64(a.settingsUI.draft.Advanced.WindowWidth)
+				heightF := float64(a.settingsUI.draft.Advanced.WindowHeight)
+				settingsRow(c, locales.DefaultWindowWidth(), locales.DefaultWindowSizeHint(), func() {
+					if ui.NumberInput(c, &widthF, 300, 4096, 10).Changed() {
+						a.settingsUI.draft.Advanced.WindowWidth = int(widthF)
+						_ = a.updatePreferences(func(p *preferences) {
+							p.Advanced.WindowWidth = int(widthF)
+						})
+					}
+				})
+				settingsRow(c, locales.DefaultWindowHeight(), "", func() {
+					if ui.NumberInput(c, &heightF, 340, 4096, 10).Changed() {
+						a.settingsUI.draft.Advanced.WindowHeight = int(heightF)
+						_ = a.updatePreferences(func(p *preferences) {
+							p.Advanced.WindowHeight = int(heightF)
+						})
+					}
+				})
 				sectionDivider(c)
 				a.cardResetFooter(c, "general", pageGeneral)
 			})
@@ -553,9 +571,6 @@ func keyOfDisplay(keys, options []string, display string) string {
 // ---- 备份与数据 ----
 
 func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
-	interval := a.settingsUI.draft.Backup.IntervalMinutes
-	keep := a.settingsUI.draft.Backup.Keep
-	intervalF, keepF := float64(interval), float64(keep)
 	ui.Column(c).FillWidth().Children(func() {
 		// 未保存指示与写保护状态。
 		a.persistStatus(c, t)
@@ -563,16 +578,17 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
 				settingsSectionTitle(c, locales.CardExternalBackup())
+				settingsLead(c, locales.MirrorUnconfiguredHint())
 				mono := monoFontStack("sfmono")
 				if dir := a.prefs.Backup.MirrorDir; dir == "" {
-					settingsRow(c, locales.MirrorUnconfigured(), locales.MirrorUnconfiguredHint(), func() {
+					settingsCompactRow(c, locales.MirrorUnconfigured(), "", func() {
 						if ui.Button(c, locales.ChooseFolder()).Clicked() {
 							a.pickMirrorFolder()
 						}
 					})
 				} else {
-					ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
-						ui.Text(c, dir).FontSize(11).Font(mono).TextColor(tMuted(c))
+					ui.Column(c).FillWidth().PaddingY(8).Gap(6).Children(func() {
+						ui.Text(c, dir).FontSize(12).Font(mono)
 						ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
 						ui.Row(c).Gap(8).Children(func() {
 							if ui.Button(c, locales.OpenFolder()).Clicked() {
@@ -587,53 +603,17 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 						})
 					})
 				}
-				settingsRow(c, locales.GitAutomation(), a.gitModeDetailText(), func() {
-					if ui.Select(c, &a.settingsUI.gitModeSel, gitModeOptions()).Width(200).Changed() {
-						a.pushMirrorGitMode()
-					}
-				})
-
-				sectionDivider(c)
-				settingsSectionTitle(c, locales.CardAutoBackup())
-				settingsRow(c, locales.AutoBackupInterval(), locales.AutoBackupIntervalHint(), func() {
-					if ui.NumberInput(c, &intervalF, 1, 1440, 1).Changed() {
-						a.settingsUI.draft.Backup.IntervalMinutes = int(intervalF)
-						a.pushBackup()
-					}
-				})
-				settingsRow(c, locales.BackupKeep(), locales.BackupKeepHint(), func() {
-					if ui.NumberInput(c, &keepF, 1, 1000, 1).Changed() {
-						a.settingsUI.draft.Backup.Keep = int(keepF)
-						a.pushBackup()
-					}
-				})
-				settingsRow(c, locales.BackupOnLaunch(), locales.BackupOnLaunchHint(), func() {
-					if ui.Switch(c, &a.settingsUI.draft.Backup.OnLaunch).Label(locales.BackupOnLaunchSwitch()).Changed() {
-						a.pushBackup()
-					}
-				})
-
 				sectionDivider(c)
 				settingsSectionTitle(c, locales.CardManualActions())
-				ui.Column(c).FillWidth().PaddingY(12).Gap(8).Children(func() {
-					ui.Row(c).Gap(8).Children(func() {
-						if ui.Button(c, locales.BackupNowButton()).Clicked() {
-							if err := a.backupNow(); err != nil {
-								a.settingsUI.keyErr = locales.BackupFailedLine(err.Error())
-							} else {
-								a.settingsUI.keyErr = ""
-							}
-						}
-						if ui.Button(c, locales.OpenBackupFolder()).Clicked() {
-							_ = mygo.Shell.OpenPath(a.notes.BackupDir)
-						}
-						if ui.Button(c, locales.ShowDataLocation()).Clicked() {
-							mygo.Shell.ShowItemInFolder(a.notes.DataFile)
-						}
-					})
-					mono := monoFontStack("sfmono")
-					ui.Text(c, locales.BackupDirLine(a.notes.BackupDir)).FontSize(11).Font(mono).TextColor(tMuted(c))
-					ui.Text(c, locales.DataFileLine(a.notes.DataFile)).FontSize(11).Font(mono).TextColor(tMuted(c))
+				settingsCompactRow(c, locales.OpenBackupFolder(), a.notes.BackupDir, func() {
+					if ui.Button(c, locales.OpenBackupFolder()).Clicked() {
+						_ = mygo.Shell.OpenPath(a.notes.BackupDir)
+					}
+				})
+				settingsCompactRow(c, locales.ShowDataLocation(), a.notes.DataFile, func() {
+					if ui.Button(c, locales.ShowDataLocation()).Clicked() {
+						mygo.Shell.ShowItemInFolder(a.notes.DataFile)
+					}
 				})
 				sectionDivider(c)
 				a.cardResetFooter(c, "backup", pageBackup)

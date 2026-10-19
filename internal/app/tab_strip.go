@@ -51,15 +51,33 @@ type tabSlotGeom struct{ w, cx float32 }
 
 func pillWidthOf(titleW float32) float32 { return pillHeight + max(0, titleW) }
 
-func tabSlotWidths(capsuleW float32, n, active int) []float32 {
+// equalTabWidths 未命名时每个标记一样大。当前标签只靠颜色区分。
+func equalTabWidths(n int) []float32 {
 	widths := make([]float32, n)
 	for i := range widths {
 		widths[i] = dotDiameter
-		if i == active {
-			widths[i] = capsuleW
-		}
 	}
 	return widths
+}
+
+// tabSlotWidths 有名字时，当前标签是包住标题的色条，其余仍是同大标记。
+func tabSlotWidths(capsuleW float32, n, active int) []float32 {
+	widths := equalTabWidths(n)
+	if active >= 0 && active < n {
+		widths[active] = capsuleW
+	}
+	return widths
+}
+
+func fitTabLayout(room, titleW float32, n, active int) ([]tabSlotGeom, float32, float32) {
+	gap := dotGap
+	base := float32(n-1)*dotDiameter + pillHeight
+	if n > 1 {
+		gap = clampF((room-base-titleW)/float32(n-1), 4, dotGap)
+	}
+	titleW = min(titleW, max(0, room-base-float32(n-1)*gap))
+	slots, total := layoutTabSlotsWithGap(tabSlotWidths(pillWidthOf(titleW), n, active), gap)
+	return slots, total, titleW
 }
 
 func layoutTabSlots(widths []float32) ([]tabSlotGeom, float32) {
@@ -77,17 +95,6 @@ func layoutTabSlotsWithGap(widths []float32, gap float32) ([]tabSlotGeom, float3
 		x -= gap
 	}
 	return slots, x
-}
-
-func fitTabLayout(room, titleW float32, n, active int) ([]tabSlotGeom, float32, float32) {
-	gap := dotGap
-	base := float32(n-1)*dotDiameter + pillHeight
-	if n > 1 {
-		gap = clampF((room-base-titleW)/float32(n-1), 4, dotGap)
-	}
-	titleW = min(titleW, max(0, room-base-float32(n-1)*gap))
-	slots, total := layoutTabSlotsWithGap(tabSlotWidths(pillWidthOf(titleW), n, active), gap)
-	return slots, total, titleW
 }
 
 func easeLiquid(t float32) float32 {
@@ -137,13 +144,6 @@ func emptyDotInk(dark bool) ui.Color {
 	return ui.Hex("#c4c4c8")
 }
 
-func monoInk(dark bool) ui.Color {
-	if dark {
-		return ui.Hex("#d1d1d6")
-	}
-	return ui.Hex("#3a3a3c")
-}
-
 type tabBody struct {
 	cx, w, h float32
 	color    ui.Color
@@ -174,7 +174,7 @@ func (m tabMorphState) bodyAt(now time.Time) tabBody {
 	e := easeLiquid(t)
 	b := m.fromBody
 	b.cx += (m.toBody.cx - b.cx) * e
-	b.w = max(pillHeight, b.w+(m.toBody.w-b.w)*e)
+	b.w += (m.toBody.w - b.w) * e
 	b.h += (m.toBody.h - b.h) * e
 	b.color = b.color.Mix(m.toBody.color, t)
 	if t >= 0.5 {
@@ -303,27 +303,16 @@ func paintSolidDot(p *ui.Painter, cx, cy float32, ink ui.Color) {
 
 // ---- 标签圆点形状 ----
 
-// 非当前标签的示意形状：圆点为默认，其余为可选形状。ID 存入数据文件
-// settings.tabDotShape，渲染未知值时一律回退圆点。
+// 只保留圆点与圆环。其余形状和液态滑动叠在一起会显得突兀，
+// 旧文件里的其他值在载入时回退成圆点。
 const (
-	tabDotShapeDot      = "dot"      // 圆点（默认）
-	tabDotShapeRing     = "ring"     // 圆环（描边，不参与液态桥接）
-	tabDotShapeSquare   = "square"   // 方点
-	tabDotShapeRSquare  = "rsquare"  // 圆角方
-	tabDotShapePill     = "pill"     // 胶囊（短横条）
-	tabDotShapeDiamond  = "diamond"  // 菱形
-	tabDotShapeHexagon  = "hexagon"  // 六边形
-	tabDotShapeTriangle = "triangle" // 三角
-	tabDotShapeStar     = "star"     // 星形
-	tabDotShapeDrop     = "drop"     // 水滴
-	tabDotShapeLeaf     = "leaf"     // 叶片
+	tabDotShapeDot  = "dot"  // 圆点（默认）
+	tabDotShapeRing = "ring" // 圆环（描边，不参与液态桥接）
 )
 
 func isValidTabDotShape(id string) bool {
 	switch id {
-	case "", tabDotShapeDot, tabDotShapeRing, tabDotShapeSquare, tabDotShapeRSquare,
-		tabDotShapePill, tabDotShapeDiamond, tabDotShapeHexagon, tabDotShapeTriangle,
-		tabDotShapeStar, tabDotShapeDrop, tabDotShapeLeaf:
+	case "", tabDotShapeDot, tabDotShapeRing:
 		return true
 	}
 	return false
@@ -337,103 +326,7 @@ func (a *app) activeDotShape() string {
 	return tabDotShapeDot
 }
 
-// tabDotPath 构建以 (cx,cy) 为中心的形状路径；描边形状由 paintTabDot 处理。
-func tabDotPath(cx, cy float32, shape string) ui.Path {
-	var p ui.Path
-	const d = dotDiameter
-	switch shape {
-	case tabDotShapeSquare:
-		s := d * 0.84
-		p = roundedRectPath(cx-s/2, cy-s/2, s, s, 2)
-	case tabDotShapeRSquare:
-		s := d * 0.92
-		p = roundedRectPath(cx-s/2, cy-s/2, s, s, 3.5)
-	case tabDotShapePill:
-		w, h := d*1.55, d*0.6
-		p = capsulePath(cx-w/2, cy-h/2, w, h)
-	case tabDotShapeDiamond:
-		p.MoveTo(cx, cy-d*0.62)
-		p.LineTo(cx+d*0.5, cy)
-		p.LineTo(cx, cy+d*0.62)
-		p.LineTo(cx-d*0.5, cy)
-		p.Close()
-	case tabDotShapeHexagon:
-		r := d * 0.58
-		for i := 0; i < 6; i++ {
-			ang := float64(i)*math.Pi/3 - math.Pi/2
-			// 尖顶六边形：从正上方开始逆时针排点。
-			x, y := cx+r*float32(math.Cos(ang+math.Pi)), cy+r*float32(math.Sin(ang+math.Pi))
-			if i == 0 {
-				p.MoveTo(x, y)
-			} else {
-				p.LineTo(x, y)
-			}
-		}
-		p.Close()
-	case tabDotShapeTriangle:
-		r := d * 0.68
-		p.MoveTo(cx, cy-r)
-		p.LineTo(cx+r*0.95, cy+r*0.72)
-		p.LineTo(cx-r*0.95, cy+r*0.72)
-		p.Close()
-	case tabDotShapeStar:
-		outer, inner := d*0.68, d*0.29
-		for i := 0; i < 10; i++ {
-			rad := outer
-			if i%2 == 1 {
-				rad = inner
-			}
-			ang := float64(i)*math.Pi/5 - math.Pi/2
-			x, y := cx+rad*float32(math.Cos(ang)), cy+rad*float32(math.Sin(ang))
-			if i == 0 {
-				p.MoveTo(x, y)
-			} else {
-				p.LineTo(x, y)
-			}
-		}
-		p.Close()
-	case tabDotShapeDrop:
-		rb := d * 0.40
-		tipY := cy - d*0.60
-		botY := cy + d*0.42
-		p.MoveTo(cx, tipY)
-		p.CubeTo(cx+rb*1.05, tipY+(cy-tipY)*0.55, cx+rb, cy-rb*0.2, cx+rb, cy)
-		p.CubeTo(cx+rb, cy+rb*0.74, cx+rb*0.55, botY, cx, botY)
-		p.CubeTo(cx-rb*0.55, botY, cx-rb, cy+rb*0.74, cx-rb, cy)
-		p.CubeTo(cx-rb, cy-rb*0.2, cx-rb*1.05, tipY+(cy-tipY)*0.55, cx, tipY)
-		p.Close()
-	case tabDotShapeLeaf:
-		t, b, bulge := cy-d*0.58, cy+d*0.58, d*0.42
-		p.MoveTo(cx, t)
-		p.CubeTo(cx+bulge, t+(b-t)*0.25, cx+bulge, b-(b-t)*0.25, cx, b)
-		p.CubeTo(cx-bulge, b-(b-t)*0.25, cx-bulge, t+(b-t)*0.25, cx, t)
-		p.Close()
-	default: // 圆点与未知值
-		p.Circle(cx, cy, d/2)
-	}
-	return p
-}
-
-// roundedRectPath 构建圆角矩形路径。
-func roundedRectPath(x, y, w, h, r float32) ui.Path {
-	var p ui.Path
-	r = min(r, w/2, h/2)
-	const k = 0.5522847
-	kr := r * k
-	p.MoveTo(x+r, y)
-	p.LineTo(x+w-r, y)
-	p.CubeTo(x+w-r+kr, y, x+w, y+r-kr, x+w, y+r)
-	p.LineTo(x+w, y+h-r)
-	p.CubeTo(x+w, y+h-r+kr, x+w-r+kr, y+h, x+w-r, y+h)
-	p.LineTo(x+r, y+h)
-	p.CubeTo(x+r-kr, y+h, x, y+h-r+kr, x, y+h-r)
-	p.LineTo(x, y+r)
-	p.CubeTo(x, y+r-kr, x+r-kr, y, x+r, y)
-	p.Close()
-	return p
-}
-
-// paintTabDot 按形状绘制非当前标签的指示点；圆环描边，其余填充。
+// paintTabDot 绘制一枚与其他标签同大的标记。圆环描边，圆点填充。
 func paintTabDot(p *ui.Painter, cx, cy float32, ink ui.Color, shape string) {
 	if shape == tabDotShapeRing {
 		var path ui.Path
@@ -441,8 +334,16 @@ func paintTabDot(p *ui.Painter, cx, cy float32, ink ui.Color, shape string) {
 		p.StrokePath(&path, 2.4, ink)
 		return
 	}
-	path := tabDotPath(cx, cy, shape)
-	p.FillPath(&path, ink)
+	paintSolidDot(p, cx, cy, ink)
+}
+
+// muteTabInk 把非当前标签压淡。尺寸不变，只靠深浅区分当前标签。
+func muteTabInk(ink ui.Color, dark bool) ui.Color {
+	base := ui.RGB(255, 255, 255)
+	if dark {
+		base = ui.RGB(28, 28, 30)
+	}
+	return ink.Mix(base, 0.58)
 }
 
 func paintBody(p *ui.Painter, body tabBody, cy float32) {
@@ -458,6 +359,10 @@ func paintBodyTitle(p *ui.Painter, body tabBody, cy float32, title string, textW
 	p.Clip(r, 0, func() {
 		p.Text(body.cx-textW/2, cy-pillTitleSize/2-2, title, pillTitleSize, pillTextColor(body.color).Alpha(alpha))
 	})
+}
+
+func bodyShowsTitle(body tabBody) bool {
+	return body.title != "" || body.w > dotDiameter+1 || body.h > dotDiameter+1
 }
 
 func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
@@ -483,19 +388,29 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		if !m.active && ids[i] == a.builtActiveID {
 			continue
 		}
-		paintTabDot(p, r.X+s.cx, cy, a.morphDotInk(ids[i], dark), shape)
+		paintTabDot(p, r.X+s.cx, cy, muteTabInk(a.morphDotInk(ids[i], dark), dark), shape)
 	}
-	paintBody(p, body, cy)
-	if a.renaming != 0 {
+	// 有名字时恢复色条：标题写在当前标签上，字色按底色取对比色。
+	// 没名字时仍是同大圆点或圆环，只靠颜色区分当前标签。
+	if bodyShowsTitle(body) || a.renaming != 0 {
+		paintBody(p, body, cy)
+		if a.renaming != 0 {
+			return
+		}
+		if m.active {
+			fromA, toA := titleAlphas(m.progress(a.animClock(p)))
+			paintBodyTitle(p, body, cy, m.fromBody.title, m.fromBody.textW, fromA)
+			paintBodyTitle(p, body, cy, m.toBody.title, m.toBody.textW, toA)
+		} else {
+			paintBodyTitle(p, body, cy, body.title, body.textW, 1)
+		}
 		return
 	}
-	if m.active {
-		fromA, toA := titleAlphas(m.progress(a.animClock(p)))
-		paintBodyTitle(p, body, cy, m.fromBody.title, m.fromBody.textW, fromA)
-		paintBodyTitle(p, body, cy, m.toBody.title, m.toBody.textW, toA)
-	} else {
-		paintBodyTitle(p, body, cy, body.title, body.textW, 1)
+	if shape == tabDotShapeRing {
+		paintTabDot(p, body.cx, cy, body.color, shape)
+		return
 	}
+	paintBody(p, body, cy)
 }
 
 func fitTabTitle(s string, limit float32, measure func(string) float32) (string, float32) {

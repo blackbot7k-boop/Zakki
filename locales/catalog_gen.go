@@ -1424,11 +1424,11 @@ func (msgs Messages) KeyErrUnknownCommand(id string) string {
 	return Catalog.Format(msgs.locale, "keyErrUnknownCommand", map[string]any{"id": id})
 }
 
-// KeymapHint says "Markdown commands and the global toggle can be rebound; search, cut, copy, paste and undo keep their system habits."
+// KeymapHint says "Click Change, then press the new shortcut. Esc cancels."
 // in the language the app shows.
 func KeymapHint() string { return In(i18n.Locale()).KeymapHint() }
 
-// KeymapHint says "Markdown commands and the global toggle can be rebound; search, cut, copy, paste and undo keep their system habits."
+// KeymapHint says "Click Change, then press the new shortcut. Esc cancels."
 // in the language of msgs.
 func (msgs Messages) KeymapHint() string {
 	return Catalog.Format(msgs.locale, "keymapHint", nil)
@@ -1454,11 +1454,21 @@ func (msgs Messages) KeymapSearchPlaceholder() string {
 	return Catalog.Format(msgs.locale, "keymapSearchPlaceholder", nil)
 }
 
-// KeymapFixedHint says "Fixed shortcuts: ⌘F find, ⌘G/⇧⌘G find next/previous, ⌘⇧P source mode, ⌘⌥T keep on top, ⌃1–9 tabs,…"
+// KeymapFixedTitle says "These stay fixed"
+// in the language the app shows.
+func KeymapFixedTitle() string { return In(i18n.Locale()).KeymapFixedTitle() }
+
+// KeymapFixedTitle says "These stay fixed"
+// in the language of msgs.
+func (msgs Messages) KeymapFixedTitle() string {
+	return Catalog.Format(msgs.locale, "keymapFixedTitle", nil)
+}
+
+// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌃1–9, new tab ⌘T, rename ⌘R, previous/…"
 // in the language the app shows.
 func KeymapFixedHint() string { return In(i18n.Locale()).KeymapFixedHint() }
 
-// KeymapFixedHint says "Fixed shortcuts: ⌘F find, ⌘G/⇧⌘G find next/previous, ⌘⇧P source mode, ⌘⌥T keep on top, ⌃1–9 tabs,…"
+// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌃1–9, new tab ⌘T, rename ⌘R, previous/…"
 // in the language of msgs.
 func (msgs Messages) KeymapFixedHint() string {
 	return Catalog.Format(msgs.locale, "keymapFixedHint", nil)
@@ -2152,6 +2162,36 @@ func (msgs Messages) RememberBoundsSwitch() string {
 	return Catalog.Format(msgs.locale, "rememberBoundsSwitch", nil)
 }
 
+// DefaultWindowWidth says "Default width"
+// in the language the app shows.
+func DefaultWindowWidth() string { return In(i18n.Locale()).DefaultWindowWidth() }
+
+// DefaultWindowWidth says "Default width"
+// in the language of msgs.
+func (msgs Messages) DefaultWindowWidth() string {
+	return Catalog.Format(msgs.locale, "defaultWindowWidth", nil)
+}
+
+// DefaultWindowHeight says "Default height"
+// in the language the app shows.
+func DefaultWindowHeight() string { return In(i18n.Locale()).DefaultWindowHeight() }
+
+// DefaultWindowHeight says "Default height"
+// in the language of msgs.
+func (msgs Messages) DefaultWindowHeight() string {
+	return Catalog.Format(msgs.locale, "defaultWindowHeight", nil)
+}
+
+// DefaultWindowSizeHint says "Used when a main window is created. A remembered window keeps its last size."
+// in the language the app shows.
+func DefaultWindowSizeHint() string { return In(i18n.Locale()).DefaultWindowSizeHint() }
+
+// DefaultWindowSizeHint says "Used when a main window is created. A remembered window keeps its last size."
+// in the language of msgs.
+func (msgs Messages) DefaultWindowSizeHint() string {
+	return Catalog.Format(msgs.locale, "defaultWindowSizeHint", nil)
+}
+
 // CardLanguage says "Language"
 // in the language the app shows.
 func CardLanguage() string { return In(i18n.Locale()).CardLanguage() }
@@ -2772,6 +2812,16 @@ func (msgs Messages) CardTabBar() string {
 	return Catalog.Format(msgs.locale, "cardTabBar", nil)
 }
 
+// TabsListLead says "Click a color dot to switch. Click Color to recolor. Double-click a dot or the title to rename."
+// in the language the app shows.
+func TabsListLead() string { return In(i18n.Locale()).TabsListLead() }
+
+// TabsListLead says "Click a color dot to switch. Click Color to recolor. Double-click a dot or the title to rename."
+// in the language of msgs.
+func (msgs Messages) TabsListLead() string {
+	return Catalog.Format(msgs.locale, "tabsListLead", nil)
+}
+
 // NewTabButton says "New Tab"
 // in the language the app shows.
 func NewTabButton() string { return In(i18n.Locale()).NewTabButton() }
@@ -2802,11 +2852,11 @@ func (msgs Messages) TabTitleMaxWidth() string {
 	return Catalog.Format(msgs.locale, "tabTitleMaxWidth", nil)
 }
 
-// TabTitleMaxWidthHint says "80–220 DIP; longer text gets an ellipsis, unnamed tabs show only a dot"
+// TabTitleMaxWidthHint says "Longer names end with …"
 // in the language the app shows.
 func TabTitleMaxWidthHint() string { return In(i18n.Locale()).TabTitleMaxWidthHint() }
 
-// TabTitleMaxWidthHint says "80–220 DIP; longer text gets an ellipsis, unnamed tabs show only a dot"
+// TabTitleMaxWidthHint says "Longer names end with …"
 // in the language of msgs.
 func (msgs Messages) TabTitleMaxWidthHint() string {
 	return Catalog.Format(msgs.locale, "tabTitleMaxWidthHint", nil)
@@ -2822,11 +2872,11 @@ func (msgs Messages) TabAnimSpeed() string {
 	return Catalog.Format(msgs.locale, "tabAnimSpeed", nil)
 }
 
-// TabAnimSpeedHint says "The pace of the liquid merge animation"
+// TabAnimSpeedHint says "How fast the dot slides to the next tab"
 // in the language the app shows.
 func TabAnimSpeedHint() string { return In(i18n.Locale()).TabAnimSpeedHint() }
 
-// TabAnimSpeedHint says "The pace of the liquid merge animation"
+// TabAnimSpeedHint says "How fast the dot slides to the next tab"
 // in the language of msgs.
 func (msgs Messages) TabAnimSpeedHint() string {
 	return Catalog.Format(msgs.locale, "tabAnimSpeedHint", nil)
@@ -2882,11 +2932,11 @@ func (msgs Messages) TabMotion() string {
 	return Catalog.Format(msgs.locale, "tabMotion", nil)
 }
 
-// TabMotionHint says "Off switches tabs instantly, without the liquid merge animation"
+// TabMotionHint says "Off switches tabs instantly"
 // in the language the app shows.
 func TabMotionHint() string { return In(i18n.Locale()).TabMotionHint() }
 
-// TabMotionHint says "Off switches tabs instantly, without the liquid merge animation"
+// TabMotionHint says "Off switches tabs instantly"
 // in the language of msgs.
 func (msgs Messages) TabMotionHint() string {
 	return Catalog.Format(msgs.locale, "tabMotionHint", nil)
@@ -2912,14 +2962,34 @@ func (msgs Messages) TabDotShape() string {
 	return Catalog.Format(msgs.locale, "tabDotShape", nil)
 }
 
-// TabDotShapeHint says "Shape of the inactive tabs; the active tab is always a titled capsule"
+// TabDotShapeHint says "Unnamed marks are the same size; the current one is only a deeper color. A name sits on that tab's colored bar."
 // in the language the app shows.
 func TabDotShapeHint() string { return In(i18n.Locale()).TabDotShapeHint() }
 
-// TabDotShapeHint says "Shape of the inactive tabs; the active tab is always a titled capsule"
+// TabDotShapeHint says "Unnamed marks are the same size; the current one is only a deeper color. A name sits on that tab's colored bar."
 // in the language of msgs.
 func (msgs Messages) TabDotShapeHint() string {
 	return Catalog.Format(msgs.locale, "tabDotShapeHint", nil)
+}
+
+// TabCurrent says "Current"
+// in the language the app shows.
+func TabCurrent() string { return In(i18n.Locale()).TabCurrent() }
+
+// TabCurrent says "Current"
+// in the language of msgs.
+func (msgs Messages) TabCurrent() string {
+	return Catalog.Format(msgs.locale, "tabCurrent", nil)
+}
+
+// TabRecolor says "Color"
+// in the language the app shows.
+func TabRecolor() string { return In(i18n.Locale()).TabRecolor() }
+
+// TabRecolor says "Color"
+// in the language of msgs.
+func (msgs Messages) TabRecolor() string {
+	return Catalog.Format(msgs.locale, "tabRecolor", nil)
 }
 
 // ShapeDot says "Dot"
@@ -3042,11 +3112,11 @@ func (msgs Messages) ColoredDots() string {
 	return Catalog.Format(msgs.locale, "coloredDots", nil)
 }
 
-// ColoredDotsHint says "Off uses a neutral ink for dots and capsules, without per-tab colors"
+// ColoredDotsHint says "Off turns every dot gray; the current one stays darker"
 // in the language the app shows.
 func ColoredDotsHint() string { return In(i18n.Locale()).ColoredDotsHint() }
 
-// ColoredDotsHint says "Off uses a neutral ink for dots and capsules, without per-tab colors"
+// ColoredDotsHint says "Off turns every dot gray; the current one stays darker"
 // in the language of msgs.
 func (msgs Messages) ColoredDotsHint() string {
 	return Catalog.Format(msgs.locale, "coloredDotsHint", nil)
@@ -3072,51 +3142,51 @@ func (msgs Messages) GlassStrength() string {
 	return Catalog.Format(msgs.locale, "glassStrength", nil)
 }
 
-// GlassStrengthHint says "Opacity of the translucent layer on platforms without system material (20–90%)"
+// GlassStrengthHint says "How see-through the bar is when the system has no glass (20–90%)"
 // in the language the app shows.
 func GlassStrengthHint() string { return In(i18n.Locale()).GlassStrengthHint() }
 
-// GlassStrengthHint says "Opacity of the translucent layer on platforms without system material (20–90%)"
+// GlassStrengthHint says "How see-through the bar is when the system has no glass (20–90%)"
 // in the language of msgs.
 func (msgs Messages) GlassStrengthHint() string {
 	return Catalog.Format(msgs.locale, "glassStrengthHint", nil)
 }
 
-// TabsPageFootnote says "Tab text, names and colors belong to the notes data and save with it; window material is a platform capability and fa…"
+// TabsPageFootnote says "Names, colors and text are saved with the notes."
 // in the language the app shows.
 func TabsPageFootnote() string { return In(i18n.Locale()).TabsPageFootnote() }
 
-// TabsPageFootnote says "Tab text, names and colors belong to the notes data and save with it; window material is a platform capability and fa…"
+// TabsPageFootnote says "Names, colors and text are saved with the notes."
 // in the language of msgs.
 func (msgs Messages) TabsPageFootnote() string {
 	return Catalog.Format(msgs.locale, "tabsPageFootnote", nil)
 }
 
-// CardExternalBackup says "External backup & Git"
+// CardExternalBackup says "Copy to another folder"
 // in the language the app shows.
 func CardExternalBackup() string { return In(i18n.Locale()).CardExternalBackup() }
 
-// CardExternalBackup says "External backup & Git"
+// CardExternalBackup says "Copy to another folder"
 // in the language of msgs.
 func (msgs Messages) CardExternalBackup() string {
 	return Catalog.Format(msgs.locale, "cardExternalBackup", nil)
 }
 
-// MirrorUnconfigured says "Not configured"
+// MirrorUnconfigured says "None chosen"
 // in the language the app shows.
 func MirrorUnconfigured() string { return In(i18n.Locale()).MirrorUnconfigured() }
 
-// MirrorUnconfigured says "Not configured"
+// MirrorUnconfigured says "None chosen"
 // in the language of msgs.
 func (msgs Messages) MirrorUnconfigured() string {
 	return Catalog.Format(msgs.locale, "mirrorUnconfigured", nil)
 }
 
-// MirrorUnconfiguredHint says "Each backup is mirrored to an external folder: a cloud-sync folder means cloud backup, a Git clone can auto-commit. S…"
+// MirrorUnconfiguredHint says "After each backup, copy it here too. A cloud folder syncs; a Git repo can commit."
 // in the language the app shows.
 func MirrorUnconfiguredHint() string { return In(i18n.Locale()).MirrorUnconfiguredHint() }
 
-// MirrorUnconfiguredHint says "Each backup is mirrored to an external folder: a cloud-sync folder means cloud backup, a Git clone can auto-commit. S…"
+// MirrorUnconfiguredHint says "After each backup, copy it here too. A cloud folder syncs; a Git repo can commit."
 // in the language of msgs.
 func (msgs Messages) MirrorUnconfiguredHint() string {
 	return Catalog.Format(msgs.locale, "mirrorUnconfiguredHint", nil)
@@ -3152,71 +3222,71 @@ func (msgs Messages) GitAutomation() string {
 	return Catalog.Format(msgs.locale, "gitAutomation", nil)
 }
 
-// CardAutoBackup says "Auto backup"
+// CardAutoBackup says "On this Mac"
 // in the language the app shows.
 func CardAutoBackup() string { return In(i18n.Locale()).CardAutoBackup() }
 
-// CardAutoBackup says "Auto backup"
+// CardAutoBackup says "On this Mac"
 // in the language of msgs.
 func (msgs Messages) CardAutoBackup() string {
 	return Catalog.Format(msgs.locale, "cardAutoBackup", nil)
 }
 
-// AutoBackupInterval says "Min interval after edits"
+// AutoBackupInterval says "Wait after edits"
 // in the language the app shows.
 func AutoBackupInterval() string { return In(i18n.Locale()).AutoBackupInterval() }
 
-// AutoBackupInterval says "Min interval after edits"
+// AutoBackupInterval says "Wait after edits"
 // in the language of msgs.
 func (msgs Messages) AutoBackupInterval() string {
 	return Catalog.Format(msgs.locale, "autoBackupInterval", nil)
 }
 
-// AutoBackupIntervalHint says "1–1440 minutes; a throttle interval, not an independent timer"
+// AutoBackupIntervalHint says "Backs up a while after you stop editing, not on a clock."
 // in the language the app shows.
 func AutoBackupIntervalHint() string { return In(i18n.Locale()).AutoBackupIntervalHint() }
 
-// AutoBackupIntervalHint says "1–1440 minutes; a throttle interval, not an independent timer"
+// AutoBackupIntervalHint says "Backs up a while after you stop editing, not on a clock."
 // in the language of msgs.
 func (msgs Messages) AutoBackupIntervalHint() string {
 	return Catalog.Format(msgs.locale, "autoBackupIntervalHint", nil)
 }
 
-// BackupKeep says "Backups to keep"
+// BackupKeep says "Keep at most"
 // in the language the app shows.
 func BackupKeep() string { return In(i18n.Locale()).BackupKeep() }
 
-// BackupKeep says "Backups to keep"
+// BackupKeep says "Keep at most"
 // in the language of msgs.
 func (msgs Messages) BackupKeep() string {
 	return Catalog.Format(msgs.locale, "backupKeep", nil)
 }
 
-// BackupKeepHint says "1–1000; shrinking prunes at the next successful backup, not immediately"
+// BackupKeepHint says "A smaller number deletes extras on the next backup, not now"
 // in the language the app shows.
 func BackupKeepHint() string { return In(i18n.Locale()).BackupKeepHint() }
 
-// BackupKeepHint says "1–1000; shrinking prunes at the next successful backup, not immediately"
+// BackupKeepHint says "A smaller number deletes extras on the next backup, not now"
 // in the language of msgs.
 func (msgs Messages) BackupKeepHint() string {
 	return Catalog.Format(msgs.locale, "backupKeepHint", nil)
 }
 
-// BackupOnLaunch says "Back up on launch"
+// BackupOnLaunch says "Back up when the app opens"
 // in the language the app shows.
 func BackupOnLaunch() string { return In(i18n.Locale()).BackupOnLaunch() }
 
-// BackupOnLaunch says "Back up on launch"
+// BackupOnLaunch says "Back up when the app opens"
 // in the language of msgs.
 func (msgs Messages) BackupOnLaunch() string {
 	return Catalog.Format(msgs.locale, "backupOnLaunch", nil)
 }
 
-// BackupOnLaunchHint says "Backs up once at launch when a data file already exists"
+// BackupOnLaunchHint says "If notes already exist, back them up once at launch"
 // in the language the app shows.
 func BackupOnLaunchHint() string { return In(i18n.Locale()).BackupOnLaunchHint() }
 
-// BackupOnLaunchHint says "Backs up once at launch when a data file already exists"
+// BackupOnLaunchHint says "If notes already exist, back them up once at launch"
 // in the language of msgs.
 func (msgs Messages) BackupOnLaunchHint() string {
 	return Catalog.Format(msgs.locale, "backupOnLaunchHint", nil)
@@ -3232,11 +3302,11 @@ func (msgs Messages) BackupOnLaunchSwitch() string {
 	return Catalog.Format(msgs.locale, "backupOnLaunchSwitch", nil)
 }
 
-// CardManualActions says "Manual actions"
+// CardManualActions says "Do it now"
 // in the language the app shows.
 func CardManualActions() string { return In(i18n.Locale()).CardManualActions() }
 
-// CardManualActions says "Manual actions"
+// CardManualActions says "Do it now"
 // in the language of msgs.
 func (msgs Messages) CardManualActions() string {
 	return Catalog.Format(msgs.locale, "cardManualActions", nil)
@@ -3250,6 +3320,16 @@ func BackupNowButton() string { return In(i18n.Locale()).BackupNowButton() }
 // in the language of msgs.
 func (msgs Messages) BackupNowButton() string {
 	return Catalog.Format(msgs.locale, "backupNowButton", nil)
+}
+
+// BackupNowHint says "Save the notes and write a new backup."
+// in the language the app shows.
+func BackupNowHint() string { return In(i18n.Locale()).BackupNowHint() }
+
+// BackupNowHint says "Save the notes and write a new backup."
+// in the language of msgs.
+func (msgs Messages) BackupNowHint() string {
+	return Catalog.Format(msgs.locale, "backupNowHint", nil)
 }
 
 // OpenBackupFolder says "Open Backup Folder"
@@ -3292,31 +3372,31 @@ func (msgs Messages) DataFileLine(path string) string {
 	return Catalog.Format(msgs.locale, "dataFileLine", map[string]any{"path": path})
 }
 
-// GitModeOffDetail says "Each backup writes a copy; git add and commits stay off."
+// GitModeOffDetail says "Copies the file only. Git stays off."
 // in the language the app shows.
 func GitModeOffDetail() string { return In(i18n.Locale()).GitModeOffDetail() }
 
-// GitModeOffDetail says "Each backup writes a copy; git add and commits stay off."
+// GitModeOffDetail says "Copies the file only. Git stays off."
 // in the language of msgs.
 func (msgs Messages) GitModeOffDetail() string {
 	return Catalog.Format(msgs.locale, "gitModeOffDetail", nil)
 }
 
-// GitModeCommitDetail says "After each backup write, git add zakki-*.json and commit; failures only notify and never affect the backup itself."
+// GitModeCommitDetail says "Commits after each backup. A failure is only a notice; the backup still stands."
 // in the language the app shows.
 func GitModeCommitDetail() string { return In(i18n.Locale()).GitModeCommitDetail() }
 
-// GitModeCommitDetail says "After each backup write, git add zakki-*.json and commit; failures only notify and never affect the backup itself."
+// GitModeCommitDetail says "Commits after each backup. A failure is only a notice; the backup still stands."
 // in the language of msgs.
 func (msgs Messages) GitModeCommitDetail() string {
 	return Catalog.Format(msgs.locale, "gitModeCommitDetail", nil)
 }
 
-// GitModeCommitPushDetail says "Like commit, and pushes as well; failures only notify and never affect the backup itself."
+// GitModeCommitPushDetail says "Commits and pushes after each backup. A failure is only a notice; the backup still stands."
 // in the language the app shows.
 func GitModeCommitPushDetail() string { return In(i18n.Locale()).GitModeCommitPushDetail() }
 
-// GitModeCommitPushDetail says "Like commit, and pushes as well; failures only notify and never affect the backup itself."
+// GitModeCommitPushDetail says "Commits and pushes after each backup. A failure is only a notice; the backup still stands."
 // in the language of msgs.
 func (msgs Messages) GitModeCommitPushDetail() string {
 	return Catalog.Format(msgs.locale, "gitModeCommitPushDetail", nil)
@@ -3640,11 +3720,11 @@ func (msgs Messages) GitModeCommitPush() string {
 	return Catalog.Format(msgs.locale, "gitModeCommitPush", nil)
 }
 
-// ModeRowHint says "Light / dark / follow the system; applies immediately"
+// ModeRowHint says "Same setting as the Appearance page"
 // in the language the app shows.
 func ModeRowHint() string { return In(i18n.Locale()).ModeRowHint() }
 
-// ModeRowHint says "Light / dark / follow the system; applies immediately"
+// ModeRowHint says "Same setting as the Appearance page"
 // in the language of msgs.
 func (msgs Messages) ModeRowHint() string {
 	return Catalog.Format(msgs.locale, "modeRowHint", nil)
@@ -3840,31 +3920,31 @@ func (msgs Messages) KeymapPageTitle() string {
 	return Catalog.Format(msgs.locale, "keymapPageTitle", nil)
 }
 
-// GitDetailOff says "Off; each backup only writes a copy into the folder."
+// GitDetailOff says "Copies the file only. Git stays off."
 // in the language the app shows.
 func GitDetailOff() string { return In(i18n.Locale()).GitDetailOff() }
 
-// GitDetailOff says "Off; each backup only writes a copy into the folder."
+// GitDetailOff says "Copies the file only. Git stays off."
 // in the language of msgs.
 func (msgs Messages) GitDetailOff() string {
 	return Catalog.Format(msgs.locale, "gitDetailOff", nil)
 }
 
-// GitDetailNotRepo says "The folder is not a Git repository, so Git automation is unavailable; it works fine as a cloud-sync folder."
+// GitDetailNotRepo says "This is a plain folder, so backups are only copied here."
 // in the language the app shows.
 func GitDetailNotRepo() string { return In(i18n.Locale()).GitDetailNotRepo() }
 
-// GitDetailNotRepo says "The folder is not a Git repository, so Git automation is unavailable; it works fine as a cloud-sync folder."
+// GitDetailNotRepo says "This is a plain folder, so backups are only copied here."
 // in the language of msgs.
 func (msgs Messages) GitDetailNotRepo() string {
 	return Catalog.Format(msgs.locale, "gitDetailNotRepo", nil)
 }
 
-// GitDetailPickFirst says "Pick a backup folder first; Git automation needs a Git repository."
+// GitDetailPickFirst says "Choose a folder first. Only a Git repo can commit."
 // in the language the app shows.
 func GitDetailPickFirst() string { return In(i18n.Locale()).GitDetailPickFirst() }
 
-// GitDetailPickFirst says "Pick a backup folder first; Git automation needs a Git repository."
+// GitDetailPickFirst says "Choose a folder first. Only a Git repo can commit."
 // in the language of msgs.
 func (msgs Messages) GitDetailPickFirst() string {
 	return Catalog.Format(msgs.locale, "gitDetailPickFirst", nil)

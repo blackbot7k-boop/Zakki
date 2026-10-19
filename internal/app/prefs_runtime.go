@@ -201,8 +201,8 @@ func (a *app) applyPreferencesToRuntime() {
 	a.cfg.BodySize, a.cfg.LineHeight = p.Appearance.BodySize, p.Appearance.LineHeight
 	a.cfg.AlwaysOnTop = p.Window.AlwaysOnTop
 	a.cfg.HideOnEscape = p.Window.HideOnEscape
-	// 外部备份目的地与 Git 模式同步进 notes.Store（镜像失败不阻塞备份）。
-	a.notes.SetMirror(p.Backup.MirrorDir, p.Backup.GitMode)
+	// 只镜像文件。Git 自动提交已从设置移除，已保存的 gitMode 不再执行。
+	a.notes.SetMirror(p.Backup.MirrorDir, "off")
 	if a.ready {
 		applyTheme(p.Appearance.AppearanceMode)
 	}

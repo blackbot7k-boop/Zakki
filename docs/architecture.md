@@ -46,7 +46,7 @@
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
 | `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
-| `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何；非当前标签形状可配置（`tabDotPath` 11 种形状，圆环描边且不参与液态桥接），`TabMotionOff` 关闭补间（与系统 ReduceMotion 同路径）。 |
+| `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何；标记只有圆点与圆环。未命名时全部同大，当前标签只靠颜色区分；有名字时名字画在当前标签的色条里。圆环描边且不参与液态桥接。`TabMotionOff` 关闭补间（与系统 ReduceMotion 同路径）。 |
 | `internal/app/settings_tabs.go` | 设置窗口「标签与外观」页。 |
 | `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Hide`，保留笔记、标签和原生渲染资源，避免每次唤起都重建 Metal 管线；Dock、托盘或全局热键可重新显示。菜单关闭（⌘W）仍销毁窗口，后续由 `showWindow` 重建；退出流程不被隐藏逻辑拦截。只有一个标签且不在重命名时隐藏标签区（`tabStripHidden`），并复位标签几何避免恢复多标签时残留补间。 |
 | `internal/app/view_live.go` | 实时预览块列表：`livePane`（`ui.List` 虚拟化，只构建可见块；外层 Column 兜底左右留白与行间空隙的空白点击）、焦点块 `activeText` 与非焦点块渲染；列表显式绑定解析后的正文颜色、字体与行高，避免帧末恢复外框主题时覆盖内容继承。 |
@@ -111,7 +111,7 @@
 | 自动备份 `maybeWritePeriodicBackup` | 距上次备份超过配置间隔（`Backup.IntervalMinutes`，默认 **5 分钟**，常量 `backupInterval`）才写一份，随防抖保存顺带触发。 |
 | 手动备份 `backupNow`（菜单/托盘「立即备份」、⌘S） | **无条件**创建一份（绕过周期节流），先保存当前数据再备份。 |
 | 清空当前标签 `clearActiveTab` | 危险操作：**先强制备份**（`backupNow`），备份失败则取消清空。 |
-| 外部镜像 `runMirrorJob` | 本地备份成功后立即返回；后台单 worker 持有不可变 `mirrorJob` 快照，把同一份内容镜像到 `Backup.MirrorDir`，按同一 `Keep` 修剪且只动本应用备份文件。worker 忙碌时仅保留最新快照补跑一次；镜像/Git 配置变更会清除旧待办，已取出的陈旧任务也会在外部 I/O 前复核版本并跳过。`mirrorMu` 串行镜像与 Git，`Store.mu` 不覆盖外部文件系统或 Git I/O；任务完成后仅在配置版本仍一致时更新状态，再经 `Window.Update` 刷新 UI。镜像或 Git 失败只记警告与状态，绝不影响本地备份成功。Git 档位 `Backup.GitMode`（off/commit/commitPush）使用磁盘文件与 `git ls-files -z` 得出的精确路径执行 scoped commit（可选 push）。 |
+| 外部镜像 `runMirrorJob` | 本地备份成功后立即返回；后台单 worker 持有不可变 `mirrorJob` 快照，把同一份内容镜像到 `Backup.MirrorDir`，按同一 `Keep` 修剪且只动本应用备份文件。worker 忙碌时仅保留最新快照补跑一次；镜像/Git 配置变更会清除旧待办，已取出的陈旧任务也会在外部 I/O 前复核版本并跳过。`mirrorMu` 串行镜像与 Git，`Store.mu` 不覆盖外部文件系统或 Git I/O；任务完成后仅在配置版本仍一致时更新状态，再经 `Window.Update` 刷新 UI。镜像失败只记警告与状态，绝不影响本地备份成功。应用始终以关闭 Git 的方式镜像，设置里不再提供自动提交或推送。 |
 
 保留策略：`notes.Store.pruneBackupsLocked` 按 `Backup.Keep` 修剪，默认只保留最新 **20 份**；修剪失败只记警告（备份本体已写成功）。
 

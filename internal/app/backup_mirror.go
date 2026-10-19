@@ -201,9 +201,11 @@ func (a *app) gitModeDetailText() string {
 		return locales.GitDetailPickFirst()
 	case !dirIsGitRepo(dir):
 		return locales.GitDetailNotRepo()
+	case a.prefs.Backup.GitMode == "commit":
+		return locales.GitModeCommitDetail()
 	case a.prefs.Backup.GitMode == "commitPush":
 		return locales.GitModeCommitPushDetail()
 	default:
-		return locales.GitModeCommitDetail()
+		return locales.GitModeOffDetail()
 	}
 }

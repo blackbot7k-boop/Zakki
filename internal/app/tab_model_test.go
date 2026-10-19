@@ -310,14 +310,19 @@ func TestTabSnapshotDeepCopy(t *testing.T) {
 // ---- 液态动画几何（纯函数） ----
 
 func TestLiquidGeometry(t *testing.T) {
-	// 槽位布局：中心距 = 宽度均值 + 间距。
-	widths := tabSlotWidths(pillWidthOf(100), 3, 1)
+	// 未命名：每个标记一样宽。有名字：当前槽是色条，其余仍是圆点。
+	widths := equalTabWidths(3)
 	slots, total := layoutTabSlots(widths)
-	if total != pillWidthOf(100)+dotDiameter*2+dotGap*2 {
+	if total != dotDiameter*3+dotGap*2 {
 		t.Fatalf("总宽 = %g", total)
 	}
-	if slots[1].w != pillWidthOf(100) {
-		t.Fatalf("当前槽宽 = %g", slots[1].w)
+	named := tabSlotWidths(pillWidthOf(100), 3, 1)
+	slots, total = layoutTabSlots(named)
+	if total != pillWidthOf(100)+dotDiameter*2+dotGap*2 {
+		t.Fatalf("命名后总宽 = %g", total)
+	}
+	if slots[1].w != pillWidthOf(100) || slots[0].w != dotDiameter {
+		t.Fatalf("命名槽 = %+v", slots)
 	}
 	if d := slots[1].cx - slots[0].cx; d != dotDiameter/2+dotGap+pillWidthOf(100)/2 {
 		t.Fatalf("相邻中心距 = %g", d)
@@ -555,9 +560,10 @@ func TestTabMorphStaysVisibleAtOvershoot(t *testing.T) {
 	if !ok {
 		t.Fatal("missing tab 1 slot")
 	}
-	// 采样目标槽左缘外侧 5px（余量区内）：命中的应是飞行中的胶囊
-	// 而不是背景（背景=胶囊被裁剪消失）。
-	pix := color.NRGBAModel.Convert(tt.Image().At(int(r0.X-5), int(r0.Y+11))).(color.NRGBA)
+	// 采样飞行中的圆点中心：回弹会越过目标槽，裁掉后这里只剩背景。
+	restCX := r0.X + r0.W/2
+	flyCX := restCX + (a.morph.bodyAt(clk.now()).cx - a.morph.toBody.cx)
+	pix := color.NRGBAModel.Convert(tt.Image().At(int(flyCX), int(r0.Y+r0.H/2))).(color.NRGBA)
 	isBackground := pix.R == background.R && pix.G == background.G && pix.B == background.B
 	if isBackground {
 		t.Fatalf("回弹点胶囊被裁剪消失: pixel=%+v background=%+v", pix, background)
@@ -688,7 +694,7 @@ func TestTabsSettingsPage(t *testing.T) {
 		}
 	}
 	// 外观区控件。
-	for _, want := range []string{"标签标题最大宽度", "切换动画速度", "彩色圆点", "毛玻璃回退强度"} {
+	for _, want := range []string{"标签标题最大宽度", "切换动画速度", "毛玻璃回退强度"} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观区缺少 %q，texts=%q", want, tt.Texts())
 		}
@@ -754,7 +760,7 @@ func TestTabsSettingsPaletteToggleAndSelectThroughUI(t *testing.T) {
 	a.tabs[0].Color = tabPaletteColors[0]
 	tt := ui.NewTester(a.settingsView, 760, 600)
 
-	if err := tt.Click(locales.TabColorOf(tabPaletteColors[0])); err != nil {
+	if err := tt.Click(locales.TabRecolor()); err != nil {
 		t.Fatal(err)
 	}
 	if a.settingsUI.expandedColor != tabID {
@@ -770,13 +776,13 @@ func TestTabsSettingsPaletteToggleAndSelectThroughUI(t *testing.T) {
 		t.Fatalf("选择颜色后调色板应收起: %d", a.settingsUI.expandedColor)
 	}
 
-	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
+	if err := tt.Click(locales.TabRecolor()); err != nil {
 		t.Fatal(err)
 	}
 	if a.settingsUI.expandedColor != tabID {
 		t.Fatal("调色板应可再次展开")
 	}
-	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
+	if err := tt.Click(locales.TabRecolor()); err != nil {
 		t.Fatal(err)
 	}
 	if a.settingsUI.expandedColor != 0 {

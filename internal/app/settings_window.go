@@ -40,6 +40,7 @@ type settingsUIState struct {
 	codeThemeSel      string
 	tabAnimSpeedSel   string
 	tabDotShapeSel    string
+	tabShapeIdx       int
 
 	// 标签页：展开了调色板的标签 ID（0 = 无）。
 	expandedColor uint64
@@ -251,7 +252,7 @@ func (a *app) settingsView(c *ui.Context) {
 			case pageAppearance:
 				a.appearancePage(c)
 			case pageTabs:
-				a.tabsPage(c, &t, dark)
+				a.tabsPage(c, &t)
 			case pageBackup:
 				a.backupPage(c, &t, dark)
 			case pageKeymap:
@@ -358,6 +359,8 @@ func (a *app) resetPageDefaults(page string) {
 		switch page {
 		case pageGeneral:
 			p.Window = defaults.Window
+			p.Advanced.WindowWidth = defaults.Advanced.WindowWidth
+			p.Advanced.WindowHeight = defaults.Advanced.WindowHeight
 		case pageAppearance:
 			p.Appearance = defaults.Appearance
 		case pageBackup:
@@ -373,6 +376,27 @@ func (a *app) resetPageDefaults(page string) {
 }
 
 // ---- 通用小部件 ----
+
+// settingsLead 分组下的一句说明，代替每行一段长注释。
+func settingsLead(c *ui.Context, text string) {
+	if text == "" {
+		return
+	}
+	ui.Text(c, text).FontSize(12).TextColor(tMuted(c)).Padding(0, 0, 6, 0)
+}
+
+// settingsCompactRow 紧凑的一行：标签在左，控件在右，说明最多一行。
+func settingsCompactRow(c *ui.Context, label, detail string, control func()) ui.Element {
+	return ui.Column(c).FillWidth().Gap(2).PaddingY(8).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+			ui.Text(c, label).Grow(1)
+			control()
+		})
+		if detail != "" {
+			ui.Text(c, detail).FontSize(11).TextColor(tMuted(c))
+		}
+	})
+}
 
 // settingsRow 一行：左侧标签 + 右侧控件。
 func settingsRow(c *ui.Context, label, detail string, control func()) ui.Element {

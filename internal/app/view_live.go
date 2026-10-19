@@ -41,26 +41,25 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	// 快照 active：块内 Enter 可能在本轮构建中把 mdActive 挤到别的块，
 	// 同一帧不能因此误建第二个编辑器（同 handle 冲突），重建交给下一帧。
 	active := a.mdActive
-	// 外层 Column 兜底空白点击：List 自身不报告左右留白与行间空隙的点击。
+	// 外层 Column 接收列表不报告的左右留白和行间空隙。纵坐标还能对上某一行时，
+	// 光标落在那一行的点击位置；只有点在最后一块下方的纸面才去文末。
 	wrap := ui.Column(c).Fill().Grow(1)
-	// List 不报告左右留白与行间空隙的点击；外层 Column 兜底为「空白点击」。
-	// 内层行/输入框的点击会先置 liveClickHandled（同为 OnClick 回调，按构建
-	// 顺序先执行），空白点击据此让路。
+	var hits []liveHit
 	wrap.OnClick(func() {
 		if !a.liveClickHandled {
-			a.focusBlockEnd(len(a.mdBlocks()) - 1)
+			a.focusNearestHit(c, hits, style.blockGap, true)
 		}
 	})
 	wrap.Children(func() {
 		list := ui.List(c, &a.liveList, len(blocks), func(i int) {
 			blk := blocks[i]
 			if i == active {
-				a.activeBlock(c, t)
+				a.activeBlock(c, t, &hits)
 				return
 			}
 			start := blockStarts[i]
 			blockEnd := blockStarts[i+1] - 1
-			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1)
+			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1, &hits)
 		})
 		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
 			TrackScroll(&a.liveScroll).
@@ -78,14 +77,13 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 			})
 		}
 	})
-	// 点击内容区空白也是编辑意图：见 wrap.OnClick；内层文字、输入框和表格
-	// 已处理的点击保留自己的光标，不被重定向。
+	// 内层文字、输入框和表格已处理的点击保留自己的光标。
 	// 只消费一次点击标记，避免影响下一次视口点击。
 	a.liveClickHandled = false
 }
 
 // activeBlock keeps the block's rendered structure while editing visible contents.
-func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
+func (a *app) activeBlock(c *ui.Context, t *ui.Theme, hits *[]liveHit) {
 	blk := a.mdBlocks()[a.mdActive]
 	var projection liveProjection
 	if blk.kind != bkTable {
@@ -102,6 +100,10 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 	if a.selDoc {
 		row.Background(t.Selection)
 	}
+	before := 0
+	if hits != nil {
+		before = len(*hits)
+	}
 	row.Children(func() {
 		switch blk.kind {
 		case bkTable:
@@ -109,36 +111,44 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme) {
 		case bkHeading:
 			if md.sketch {
 				sketchHeadingFrame(c, md, blk, projection.text).Children(func() {
-					a.activeText(c, t, blk, projection)
+					a.activeText(c, t, blk, projection, hits)
 				})
 			} else {
-				a.activeText(c, t, blk, projection)
+				a.activeText(c, t, blk, projection, hits)
 			}
 		case bkTask:
 			a.taskCheckbox(c, blk, md)
-			a.activeText(c, t, blk, projection)
+			a.activeText(c, t, blk, projection, hits)
 		case bkList:
 			listMarker(c, md, blk)
-			a.activeText(c, t, blk, projection)
+			a.activeText(c, t, blk, projection, hits)
 		case bkQuote:
 			quoteBar(c, md, uint32(blk.start))
-			a.activeText(c, t, blk, projection)
+			a.activeText(c, t, blk, projection, hits)
 		case bkCode:
 			codeCard(c, md, t, uint32(blk.start)).FillWidth().Children(func() {
-				a.activeText(c, t, blk, projection)
+				a.activeText(c, t, blk, projection, hits)
 			})
 		case bkRule:
 			ui.Column(c).FillWidth().Children(func() {
 				ruleLine(c, md, uint32(blk.start))
-				a.activeText(c, t, blk, projection)
+				a.activeText(c, t, blk, projection, hits)
 			})
 		default:
-			a.activeText(c, t, blk, projection)
+			a.activeText(c, t, blk, projection, hits)
 		}
 	})
+	// 点在标记、引用条或行的留白上时，输入框没有接到这次点击。
+	if hits != nil && len(*hits) > before {
+		mine := append([]liveHit(nil), (*hits)[before:]...)
+		row.OnClick(func() {
+			a.liveClickHandled = true
+			a.focusNearestHit(c, mine, 0, false)
+		})
+	}
 }
 
-func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjection) {
+func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjection, hits *[]liveHit) {
 	md := a.resolveStyle(-1, themeIsDark(t), true)
 	if a.mdProjection.raw != p.raw || a.mdProjection.start != p.start || a.mdProjection.end != p.end || a.mdProjection.cell != p.cell {
 		a.mdVisible = p.text
@@ -177,6 +187,16 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	// 当作空白点击，从而将光标重置到文末。
 	if ta.Clicked() {
 		a.liveClickHandled = true
+	}
+	if hits != nil {
+		mdFont := bodyLiveFont(md)
+		switch blk.kind {
+		case bkHeading:
+			mdFont = headingLiveFont(md, blk.level)
+		case bkCode:
+			mdFont = codeLiveFont(md)
+		}
+		recordLiveHit(ta, a.mdActive, p, mdFont, hits)
 	}
 	if a.liveFocus > 0 {
 		a.liveFocus = 0
@@ -337,9 +357,9 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	}
 }
 
-// liveBlockRow 渲染一个非焦点块；整行可点击进入编辑。
-// 勾选框是更内层的可点元素，它的点击不会冒泡到行（不会误切换焦点块）。
-func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool, docStart, docEnd int) {
+// liveBlockRow 渲染一个非焦点块。点在文字上时按排版落光标；点在标记或行内留白上时，
+// 用同一行的文字盒子换算。勾选框是更内层的可点元素，它的点击不会冒泡到行。
+func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool, docStart, docEnd int, hits *[]liveHit) {
 	var row ui.Element
 	if blk.kind == bkBlank {
 		// 源码分隔符不占行高；额外的空段落可见、可点击，且一次退格只删一个。
@@ -348,73 +368,148 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 			height = 0
 		}
 		row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).FillWidth().Height(height)
+		if !separator {
+			row.OnClick(func() {
+				a.liveClickHandled = true
+				a.focusBlock(i, 0, 0)
+			})
+			if hits != nil {
+				recordLiveHit(row, i, a.previewProjection(blk), ui.Font{}, hits)
+			}
+		}
 	} else {
+		before := 0
+		if hits != nil {
+			before = len(*hits)
+		}
 		row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).Gap(8).FillWidth()
-		row.Children(func() { a.renderLiveBlock(c, t, dark, blk) })
+		row.Children(func() { a.renderLiveBlock(c, t, dark, i, blk, hits) })
+		var mine []liveHit
+		if hits != nil {
+			mine = append([]liveHit(nil), (*hits)[before:]...)
+		}
+		if len(mine) == 0 && hits != nil {
+			n := utf8.RuneCountInString(blk.raw)
+			recordLiveHit(row, i, projectRegion(blk.raw, n, n, false, false), ui.Font{}, hits)
+		}
+		row.OnClick(func() {
+			a.liveClickHandled = true
+			if len(mine) == 0 {
+				n := utf8.RuneCountInString(blk.raw)
+				a.focusBlock(i, n, n)
+				return
+			}
+			a.focusNearestHit(c, mine, 0, false)
+		})
 	}
 	// 文档级全选：非焦点块画选区底色，提示它在选区内。
 	if a.blockSelectionBand(docStart, docEnd) {
 		row.Background(t.Selection)
 	}
-	row.OnClick(func() {
-		a.liveClickHandled = true
-		n := utf8.RuneCountInString(blk.raw)
-		a.focusBlock(i, n, n)
-	})
 }
 
 // renderLiveBlock 输出一个非焦点块的排版内容（列表现有 Row 内）。
-func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, blk liveBlock) {
+func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, hits *[]liveHit) {
 	md := a.resolveStyle(-1, dark, true)
 	switch blk.kind {
 	case bkTable:
 		a.tableGrid(c, t, md, blk, false)
 	case bkHeading:
+		proj := a.previewProjection(blk)
+		font := headingLiveFont(md, blk.level)
 		if md.sketch {
-			a.sketchHeading(c, t, md, blk)
+			sketchHeadingFrame(c, md, blk, proj.text).Children(func() {
+				h := proj.content(c, t, md).TextColor(t.Text)
+				styleHeading(h, blk.level, md)
+				a.bindPreviewClick(h, i, proj, font, hits)
+			})
 			return
 		}
-		h := a.previewProjection(blk).content(c, t, md).TextColor(t.Text)
+		h := proj.content(c, t, md).TextColor(t.Text).Grow(1)
 		styleHeading(h, blk.level, md)
+		a.bindPreviewClick(h, i, proj, font, hits)
 	case bkRule:
 		ruleLine(c, md, uint32(blk.start))
 	case bkQuote:
+		proj := a.previewProjection(blk)
 		quoteBar(c, md, uint32(blk.start))
-		ui.RichText(c).Grow(1).TextColor(t.TextMuted).Children(func() {
+		quote := ui.RichText(c).Grow(1).TextColor(t.TextMuted)
+		quote.Children(func() {
 			renderInline(c, t, md, blk.text, blk.spans)
 		})
+		a.bindPreviewClick(quote, i, proj, bodyLiveFont(md), hits)
 	case bkCode:
-		codeCard(c, md, t, uint32(blk.start)).Fill().Children(func() {
-			cp, codeOn := codePaletteFor(a.prefs.Appearance.CodeTheme, t)
-			var spans [][]ui.Span
-			if codeOn {
-				spans = a.previewCode(blk, cp)
-			}
-			lines := blk.lines
-			if len(lines) == 0 {
-				lines = []string{" "}
-			}
-			for i, l := range lines {
-				if l == "" {
-					l = " "
-				}
-				if codeOn {
-					ui.RichText(c, spans[i]...).
-						Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
-				} else {
-					ui.Text(c, l).Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh)
-				}
-			}
-		})
+		a.renderCodePreview(c, t, md, i, blk, hits)
 	case bkList:
+		proj := a.previewProjection(blk)
 		listMarker(c, md, blk)
-		inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
+		text := inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
+		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	case bkTask:
+		proj := a.previewProjection(blk)
 		a.taskCheckbox(c, blk, md)
-		a.previewProjection(blk).content(c, t, md).Grow(1)
+		text := proj.content(c, t, md).Grow(1)
+		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	default:
-		a.previewProjection(blk).content(c, t, md).Grow(1)
+		proj := a.previewProjection(blk)
+		text := proj.content(c, t, md).Grow(1)
+		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	}
+}
+
+// renderCodePreview 把代码块的每一行铺满卡片宽度。点在短行右侧空白时，
+// 光标停在这一行，而不是整个代码块的末尾。
+func (a *app) renderCodePreview(c *ui.Context, t *ui.Theme, md resolvedStyle, block int, blk liveBlock, hits *[]liveHit) {
+	proj := a.previewProjection(blk)
+	codeCard(c, md, t, uint32(blk.start)).Fill().Children(func() {
+		cp, codeOn := codePaletteFor(a.prefs.Appearance.CodeTheme, t)
+		var spans [][]ui.Span
+		if codeOn {
+			spans = a.previewCode(blk, cp)
+		}
+		lines := blk.lines
+		shown := lines
+		if len(shown) == 0 {
+			shown = []string{" "}
+		}
+		font := codeLiveFont(md)
+		off := proj.start
+		for i, l := range shown {
+			source := ""
+			if i < len(lines) {
+				source = lines[i]
+			}
+			n := utf8.RuneCountInString(source)
+			lineProj := projectRegion(blk.raw, off, off+n, false, false)
+			display := l
+			if display == "" {
+				display = " "
+			}
+			var el ui.Element
+			if codeOn && i < len(spans) {
+				el = ui.RichText(c, spans[i]...).
+					Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh).FillWidth()
+			} else {
+				el = ui.Text(c, display).
+					Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh).FillWidth()
+			}
+			lineStart := off
+			el.Selectable().OnClick(func() {
+				a.liveClickHandled = true
+				if source == "" {
+					a.focusBlock(block, lineStart, lineStart)
+					return
+				}
+				s, e := el.TextSelection()
+				s, e = clamp(s, 0, n), clamp(e, 0, n)
+				a.focusBlock(block, lineStart+s, lineStart+e)
+			})
+			if hits != nil {
+				recordLiveHit(el, block, lineProj, font, hits)
+			}
+			off += n + 1
+		}
+	})
 }
 
 // inlineContent 输出段落文字：无行内标记时用普通 Text（可被命中测试/测试

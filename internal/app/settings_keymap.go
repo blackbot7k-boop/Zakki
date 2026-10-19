@@ -56,13 +56,13 @@ func (a *app) syncGlobalHotkey() bool {
 
 func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Column(c).Fill().Grow(1).Gap(10).Children(func() {
+		settingsLead(c, locales.KeymapHint())
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Text(c, locales.KeymapHint()).FontSize(12).TextColor(tMuted(c)).Grow(1)
+			ui.SearchField(c, &a.settingsUI.keySearch).Placeholder(locales.KeymapSearchPlaceholder()).Grow(1)
 			if ui.Button(c, locales.KeymapResetAll()).Clicked() {
 				a.confirmResetPage(pageKeymap)
 			}
 		})
-		ui.SearchField(c, &a.settingsUI.keySearch).Placeholder(locales.KeymapSearchPlaceholder()).FillWidth()
 
 		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Gap(12).Children(func() {
@@ -78,8 +78,9 @@ func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 						}
 					})
 				}
+				settingsSectionTitle(c, locales.KeymapFixedTitle())
 				ui.Text(c, locales.KeymapFixedHint()).
-					FontSize(11).TextColor(tMuted(c))
+					FontSize(12).TextColor(tMuted(c))
 			})
 		})
 
@@ -134,8 +135,9 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
 		ui.Text(c, commandDisplayName(def)).Grow(1)
-		badge := ui.Box(c.Key("bind-"+def.id)).Padding(2, 8).Radius(5).
+		badge := ui.Box(c.Key("bind-"+def.id)).MinWidth(88).Padding(2, 8).Radius(5).
 			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Border).
+			AlignItems(ui.Center).Justify(ui.Center).
 			Label(locales.KeymapCurrent(display)).Children(func() {
 			ui.Text(c, display).FontSize(12)
 		})

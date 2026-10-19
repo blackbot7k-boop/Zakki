@@ -239,7 +239,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 							p := preview.tableEditor(positions[ci])
 							// Alignment and header weight are inherited by the input.
 							ui.Box(c).FillWidth().TextAlign(tableAlignment(blk.table.align[col])).Children(func() {
-								a.activeText(c, t, blk, p)
+								a.activeText(c, t, blk, p, nil)
 							})
 						} else {
 							p := liveProjection{text: " "}

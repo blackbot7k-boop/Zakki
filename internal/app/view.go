@@ -1,7 +1,7 @@
 package app
 
 // 主界面：液态标签栏与 Typora 式编辑器。
-//   顶栏 38pt，中性材质，可拖动窗口：⊗ 关闭窗口 · 动态实心标签居中 · 置顶
+//   顶栏 38pt，中性材质，可拖动窗口：⊗ 关闭窗口 · 圆点居中（有名字时当前是色条）· 置顶
 //   查找条（搜索图标打开）：搜索框 + 命中计数，Enter 跳到下一个
 //   内容区：Typora 式所见即所得编辑（焦点块保留排版；⌘⇧P 切源码模式），
 //           背景为统一中性材质
@@ -152,23 +152,50 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 	windowW, _ := c.Size()
 	available := max(1, windowW-60)
 	name := a.displayTitle(a.active)
-	titleW := measuredTitleWidth(name, a.tabTitleWidthLimit(), measure)
-	if a.renaming != 0 {
-		titleW = max(titleW, 120)
+	titleW := float32(0)
+	if name != "" || a.renaming != 0 {
+		titleW = measuredTitleWidth(name, a.tabTitleWidthLimit(), measure)
+		if a.renaming != 0 {
+			titleW = max(titleW, 120)
+		}
 	}
-	slots, total, titleW := fitTabLayout(available-2*morphPadX, titleW, len(a.tabs), a.active)
-	if a.renaming != 0 {
-		// Editing needs a usable field even when the strip has to scroll.
-		titleW = max(titleW, 80)
-		slots, total = layoutTabSlotsWithGap(tabSlotWidths(pillWidthOf(titleW), len(a.tabs), a.active), 4)
+	n := len(a.tabs)
+	var slots []tabSlotGeom
+	var total float32
+	if titleW > 0 {
+		slots, total, titleW = fitTabLayout(available-2*morphPadX, titleW, n, a.active)
+		if a.renaming != 0 {
+			titleW = max(titleW, 80)
+			slots, total = layoutTabSlotsWithGap(tabSlotWidths(pillWidthOf(titleW), n, a.active), 4)
+		}
+	} else {
+		// 端部留白：滑动回弹会越过第一枚和最后一枚圆点，没有余量时会被滚动视口裁掉。
+		const edgePad = morphPadX
+		gap := dotGap
+		slots, total = layoutTabSlotsWithGap(equalTabWidths(n), gap)
+		if available < total+2*edgePad && n > 1 {
+			gap = clampF((available-2*edgePad-float32(n)*dotDiameter)/float32(n-1), 4, dotGap)
+			slots, total = layoutTabSlotsWithGap(equalTabWidths(n), gap)
+		}
+		for i := range slots {
+			slots[i].cx += edgePad
+		}
+		total += 2 * edgePad
 	}
-	contentW := max(available, total+2*morphPadX)
+	contentW := max(available, total)
+	if titleW > 0 {
+		contentW = max(available, total+2*morphPadX)
+	}
 	inset := (contentW - total) / 2
 	for i := range slots {
 		slots[i].cx += inset
 	}
 	title, textW := fitTabTitle(name, titleW, measure)
-	body := tabBody{cx: slots[a.active].cx, w: slots[a.active].w, h: pillHeight,
+	bodyH := dotDiameter
+	if titleW > 0 {
+		bodyH = pillHeight
+	}
+	body := tabBody{cx: slots[a.active].cx, w: slots[a.active].w, h: bodyH,
 		color: a.tabInk(a.active, dark), title: title, textW: textW}
 	ids := make([]uint64, len(a.tabs))
 	for i := range ids {
@@ -201,8 +228,7 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 	selected := i == a.active
 	renaming := a.renaming == tb.ID
 	if renaming {
-		// 失焦即提交：焦点曾落在输入框、现已离开（点内容、其他标签或切走
-		// 窗口）且不在输入法组合中——等同回车，但不抢回内容焦点。
+		// 失焦即提交：焦点曾落在输入框、现已离开，且不在输入法组合中。
 		if ui.FocusedValue(c, &a.renameFocus) == 1 {
 			a.renameSeenFocus = true
 		} else if a.renameSeenFocus && !a.renameComposing {
@@ -210,10 +236,14 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 			renaming = false
 		}
 	}
-	hitW := max(24, slot.w)
+	hitW := max(float32(24), slot.w)
+	radius := dotDiameter / 2
+	if slot.w > dotDiameter+1 {
+		radius = pillHeight / 2
+	}
 	btn := ui.ButtonBase(c.Key(fmt.Sprintf("tab-%d", tb.ID))).Label(a.menuTitle(i)).
 		Absolute().Left(slot.cx-hitW/2).Top((tabTrackHeight-28)/2).
-		Size(hitW, 28).Radius(pillHeight / 2).Cursor(ui.CursorPointer).FocusRing(true)
+		Size(hitW, 28).Radius(radius).Cursor(ui.CursorPointer).FocusRing(true)
 	if selected && reveal {
 		btn.ScrollIntoView()
 	}
@@ -228,19 +258,16 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 				a.renameComposing = in.Composing()
 			})
 		})
-	} else {
-		btn.OnClick(func() { a.switchTab(i) })
-		if selected && btn.DoubleClicked() {
-			a.beginRename(i)
-		}
+		return
+	}
+	btn.OnClick(func() { a.switchTab(i) })
+	if selected && btn.DoubleClicked() {
+		a.beginRename(i)
 	}
 }
 
 // tabInk 标签圆点的墨色：关闭彩色圆点或空标签用中性色，其余用标签色。
 func (a *app) tabInk(i int, dark bool) ui.Color {
-	if a.cfg.MonoDots {
-		return monoInk(dark)
-	}
 	if i != a.active && strings.TrimSpace(a.tabs[i].Text) == "" {
 		return emptyDotInk(dark)
 	}
@@ -446,11 +473,7 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(36).Background(bg).
 		Padding(0, 14).Gap(8).AlignItems(ui.Center).Children(func() {
 		// 标签色小标识：不随标签换底色，只留这一点颜色。
-		dotInk := a.tabColor(a.active)
-		if a.cfg.MonoDots {
-			dotInk = monoInk(dark)
-		}
-		ui.Box(c).Width(8).Height(8).Radius(999).Background(dotInk)
+		ui.Box(c).Width(8).Height(8).Radius(999).Background(a.tabColor(a.active))
 		lines, words, chars := a.docStats(a.activeTab().Text)
 		ui.Text(c, locales.StatsLinesWordsChars(lines, words, chars)).
 			FontSize(12).TextColor(fg)
