@@ -29,13 +29,13 @@
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责载入与备份直写单一目的地，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责最近备份时间的后台恢复。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），用每 rune 一位的占用位图判交，保留搜索优先与重叠候选整段拒绝；代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
 | `internal/app/view_codehl.go` | 代码配色方案表 `codeSchemes`（柔和/明快 × 浅深）与解析 `codePaletteFor`；`codeLineSpans`（实时预览 RichText）与 `codeSourceRanges`（源码 TextRange）把 `internal/codehl` 词法片段套色。 |
-| `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
-| `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。 |
+| `internal/app/menu_commands.go` | 命令注册表 `commandRegistry`（ID/名称/分组/默认绑定，Markdown 命令 + 全局唤起）：菜单、Keymap 设置页、窗口兑底与编辑器共用；加速器解析/规范化/显示名（`parseAccelerator`/`accelerator`/`displayName`）、平台默认键（`defaultBindingForPlatform`：标题退到次级修饰键 mac ⌃N / 其他平台 Alt+N）、录键校验（`validateBinding`）与冲突检测（`findBindingConflict`，含固定键与系统保留键）。 |
+| `internal/app/menu_edit.go` | 编辑命令路由：正文聚焦时，菜单栏与右键菜单的撤销、重做及剪贴板操作共用文档事务；搜索、标签重命名和设置中的输入保留系统编辑角色。焦点切换时 `refreshEditMenuRouting` 只刷新编辑子菜单项（系统 Role ↔ 应用 Click），不全量 `buildMenu`。右键命令在主视图帧末执行，避免控件构建期间重复记录历史。`copyTabTextToClipboard` 供菜单与快捷键兑底共用。 |
 | `internal/app/live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
 | `internal/app/live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
 | `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"`），五页导航与草稿绑定；变更经 `updatePreferences`；快捷键页录键与冲突检测，全局热键先注册新键再注销旧键。字段契约见 [configuration.md](configuration.md)。 |
@@ -53,7 +53,8 @@
 | `internal/app/live_blocks.go` | 按行切块：`liveBlocks` / `parseLines`。焦点块保留排版并编辑可见文字；Markdown 标记留在源文本中。 |
 | `internal/app/live_edit.go` | 草稿提交与焦点：`commitDraft`、`publishDraft`、`focusBlock`、块缓存与 rune 首偏移表。文档重切换代时清理预览派生缓存；偏移表重建分配新切片，不覆写当前构建帧持有的旧代。 |
 | `internal/app/live_preview_cache.go` | 当前文档块代际的有限缓存（最多 64 块）：可见文字投影、表格 cell/偏移与代码 token spans；只保存纯数据，不保存 UI 元素/Context，不保留历史版本。切标签、重切和编辑失效，代码颜色随完整 palette 失效；仍由原控件整体布局单个大块。 |
-| `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块。 |
+| `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块；代码块内 Enter 委托 `applyCodeEnter`。 |
+| `internal/app/live_codeblock.go` | 围栏代码块专属编辑：Tab/Shift+Tab 缩进（`applyCodeTab`，单位取外观页 `appearance.codeIndent`，退化围栏落到合成内容行）、Enter 续行缩进（`applyCodeEnter`，继承行首缩进、开括号再加一级）、右下角语言徽标（`codeLangBadge`：FocusBind 聚焦、失焦/Enter 提交、Esc 取消，改写围栏 info 串不经 `applyDocEditAt` 以免抢主编辑器焦点；会话态 `codeLang*` 存 `liveEditorState`）。 |
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
 | `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
 | `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索仅覆盖颜色与字重，保留字体、斜体、装饰与底色；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
@@ -65,7 +66,8 @@
 | `internal/app/live_syntax.go` | 块级类型与 `parseBlocks`（测试/预览适配）；行内解析与格式变换见 `internal/markdown`。 |
 | `internal/app/view_icons.go` | 内嵌 Lucide 图标（ISC 许可），24×24 viewBox、2px 圆头描边，`ui.MustParseSVG` 生成。 |
 | `internal/app/tray_icon.go` / `internal/app/assets/tray.png` / `internal/app/assets/tray-black.png` | 托盘图标：内嵌「墨 Z」手写字母 PNG（`trayPNG`，36×36px，与应用图标配套，白墨/黑墨两版）；macOS 以模板自动适配菜单栏明暗，其他平台系统不管模板，按桌面明暗选墨色并随 `Theme.OnUpdated` 切换，避免图标隐入同色任务栏。`assets/tray.svg` 保留矢量源。 |
-| `internal/app/shortcut_text.go` | 静态快捷键文案的平台转换：locale 字符串以 macOS 符号书写，非 macOS 展示前经 `shortcutText` 转成 Ctrl/Alt/Shift；动态键位展示走 `keyBinding.displayNameForPlatform`。 |
+| `internal/app/shortcut_fallback.go` | 窗口级快捷键兑底：每帧从统一键位表（命令绑定 + 固定键 + 用户覆盖）注册 `Context.Shortcut`，动作与菜单 Click 同一实现。macOS 菜单 accelerator 在系统层先消费、兑底不触发；Windows 原生 surface 不触发菜单 accelerator，兑底即实际触发路径。编辑角色六键由 ui 引擎内建处理不重复注册。 |
+| `internal/app/shortcut_text.go` | 静态快捷键文案的平台转换：locale 字符串以 macOS 符号书写，非 macOS 展示前经 `shortcutText` 转成 Ctrl/Alt/Shift（⌃ 即 mac 标题键映射为 Alt）；动态键位展示走 `keyBinding.displayNameForPlatform`。 |
 | `internal/app/font_hand.go` / `resources/LXGWWenKaiLite-Regular.ttf` | 内置手写体：霞鹜文楷 Lite（OFL 许可，许可见 `resources/OFL-LXGW-WenKai-Lite.txt`）。字体以单份资源随包分发（macOS 在 Contents/Resources，Windows 在 exe 旁），不 go:embed——嵌入 universal 二进制会每架构各带一份。`registerHandFont`（sync.Once 幂等）只调用一次 `ui.RegisterFont`（每次注册都会整份拷贝字体进 CoreText），由手写字体栈解析路径懒触发，手写主题用户在 WhenReady 开窗前预热；非手写用户不付这份内存。字体栈只允许引用已注册家族名或已知安全的回退名，否则无头环境的文本布局会阻塞在系统按需字体下载上（`TestHandFontCoversStacks` 兼守）。 |
 | `resources/icon.png` / `resources/icon.svg` | 「墨 Z」应用图标：米色纸上一笔手写 Z 加朱红句点（1024×1024 PNG 与 SVG 源文件），MyGo 构建时生成 macOS ICNS 与 Windows ICO。设计原型保留在 `docs/demo/app-icon/`，不参与构建。 |
 
@@ -189,13 +191,14 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **6**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **7**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
 版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）；
 版本 6 起备份只有一个文件夹：`backup.mirrorDir` 更名为 `backup.backupDir` 并成为唯一备份地址，
-`gitMode` 随 Git 自动化移除，旧键由 `Decode` 在严格解码前摘除后平移。
-旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 6。旧版本程序读到版本 6 会按
+`gitMode` 随 Git 自动化移除，旧键由 `Decode` 在严格解码前摘除后平移；
+版本 7 起 `appearance.codeIndent` 只有 `space2` / `space4` 两档（默认 2 空格），旧文件从未写过该键，升级时补默认。
+旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 7。旧版本程序读到版本 7 会按
 「版本超前」拒绝并保留原文件。
 退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
 失败返回 `finishQuit`，阻止退出或更新重启。
