@@ -43,7 +43,6 @@ func TestSlowSaveLeavesStateResponsive(t *testing.T) {
 				if operation == "status" {
 					s.LastSaveError()
 					s.LastBackupTime()
-					s.MirrorStatus()
 				} else {
 					s.ScheduleDebounced(file, time.Hour, time.Hour, 20, nil)
 				}
@@ -77,7 +76,6 @@ func BenchmarkSaveContention(b *testing.B) {
 				if operation == "status" {
 					s.LastSaveError()
 					s.LastBackupTime()
-					s.MirrorStatus()
 				} else {
 					s.ScheduleDebounced(file, time.Hour, time.Hour, 20, nil)
 				}

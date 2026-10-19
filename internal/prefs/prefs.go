@@ -19,7 +19,9 @@ import (
 // 版本 4 起主题 ID 更名：colorTheme "tot" → "classic"、markdownTheme "tot" → "note"。
 // 版本 5 起代码块配色默认「柔和」：旧版本写入方从未写过 codeTheme 键，升级时统一补为
 // soft；版本 5 起该键始终落盘，空串是显式的「跟随文本」，不再参与补默认。
-const CurrentVersion = 5
+// 版本 6 起备份只有一个文件夹：backup.mirrorDir 更名为 backup.backupDir 并成为
+// 唯一备份存储地址；gitMode 随 Git 自动化一并移除，旧键由迁移读取后丢弃。
+const CurrentVersion = 6
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -64,12 +66,10 @@ type Backup struct {
 	IntervalMinutes int  `json:"intervalMinutes"`
 	Keep            int  `json:"keep"`
 	OnLaunch        bool `json:"onLaunch"`
-	// MirrorDir 是外部备份目的地（云盘同步文件夹或 Git 仓库的本地 clone），
-	// 空串表示未配置，仅保留本地备份。每次本地备份成功后镜像一份到这里。
-	MirrorDir string `json:"mirrorDir"`
-	// GitMode 是镜像目录的 Git 自动化：off / commit / commitPush。
-	// 仅当 MirrorDir 是 Git 仓库时有意义；失败只提示，不影响备份本身。
-	GitMode string `json:"gitMode"`
+	// BackupDir 是备份文件夹：唯一的备份存储地址，每次备份直写这里。
+	// 空串 = 未选择，写入内置目录（应用数据 backups/）。可选云盘同步
+	// 文件夹（iCloud、坚果云等），即云备份。
+	BackupDir string `json:"backupDir"`
 }
 
 type Keymap struct {
@@ -93,7 +93,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			CodeTheme:      "soft",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
-		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitMode: "off"},
+		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true},
 		Keymap: Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
 			AutosaveDelayMS: 800,
@@ -127,7 +127,6 @@ func (p Preferences) Validate(v AccelValidator) error {
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
 		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley"}},
 		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
-		{"backup.gitMode", p.Backup.GitMode, []string{"off", "commit", "commitPush"}},
 	} {
 		valid := false
 		for _, allowed := range field.allowed {
@@ -191,6 +190,16 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if err := rejectJSONNull(value, "preferences"); err != nil {
 		return Preferences{}, err
 	}
+	legacyMirrorDir, hasLegacy := stripLegacyBackupKeys(value)
+	if hasLegacy {
+		// 严格解码不认旧键；重新编回 JSON 再解码。map 编码只影响键序，
+		// 不改变取值，原文件保持原样。
+		sanitized, err := json.Marshal(value)
+		if err != nil {
+			return Preferences{}, err
+		}
+		raw = sanitized
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var p Preferences
@@ -204,6 +213,10 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		return Preferences{}, fmt.Errorf("偏好版本 %d 高于当前支持的 %d（文件保持原样）", p.Version, CurrentVersion)
 	}
 	p = migrate(p)
+	if hasLegacy {
+		// 版本 6 起备份文件夹是唯一备份地址：旧 mirrorDir 平移为新键。
+		p.Backup.BackupDir = legacyMirrorDir
+	}
 	def := Default(5)
 	if p.Appearance.AppearanceMode == "" {
 		p.Appearance.AppearanceMode = def.Appearance.AppearanceMode
@@ -222,9 +235,6 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		p.Backup.Keep = def.Backup.Keep
 	}
 	// gitMode 缺键（含版本 2 及更早的文件）按关闭处理：行为与升级前一致。
-	if p.Backup.GitMode == "" {
-		p.Backup.GitMode = def.Backup.GitMode
-	}
 	if p.Advanced.AutosaveDelayMS == 0 {
 		p.Advanced.AutosaveDelayMS = def.Advanced.AutosaveDelayMS
 	}
@@ -244,7 +254,8 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // 西文当时取自同一套字体栈，因此升级后 latinFont 留空（跟随中文字体），
 // 渲染结果与升级前完全一致。版本 4 把更名前的主题 ID（"tot"）映射到新 ID
 // （"classic" / "note"），主题取值不变、只换名字。版本 5 给从未设置过代码
-// 配色的旧文件补默认方案 soft；带值文件原样保留。
+// 配色的旧文件补默认方案 soft；带值文件原样保留。版本 6 的 mirrorDir →
+// backupDir 键更名发生在严格解码前（见 Decode），这里只承载版本号提升。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -268,6 +279,31 @@ func migrate(p Preferences) Preferences {
 
 // legacyThemeTot 是主题 ID 更名前旧文件里的写法；仅用于识别旧值并映射新 ID。
 const legacyThemeTot = "tot"
+
+// stripLegacyBackupKeys 从已解码的偏好映射里摘除版本 6 移除的旧备份键，
+// 返回旧 mirrorDir 的值与是否摘除了键；gitMode 随 Git 自动化移除，直接丢弃。
+// 版本 6 及以上的文件不应再出现旧键，保持原样交给严格解码拒绝。
+func stripLegacyBackupKeys(value any) (string, bool) {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	if ver, _ := m["version"].(float64); ver >= 6 {
+		return "", false
+	}
+	b, ok := m["backup"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	dir, hasDir := b["mirrorDir"].(string)
+	_, hasGit := b["gitMode"]
+	if !hasDir && !hasGit {
+		return "", false
+	}
+	delete(b, "mirrorDir")
+	delete(b, "gitMode")
+	return dir, true
+}
 
 func rejectJSONNull(value any, path string) error {
 	if value == nil {

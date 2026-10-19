@@ -577,39 +577,37 @@ func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
 
 		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
-				settingsSectionTitle(c, locales.CardExternalBackup())
-				settingsLead(c, locales.MirrorUnconfiguredHint())
+				settingsSectionTitle(c, locales.CardBackupFolder())
+				settingsLead(c, locales.BackupFolderHint())
 				mono := monoFontStack("sfmono")
-				if dir := a.prefs.Backup.MirrorDir; dir == "" {
-					settingsCompactRow(c, locales.MirrorUnconfigured(), "", func() {
-						if ui.Button(c, locales.ChooseFolder()).Clicked() {
-							a.pickMirrorFolder()
+				// 备份文件夹是唯一存储地址：未选择时显示内置目录。
+				chosen := a.prefs.Backup.BackupDir
+				dir := a.notes.BackupDir()
+				ui.Column(c).FillWidth().PaddingY(8).Gap(6).Children(func() {
+					if chosen == "" {
+						ui.Text(c, locales.BackupNotSet()).FontSize(12).TextColor(tMuted(c))
+					}
+					ui.Text(c, dir).FontSize(12).Font(mono)
+					ui.Row(c).Gap(8).Children(func() {
+						if ui.Button(c, locales.OpenFolder()).Clicked() {
+							_ = mygo.Shell.OpenPath(dir)
 						}
-					})
-				} else {
-					ui.Column(c).FillWidth().PaddingY(8).Gap(6).Children(func() {
-						ui.Text(c, dir).FontSize(12).Font(mono)
-						ui.Text(c, a.mirrorStateText(dir)).FontSize(12).TextColor(tMuted(c))
-						ui.Row(c).Gap(8).Children(func() {
-							if ui.Button(c, locales.OpenFolder()).Clicked() {
-								_ = mygo.Shell.OpenPath(dir)
+						if chosen == "" {
+							if ui.Button(c, locales.ChooseFolder()).Clicked() {
+								a.pickBackupFolder()
 							}
+						} else {
 							if ui.Button(c, locales.CommonChange()).Clicked() {
-								a.pickMirrorFolder()
+								a.pickBackupFolder()
 							}
 							if ui.Button(c, locales.CommonDisconnect()).Clicked() {
-								a.disconnectMirror()
+								a.disconnectBackupFolder()
 							}
-						})
+						}
 					})
-				}
+				})
 				sectionDivider(c)
 				settingsSectionTitle(c, locales.CardManualActions())
-				settingsCompactRow(c, locales.OpenBackupFolder(), a.notes.BackupDir, func() {
-					if ui.Button(c, locales.OpenBackupFolder()).Clicked() {
-						_ = mygo.Shell.OpenPath(a.notes.BackupDir)
-					}
-				})
 				settingsCompactRow(c, locales.ShowDataLocation(), a.notes.DataFile, func() {
 					if ui.Button(c, locales.ShowDataLocation()).Clicked() {
 						mygo.Shell.ShowItemInFolder(a.notes.DataFile)

@@ -189,12 +189,28 @@ func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
 	if got := a.commandBindingForPlatform(cmdH1, "darwin"); got != "CmdOrCtrl+1" {
 		t.Fatalf("macOS H1 默认键 = %q", got)
 	}
-	if got := a.commandBindingForPlatform(cmdH1, "windows"); got != "CmdOrCtrl+Alt+1" {
+	// Windows 标题与 mac 同形（CmdOrCtrl+N）；标签固定键换到 Alt+N（tabAccPrefix）。
+	if got := a.commandBindingForPlatform(cmdH1, "windows"); got != "CmdOrCtrl+1" {
 		t.Fatalf("Windows H1 默认键 = %q", got)
 	}
-	colliding, _ := parseAcceleratorForPlatform("CmdOrCtrl+1", "windows")
-	if name := a.findBindingConflictForPlatform(cmdH1, colliding, "windows"); name == "" {
-		t.Fatal("Windows CmdOrCtrl+1 应与固定切换标签键冲突")
+	winTab, err := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("tab1", "windows"), "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winTab.mods != ui.Alt || winTab.displayNameForPlatform("windows") != "Alt+1" {
+		t.Fatalf("Windows 标签固定键 = %+v %q, want Alt+1", winTab, winTab.displayNameForPlatform("windows"))
+	}
+	macTab, err := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("tab1", "darwin"), "darwin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if macTab.mods != ui.Ctrl || macTab.displayNameForPlatform("darwin") != "⌃1" {
+		t.Fatalf("macOS 标签固定键 = %+v %q, want ⌃1", macTab, macTab.displayNameForPlatform("darwin"))
+	}
+	// Windows 上标题 Ctrl+1 与标签 Alt+1 不再冲突。
+	h1win, _ := parseAcceleratorForPlatform(a.commandBindingForPlatform(cmdH1, "windows"), "windows")
+	if name := a.findBindingConflictForPlatform(cmdH1, h1win, "windows"); name != "" {
+		t.Fatalf("Windows 标题键不应有冲突: %q", name)
 	}
 
 	type physicalBinding struct {
@@ -202,7 +218,7 @@ func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
 		key  ui.Key
 	}
 	seen := map[physicalBinding]string{}
-	for _, fixed := range fixedBindings {
+	for _, fixed := range fixedBindingsForPlatform("windows") {
 		b, parseErr := parseAcceleratorForPlatform(fixed.acc, "windows")
 		if parseErr != nil {
 			t.Fatalf("固定键 %s: %v", fixed.acc, parseErr)

@@ -144,7 +144,7 @@ type sourceSession struct {
 	undo, redo               []liveEdit
 }
 
-// desktopRefs 窗口、菜单、全局热键与状态栏提示。
+// desktopRefs 窗口、菜单、托盘、全局热键与状态栏提示。
 type desktopRefs struct {
 	win          *mygo.Window
 	mainWindow   atomic.Pointer[mygo.Window]
@@ -159,6 +159,7 @@ type desktopRefs struct {
 	hotkeyAcc    string
 	noticeHotkey string
 	notice       string
+	tray         *mygo.Tray
 }
 
 // prefsRuntimeState 内存中的偏好及其一次性迁移结果。

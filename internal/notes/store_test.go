@@ -2,7 +2,6 @@ package notes
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -234,28 +233,28 @@ func TestBackupThrottleAndPrune(t *testing.T) {
 				t.Fatalf("BackupNow 第 %d 次报错: %v", i+1, err)
 			}
 		}
-		if got := backupNames(t, s.BackupDir); len(got) != 2 {
+		if got := backupNames(t, s.BackupDir()); len(got) != 2 {
 			t.Fatalf("备份数 = %d (%v), want 2", len(got), got)
 		}
 	})
 
 	t.Run("五分钟内周期备份不新增", func(t *testing.T) {
-		before := backupNames(t, s.BackupDir)
+		before := backupNames(t, s.BackupDir())
 		if err := s.MaybeWritePeriodicBackup(5*time.Minute, 20); err != nil {
 			t.Fatal(err)
 		}
-		if got := backupNames(t, s.BackupDir); !reflect.DeepEqual(got, before) {
+		if got := backupNames(t, s.BackupDir()); !reflect.DeepEqual(got, before) {
 			t.Fatalf("节流期内备份被改动: %v, want %v", got, before)
 		}
 	})
 
 	t.Run("五分钟后周期备份新增", func(t *testing.T) {
 		clk.advance(5*time.Minute + time.Second)
-		before := backupNames(t, s.BackupDir)
+		before := backupNames(t, s.BackupDir())
 		if err := s.MaybeWritePeriodicBackup(5*time.Minute, 20); err != nil {
 			t.Fatal(err)
 		}
-		got := backupNames(t, s.BackupDir)
+		got := backupNames(t, s.BackupDir())
 		if len(got) != len(before)+1 {
 			t.Fatalf("备份数 = %d (%v), want %d", len(got), got, len(before)+1)
 		}
@@ -274,12 +273,12 @@ func TestBackupPruneKeepsNewest(t *testing.T) {
 		if err := s.BackupNow(20); err != nil {
 			t.Fatalf("BackupNow 第 %d 次报错: %v", i+1, err)
 		}
-		got := backupNames(t, s.BackupDir)
+		got := backupNames(t, s.BackupDir())
 		if want := min(i+1, 20); len(got) != want {
 			t.Fatalf("第 %d 次后备份数 = %d (%v), want %d", i+1, len(got), got, want)
 		}
 	}
-	kept := backupNames(t, s.BackupDir)
+	kept := backupNames(t, s.BackupDir())
 	if len(kept) != 20 {
 		t.Fatalf("最终备份数 = %d (%v), want 20", len(kept), kept)
 	}
@@ -308,7 +307,7 @@ func TestBackupNamesUniqueInSameSecond(t *testing.T) {
 			t.Fatalf("BackupNow 第 %d 次报错: %v", i+1, err)
 		}
 	}
-	names := backupNames(t, s.BackupDir)
+	names := backupNames(t, s.BackupDir())
 	if len(names) != 3 {
 		t.Fatalf("备份 = %v, want 3 份都在", names)
 	}
@@ -320,7 +319,7 @@ func TestBackupNamesUniqueInSameSecond(t *testing.T) {
 		seen[n] = true
 	}
 	for _, n := range names {
-		f := readFile(t, filepath.Join(s.BackupDir, n))
+		f := readFile(t, filepath.Join(s.BackupDir(), n))
 		if len(f.Tabs) == 0 || f.Tabs[0].Text != "同秒备份" {
 			t.Fatalf("备份 %s 内容 = %+v, want 同秒备份", n, f.Tabs)
 		}
@@ -386,347 +385,8 @@ func TestShutdownReplacesPendingAndIgnoresLaterSaves(t *testing.T) {
 		if got := readRaw(t, s.DataFile); string(got) != string(raw) {
 			t.Fatalf("退出后数据文件被改动: %q, want %q", got, raw)
 		}
-		if got := backupNames(t, s.BackupDir); len(got) != 0 {
+		if got := backupNames(t, s.BackupDir()); len(got) != 0 {
 			t.Fatalf("退出后备份被改动: %v, want 无", got)
 		}
 	})
-}
-
-// ---- 外部备份镜像与 Git 自动化 ----
-
-// gitLog 记录 fake runner 的调用，并可让特定子命令失败。
-type gitLog struct {
-	mu     sync.Mutex
-	runs   [][]string
-	failOn map[string]error
-	block  chan struct{} // 非 nil 时 add 阻塞直到关闭，用于测忙碌合并
-}
-
-func (g *gitLog) runner() GitRunner {
-	return func(dir string, args ...string) (string, error) {
-		if args[0] == "add" && g.block != nil {
-			<-g.block
-		}
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		g.runs = append(g.runs, append([]string(nil), args...))
-		if err := g.failOn[args[0]]; err != nil {
-			return "", err
-		}
-		if args[0] == "status" {
-			return "A  zakki-x.json\n", nil // add 之后总有变更
-		}
-		return "", nil
-	}
-}
-
-func (g *gitLog) ran() []string {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	var out []string
-	for _, r := range g.runs {
-		out = append(out, r[0])
-	}
-	return out
-}
-
-func (g *gitLog) has(cmd string) bool {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	for _, r := range g.runs {
-		if r[0] == cmd {
-			return true
-		}
-	}
-	return false
-}
-
-// waitForGit 轮询等待后台 Git 任务结束（BackupNow 返回时任务可能仍在跑）。
-// 上限 15 秒：race 与共享 CI runner 下文件操作可能远慢于本地。
-func waitForGit(t *testing.T, g *gitLog, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
-	t.Fatalf("等待 Git 条件超时，已执行: %v", g.ran())
-}
-
-func waitForMirror(t *testing.T, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
-	t.Fatal("等待镜像任务超时")
-}
-
-func newMirrorStore(t *testing.T, clk *testClock) (*Store, string) {
-	t.Helper()
-	s := newTestStore(t, clk.now)
-	mirror := filepath.Join(filepath.Dir(s.DataFile), "mirror")
-	if err := os.MkdirAll(mirror, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	s.SetMirror(mirror, "off")
-	if err := s.SaveNow(File{Version: CurrentDataVersion, Tabs: defaultTabs("镜像测试"), Settings: Settings{HideOnEscape: true}}); err != nil {
-		t.Fatal(err)
-	}
-	return s, mirror
-}
-
-func TestMirrorBackupCopiesAndPrunes(t *testing.T) {
-	clk := newTestClock()
-	s, mirror := newMirrorStore(t, clk)
-
-	if err := s.BackupNow(2); err != nil {
-		t.Fatalf("BackupNow 报错: %v", err)
-	}
-	waitForMirror(t, func() bool { return len(backupNames(t, mirror)) == 1 })
-	got := backupNames(t, mirror)
-	if len(got) != 1 || got[0] != backupNames(t, s.BackupDir)[0] {
-		t.Fatalf("镜像应与本地备份同名同数: mirror=%v local=%v", got, backupNames(t, s.BackupDir))
-	}
-	if string(readRaw(t, filepath.Join(mirror, got[0]))) != string(readRaw(t, filepath.Join(s.BackupDir, got[0]))) {
-		t.Fatal("镜像内容应与本地备份一致")
-	}
-	if st := s.MirrorStatus(); st.Dir != mirror || st.Err != "" || st.Last.IsZero() {
-		t.Fatalf("镜像状态错误: %+v", st)
-	}
-
-	// keep=2：多备几份后本地与镜像都只留最新 2 份。逐份等待镜像完成，
-	// 排除合并待办跳过中间快照的路径（由 TestMirrorCoalescedJobsDropStaleCopies 覆盖）。
-	for i := 0; i < 3; i++ {
-		clk.advance(time.Second)
-		if err := s.BackupNow(2); err != nil {
-			t.Fatalf("第 %d 次备份报错: %v", i+1, err)
-		}
-		waitForMirror(t, func() bool {
-			return reflect.DeepEqual(backupNames(t, s.BackupDir), backupNames(t, mirror))
-		})
-	}
-	waitForMirror(t, func() bool {
-		return reflect.DeepEqual(backupNames(t, s.BackupDir), backupNames(t, mirror))
-	})
-	if local, mir := backupNames(t, s.BackupDir), backupNames(t, mirror); !reflect.DeepEqual(local, mir) || len(mir) != 2 {
-		t.Fatalf("修剪后本地与镜像应一致且各留 2 份: local=%v mirror=%v", local, mir)
-	}
-}
-
-// 合并待办会跳过中间快照：镜像允许缺席被跳过的快照，但不允许滞留本地已修剪
-// 的旧备份——否则慢 worker 下镜像与本地清单永久发散。
-func TestMirrorCoalescedJobsDropStaleCopies(t *testing.T) {
-	clk := newTestClock()
-	s, mirror := newMirrorStore(t, clk)
-	slow := s.mirrorWrite
-	s.mirrorWrite = func(path string, raw []byte) error {
-		time.Sleep(50 * time.Millisecond) // 放大 worker 滞后，逼迫后续任务合并
-		return slow(path, raw)
-	}
-	if err := s.BackupNow(2); err != nil {
-		t.Fatalf("BackupNow 报错: %v", err)
-	}
-	waitForMirror(t, func() bool { return len(backupNames(t, mirror)) == 1 })
-	for i := 0; i < 3; i++ {
-		clk.advance(time.Second)
-		if err := s.BackupNow(2); err != nil {
-			t.Fatalf("第 %d 次备份报错: %v", i+1, err)
-		}
-	}
-	waitForMirror(t, func() bool {
-		local := backupNames(t, s.BackupDir)
-		mirrored := backupNames(t, mirror)
-		if len(local) == 0 || len(mirrored) == 0 || mirrored[len(mirrored)-1] != local[len(local)-1] {
-			return false
-		}
-		for _, name := range mirrored {
-			if !containsName(local, name) {
-				return false
-			}
-		}
-		return true
-	})
-	local, mirrored := backupNames(t, s.BackupDir), backupNames(t, mirror)
-	if len(local) != 2 || len(mirrored) == 0 || mirrored[len(mirrored)-1] != local[len(local)-1] {
-		t.Fatalf("镜像应只含本地现存备份且包含最新: local=%v mirror=%v", local, mirrored)
-	}
-}
-
-func containsName(names []string, want string) bool {
-	for _, name := range names {
-		if name == want {
-			return true
-		}
-	}
-	return false
-}
-
-func TestMirrorFailureDoesNotBlockLocalBackup(t *testing.T) {
-	s := newTestStore(t, nil)
-	// 镜像路径是一个文件：MkdirAll 必然失败。
-	blocker := filepath.Join(filepath.Dir(s.DataFile), "blocker")
-	writeRaw(t, blocker, "not a dir")
-	s.SetMirror(blocker, "off")
-	if err := s.SaveNow(File{Version: CurrentDataVersion, Tabs: defaultTabs("镜像失败"), Settings: Settings{HideOnEscape: true}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.BackupNow(20); err != nil {
-		t.Fatalf("镜像失败不得影响本地备份，得到错误: %v", err)
-	}
-	if got := backupNames(t, s.BackupDir); len(got) != 1 {
-		t.Fatalf("本地备份应存在: %v", got)
-	}
-	waitForMirror(t, func() bool { return s.MirrorStatus().Err != "" })
-	if st := s.MirrorStatus(); st.Err == "" {
-		t.Fatalf("镜像失败应记入状态: %+v", st)
-	}
-}
-
-func TestMirrorGitModes(t *testing.T) {
-
-	t.Run("off 不调用 git", func(t *testing.T) {
-		clk := newTestClock()
-		s, _ := newMirrorStore(t, clk)
-		g := &gitLog{}
-		s.RunGit = g.runner()
-		if err := s.BackupNow(20); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(20 * time.Millisecond)
-		if g.has("add") {
-			t.Fatalf("off 模式不应调用 git: %v", g.ran())
-		}
-	})
-
-	t.Run("commit 提交不推送", func(t *testing.T) {
-		clk := newTestClock()
-		s, _ := newMirrorStore(t, clk)
-		g := &gitLog{}
-		s.RunGit = g.runner()
-		s.SetMirror(s.MirrorStatus().Dir, "commit")
-		if err := s.BackupNow(20); err != nil {
-			t.Fatal(err)
-		}
-		waitForGit(t, g, func() bool { return g.has("commit") })
-		if g.has("push") {
-			t.Fatalf("commit 模式不应推送: %v", g.ran())
-		}
-		if st := s.MirrorStatus(); st.Err != "" {
-			t.Fatalf("成功后不应有错误: %+v", st)
-		}
-	})
-
-	t.Run("commitPush 推送", func(t *testing.T) {
-		clk := newTestClock()
-		s, _ := newMirrorStore(t, clk)
-		g := &gitLog{}
-		s.RunGit = g.runner()
-		s.SetMirror(s.MirrorStatus().Dir, "commitPush")
-		if err := s.BackupNow(20); err != nil {
-			t.Fatal(err)
-		}
-		waitForGit(t, g, func() bool { return g.has("push") })
-	})
-
-	t.Run("无变更跳过提交", func(t *testing.T) {
-		clk := newTestClock()
-		s, _ := newMirrorStore(t, clk)
-		g := &gitLog{failOn: map[string]error{}}
-		s.RunGit = func(dir string, args ...string) (string, error) {
-			if args[0] == "status" {
-				return "", nil // 工作区干净
-			}
-			g.mu.Lock()
-			g.runs = append(g.runs, append([]string(nil), args...))
-			g.mu.Unlock()
-			return "", nil
-		}
-		s.SetMirror(s.MirrorStatus().Dir, "commit")
-		if err := s.BackupNow(20); err != nil {
-			t.Fatal(err)
-		}
-		waitForGit(t, g, func() bool { return g.has("add") })
-		time.Sleep(20 * time.Millisecond) // 给后续步骤（不应发生）留时间
-		if g.has("commit") {
-			t.Fatalf("无变更不应提交: %v", g.ran())
-		}
-	})
-
-	t.Run("git 失败如实上报且不影响备份", func(t *testing.T) {
-		clk := newTestClock()
-		s, _ := newMirrorStore(t, clk)
-		g := &gitLog{failOn: map[string]error{"commit": errors.New("no identity")}}
-		s.RunGit = g.runner()
-		s.SetMirror(s.MirrorStatus().Dir, "commit")
-		if err := s.BackupNow(20); err != nil {
-			t.Fatalf("git 失败不得影响备份: %v", err)
-		}
-		waitForGit(t, g, func() bool { return s.MirrorStatus().Err != "" })
-		if !strings.Contains(s.MirrorStatus().Err, "no identity") {
-			t.Fatalf("错误应包含原因: %q", s.MirrorStatus().Err)
-		}
-		s.SetMirror(s.MirrorStatus().Dir, "off")
-		if st := s.MirrorStatus(); st.Err != "" {
-			t.Fatalf("关闭 Git 后不应保留旧 Git 错误: %+v", st)
-		}
-		if got := backupNames(t, s.BackupDir); len(got) == 0 {
-			t.Fatal("本地备份应已写入")
-		}
-	})
-}
-
-func TestGitBusyCoalesces(t *testing.T) {
-	clk := newTestClock()
-	s, _ := newMirrorStore(t, clk)
-	g := &gitLog{block: make(chan struct{})}
-	s.RunGit = g.runner()
-	s.SetMirror(s.MirrorStatus().Dir, "commit")
-	if err := s.BackupNow(20); err != nil {
-		t.Fatal(err)
-	}
-	// 第一个任务阻塞在 add 时再备份一次：应记待办而非并发第二个任务。
-	if err := s.BackupNow(20); err != nil {
-		t.Fatal(err)
-	}
-	close(g.block)
-	waitForGit(t, g, func() bool {
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		adds := 0
-		for _, r := range g.runs {
-			if r[0] == "add" {
-				adds++
-			}
-		}
-		return adds >= 2 // 补跑的第二轮 add
-	})
-}
-
-func TestLoadMirrorTime(t *testing.T) {
-	clk := newTestClock()
-	s, mirror := newMirrorStore(t, clk)
-	if err := s.BackupNow(20); err != nil {
-		t.Fatal(err)
-	}
-	waitForMirror(t, func() bool { return !s.MirrorStatus().Last.IsZero() })
-	// 先指向别处再切回，让目录变更重置 lastMirror，验证从磁盘恢复。
-	s.SetMirror("", "off")
-	s.SetMirror(mirror, "off")
-	if err := s.LoadMirrorTime(); err != nil {
-		t.Fatal(err)
-	}
-	if s.MirrorStatus().Last.IsZero() {
-		t.Fatal("应从镜像目录恢复最近镜像时间")
-	}
-	// 未配置时静默无操作。
-	s.SetMirror("", "off")
-	if err := s.LoadMirrorTime(); err != nil {
-		t.Fatalf("未配置不应报错: %v", err)
-	}
 }

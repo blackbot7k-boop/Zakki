@@ -68,32 +68,6 @@ func (a *app) backupLabel() string {
 	}
 }
 
-// mirrorLabel 底栏外部备份状态短句；未配置返回空串，warn 为真时加粗提示。
-func (a *app) mirrorLabel() (string, bool) {
-	st := a.notes.MirrorStatus()
-	if st.Dir == "" {
-		return "", false
-	}
-	if st.Err != "" {
-		return locales.StatusMirrorFailed(), true
-	}
-	last := st.Last
-	if last.IsZero() {
-		return locales.StatusNeverMirrored(), false
-	}
-	d := a.now().Sub(last)
-	switch {
-	case d < time.Minute:
-		return locales.StatusMirroredJustNow(), false
-	case d < time.Hour:
-		return locales.StatusMirroredMinutes(int(d.Minutes())), false
-	case d < 24*time.Hour:
-		return locales.StatusMirroredHours(int(d.Hours())), false
-	default:
-		return locales.StatusMirroredAt(last.Format("01-02 15:04")), false
-	}
-}
-
 // docStats 返回状态栏的行数/词数/字符数。状态栏每帧重建，
 // 按文档串缓存，避免对长文档的每帧三次全文扫描。
 func (a *app) docStats(doc string) (lines, words, chars int) {

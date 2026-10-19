@@ -362,7 +362,7 @@ func TestSettingsViewRendersPages(t *testing.T) {
 				t.Fatalf("外观页缺少排版主题下拉: %v", tt.Texts())
 			}
 		case pageBackup:
-			if !tt.HasText("打开备份目录") || !tt.HasText("显示数据位置") {
+			if !tt.HasText("打开文件夹") || !tt.HasText("显示数据位置") {
 				t.Fatalf("备份页缺少操作: %v", tt.Texts())
 			}
 			if tt.HasText("立即备份") || tt.HasText("Git 自动化") {

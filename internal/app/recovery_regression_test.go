@@ -20,7 +20,7 @@ func TestLoadRestoresValidatedPendingBeforePrimary(t *testing.T) {
 	}
 
 	b := newTestApp(t)
-	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir, b.now)
+	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir(), b.now)
 	if err := b.load(); err != nil {
 		t.Fatalf("有效 pending 应可恢复，得到 %v", err)
 	}
@@ -38,10 +38,10 @@ func TestLoadRestoresValidatedPendingBeforePrimary(t *testing.T) {
 func TestFutureVersionBackupRecoveryRemainsWriteProtected(t *testing.T) {
 	a := newTestApp(t)
 	persistWrite(t, a.notes.DataFile, `{"version":99,"tabs":[{"id":1,"text":"future"}]}`)
-	if err := os.MkdirAll(a.notes.BackupDir, 0o755); err != nil {
+	if err := os.MkdirAll(a.notes.BackupDir(), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	persistWrite(t, filepath.Join(a.notes.BackupDir, "zakki-20240601-120000.json"),
+	persistWrite(t, filepath.Join(a.notes.BackupDir(), "zakki-20240601-120000.json"),
 		`{"version":3,"active":0,"tabs":[{"id":1,"text":"backup"}],"settings":{"hideOnEscape":true}}`)
 	if err := a.load(); err == nil {
 		t.Fatal("超前版本应如实报告错误")
@@ -98,7 +98,7 @@ func TestConfirmWriteBackRemovePendingFailureKeepsProtection(t *testing.T) {
 	}
 
 	b := newTestApp(t)
-	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir, b.now)
+	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir(), b.now)
 	if err := b.load(); err != nil {
 		t.Fatal(err)
 	}

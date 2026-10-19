@@ -68,7 +68,7 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 			ui.Column(c).Gap(8).Children(func() {
 				if a.tableTools.confirm {
 					ui.Text(c, locales.TableShrinkWarn()).FontSize(12).Bold()
-					ui.Text(c, locales.TableResizeConfirm(a.tableTools.cols, a.tableTools.rows)).FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, shortcutText(locales.TableResizeConfirm(a.tableTools.cols, a.tableTools.rows))).FontSize(11).TextColor(t.TextMuted)
 					ui.Row(c).Gap(8).Children(func() {
 						ui.Button(c.Key("cancel-resize"), locales.CommonCancel()).OnClick(func() {
 							a.liveClickHandled = true

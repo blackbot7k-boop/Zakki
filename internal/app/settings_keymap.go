@@ -79,7 +79,7 @@ func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 					})
 				}
 				settingsSectionTitle(c, locales.KeymapFixedTitle())
-				ui.Text(c, locales.KeymapFixedHint()).
+				ui.Text(c, shortcutText(locales.KeymapFixedHint())).
 					FontSize(12).TextColor(tMuted(c))
 			})
 		})

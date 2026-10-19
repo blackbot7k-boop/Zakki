@@ -188,12 +188,13 @@ func (a *app) recoverFromBrokenFile(cause error) error {
 }
 
 // welcomeTextFor 按初始标签数生成标签 1 的欢迎文本；提示段落来自 catalog。
+// 快捷键以 macOS 符号书写，非 macOS 平台展示前转成 Ctrl/Alt/Shift。
 func welcomeTextFor(tabCount int) string {
 	if tabCount < 1 {
 		tabCount = 1
 	}
 	return locales.WelcomeTitle() + "\n\n" + locales.WelcomeIntro(fmt.Sprint(tabCount)) + "\n\n" +
-		locales.WelcomeBodyTips() + "\n\n" + locales.WelcomeBodyFooter()
+		shortcutText(locales.WelcomeBodyTips()) + "\n\n" + locales.WelcomeBodyFooter()
 }
 
 // welcomeText 默认标签数下的欢迎文案（测试与固定引用）。

@@ -54,51 +54,15 @@ func writeStatusBackup(t *testing.T, dir string, at time.Time) {
 	}
 }
 
-func TestLoadMirrorTimeRejectsStaleScan(t *testing.T) {
-	for _, action := range []string{"mirror", "switch-back", "shutdown"} {
-		t.Run(action, func(t *testing.T) {
-			s := newTestStore(t, nil)
-			dir := t.TempDir()
-			s.SetMirror(dir, "off")
-			writeStatusBackup(t, dir, s.Now().Add(-time.Hour))
-			started, unblock := blockStatusRead(t, s, dir)
-			done := make(chan error, 1)
-			go func() { done <- s.LoadMirrorTime() }()
-			awaitStatusRead(t, started)
-			var want time.Time
-			switch action {
-			case "mirror":
-				name := "zakki-20240601-120000.json"
-				s.runMirrorJob(mirrorJob{dir: dir, mode: "off", name: name, raw: []byte(`{}`), names: []string{name}, at: s.Now(), version: s.mirrorVersion, writeFile: func(path string, raw []byte) error { return os.WriteFile(path, raw, 0o644) }})
-				want = s.Now()
-			case "switch-back":
-				s.SetMirror(t.TempDir(), "off")
-				s.SetMirror(dir, "off")
-			case "shutdown":
-				if err := s.Shutdown(File{Version: CurrentDataVersion}); err != nil {
-					t.Fatal(err)
-				}
-			}
-			unblock()
-			if err := awaitStatusRead(t, done); err != nil {
-				t.Fatal(err)
-			}
-			if got := s.MirrorStatus().Last; !got.Equal(want) {
-				t.Fatalf("陈旧扫描覆盖状态: got %v, want %v", got, want)
-			}
-		})
-	}
-}
-
 func TestPeriodicBackupInitializesHistoricalTime(t *testing.T) {
 	s := newTestStore(t, nil)
 	writeRaw(t, s.DataFile, `{}`)
 	at := s.Now().Add(-time.Minute)
-	writeStatusBackup(t, s.BackupDir, at)
+	writeStatusBackup(t, s.BackupDir(), at)
 	if err := s.MaybeWritePeriodicBackup(5*time.Minute, 20); err != nil {
 		t.Fatal(err)
 	}
-	if names := backupNames(t, s.BackupDir); len(names) != 1 {
+	if names := backupNames(t, s.BackupDir()); len(names) != 1 {
 		t.Fatalf("状态恢复完成前创建了额外周期备份: %v", names)
 	}
 	if got := s.LastBackupTime(); !got.Equal(at) {
@@ -109,7 +73,7 @@ func TestPeriodicBackupInitializesHistoricalTime(t *testing.T) {
 func TestLoadLastBackupTimeAfterNewBackup(t *testing.T) {
 	s := newTestStore(t, nil)
 	writeRaw(t, s.DataFile, `{}`)
-	writeStatusBackup(t, s.BackupDir, s.Now().Add(-time.Hour))
+	writeStatusBackup(t, s.BackupDir(), s.Now().Add(-time.Hour))
 	if err := s.BackupOnLaunch(true, 20); err != nil {
 		t.Fatal(err)
 	}
@@ -123,8 +87,8 @@ func TestLoadLastBackupTimeAfterNewBackup(t *testing.T) {
 
 func TestLocalStatusScanDoesNotBlockSaveOrShutdown(t *testing.T) {
 	s := newTestStore(t, nil)
-	writeStatusBackup(t, s.BackupDir, s.Now().Add(-time.Minute))
-	started, unblock := blockStatusRead(t, s, s.BackupDir)
+	writeStatusBackup(t, s.BackupDir(), s.Now().Add(-time.Minute))
+	started, unblock := blockStatusRead(t, s, s.BackupDir())
 	done := make(chan error, 1)
 	go func() { done <- s.LoadLastBackupTime() }()
 	awaitStatusRead(t, started)

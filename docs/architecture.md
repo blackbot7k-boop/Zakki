@@ -17,18 +17,18 @@
 | 文件 | 职责 |
 |---|---|
 | `main.go` / `internal/app/lifecycle.go` | 入口 `app.Run()`：单实例、日志、macOS 菜单（应用/段落/格式/编辑/显示/窗口）、托盘、全局热键、退出与更新收尾；无边框主窗（`StateKey: "main"`）、关窗驻留托盘、`OnActivate` 复用 `showWindow`。菜单项与快捷键细节见 `menu_commands.go`、`menu_edit.go` 与 [configuration.md](configuration.md)。 |
-| `internal/app/startup_jobs.go` | 首个窗口（含首启向导）完成首帧后仅启动一次后台任务；本地备份时间恢复与启动备份在同一 worker 按序执行，镜像状态扫描独立运行；快照预取在主线程，完成后经活窗口 `Window.Update` 刷新。 |
+| `internal/app/startup_jobs.go` | 首个窗口（含首启向导）完成首帧后仅启动一次后台任务：备份时间恢复与启动备份按序执行，快照预取在主线程，完成后经活窗口 `Window.Update` 刷新。 |
 | `internal/app/updates.go` | 注册 MyGo `plugins/updater/native` 原生更新窗口（中文、默认手动检查）；应用菜单与托盘提供「检查更新…」。`finishQuit` 让更新重启也经过最终保存，失败则取消退出。更新公钥与 `gomeen/Zakki` 分发地址在 `mygo.json`；tag 经全量检查后分别构建 macOS universal 与 Windows x64，双平台均成功再汇总到草稿 Release；流程在 `.github/workflows/release.yml`，操作见 [release.md](release.md)。 |
 | `internal/app/prefs_runtime.go` / `internal/app/prefs_bridge.go` | 偏好运行时集成：`loadPreferences`/`updatePreferences`；写盘委托 `prefs.Store`。类型别名在 `prefs_bridge.go`。 |
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`（内含生产 git runner 装配）。 |
-| `internal/app/backup_mirror.go` | 外部备份目的地：`validateMirrorDir`（拒绝数据目录/备份目录自身 + 可写性探测）、`dirIsGitRepo`、Git 档位展示映射、`chooseMirrorDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「外部备份」卡片的选/换/断开与 Git 分段入口也在这里。 |
+| `internal/app/backup_folder.go` | 备份文件夹（唯一备份地址）：`validateBackupDir`（拒绝应用数据目录及子目录 + 可写性探测）、`chooseBackupDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「备份文件夹」卡片的选/换/断开与首启向导共用。 |
 | `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：三步（语言/备份文件夹/初始标签数）草稿式确认，语言步骤即时 `App.SetLocale`；备份文件夹预填 `defaultMirrorDir()`（`~/Documents/Zakki 备份`，可注入），始终有值、可换，Git/云盘不在向导出现（档位默认 off，留在设置页）；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗等同接受默认——`applyDefaultMirrorDir` 落默认路径 + `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
-| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责载入、本地备份与镜像快照提交，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责备份/镜像时间的后台恢复与过时结果丢弃，`mirror_worker.go` 负责外部镜像/Git 的单 worker 调度。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
+| `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护）；`store.go` 负责载入与备份直写单一目的地，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责最近备份时间的后台恢复。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
 | `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
@@ -42,7 +42,7 @@
 | `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。 |
 | `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）；标题装饰容器 `sketchHeadingFrame` 在预览态与编辑态共用。点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
 | `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
-| `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`、`mirrorLabel`。 |
+| `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`。 |
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
 | `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
@@ -64,7 +64,8 @@
 | `internal/app/table_toolbar.go` | 表格悬浮工具栏。 |
 | `internal/app/live_syntax.go` | 块级类型与 `parseBlocks`（测试/预览适配）；行内解析与格式变换见 `internal/markdown`。 |
 | `internal/app/view_icons.go` | 内嵌 Lucide 图标（ISC 许可），24×24 viewBox、2px 圆头描边，`ui.MustParseSVG` 生成。 |
-| `internal/app/tray_icon.go` / `internal/app/assets/tray.png` | 托盘图标：内嵌「墨 Z」手写字母 PNG（`trayPNG`，36×36px，与应用图标配套）；macOS 以模板自动适配菜单栏明暗，其他平台保留白色。`assets/tray.svg` 保留矢量源。 |
+| `internal/app/tray_icon.go` / `internal/app/assets/tray.png` / `internal/app/assets/tray-black.png` | 托盘图标：内嵌「墨 Z」手写字母 PNG（`trayPNG`，36×36px，与应用图标配套，白墨/黑墨两版）；macOS 以模板自动适配菜单栏明暗，其他平台系统不管模板，按桌面明暗选墨色并随 `Theme.OnUpdated` 切换，避免图标隐入同色任务栏。`assets/tray.svg` 保留矢量源。 |
+| `internal/app/shortcut_text.go` | 静态快捷键文案的平台转换：locale 字符串以 macOS 符号书写，非 macOS 展示前经 `shortcutText` 转成 Ctrl/Alt/Shift；动态键位展示走 `keyBinding.displayNameForPlatform`。 |
 | `internal/app/font_hand.go` / `resources/LXGWWenKaiLite-Regular.ttf` | 内置手写体：霞鹜文楷 Lite（OFL 许可，许可见 `resources/OFL-LXGW-WenKai-Lite.txt`）。字体以单份资源随包分发（macOS 在 Contents/Resources，Windows 在 exe 旁），不 go:embed——嵌入 universal 二进制会每架构各带一份。`registerHandFont`（sync.Once 幂等）只调用一次 `ui.RegisterFont`（每次注册都会整份拷贝字体进 CoreText），由手写字体栈解析路径懒触发，手写主题用户在 WhenReady 开窗前预热；非手写用户不付这份内存。字体栈只允许引用已注册家族名或已知安全的回退名，否则无头环境的文本布局会阻塞在系统按需字体下载上（`TestHandFontCoversStacks` 兼守）。 |
 | `resources/icon.png` / `resources/icon.svg` | 「墨 Z」应用图标：米色纸上一笔手写 Z 加朱红句点（1024×1024 PNG 与 SVG 源文件），MyGo 构建时生成 macOS ICNS 与 Windows ICO。设计原型保留在 `docs/demo/app-icon/`，不参与构建。 |
 
@@ -98,12 +99,16 @@
    `.pending`，仍保持写保护；用户在设置页点「写回数据文件」（`confirmWriteBack`）确认后才写回原路径并清理暂存文件
    （写回失败则维持写保护）。
 
-### 备份（`backups/` 目录，文件名 `zakki-<时间戳>.json`，同秒多次加序号）
+### 备份（唯一目的地：所选备份文件夹，未选时内置 `backups/`；文件名 `zakki-<时间戳>.json`，同秒多次加序号）
 
-备份时间在首帧后后台恢复。`backupMu` 串行一次性本地时间初始化与备份；周期备份若先到达，
+备份文件夹是唯一的备份存储地址：选择后每次备份直写该文件夹（云盘同步文件夹即云备份），
+不再有第二份本地副本；未选择时写入内置目录（应用数据 `backups/`）。备份用 tmp+rename
+原子写，避免云盘同步到半截文件。
+
+备份时间在首帧后后台恢复。`backupMu` 串行一次性时间初始化与备份；周期备份若先到达，
 也必须在同一串行区内恢复历史时间再判断节流。初始化不持状态锁、不阻塞快照保存或最终保存，
-已完成的新备份不再被迟到扫描覆盖。外部镜像扫描不占本地串行区；配置版本与镜像状态修订号
-拒绝换目录、同配置新镜像完成后过时的扫描，退出开始后不再发布扫描结果。
+已完成的新备份不再被迟到扫描覆盖。状态扫描只认本应用备份命名，用户自选文件夹里
+混入的其他文件不影响最近备份时间。
 
 | 入口 | 行为 |
 |---|---|
@@ -111,16 +116,18 @@
 | 自动备份 `maybeWritePeriodicBackup` | 距上次备份超过配置间隔（`Backup.IntervalMinutes`，默认 **5 分钟**，常量 `backupInterval`）才写一份，随防抖保存顺带触发。 |
 | 手动备份 `backupNow`（菜单/托盘「立即备份」、⌘S） | **无条件**创建一份（绕过周期节流），先保存当前数据再备份。 |
 | 清空当前标签 `clearActiveTab` | 危险操作：**先强制备份**（`backupNow`），备份失败则取消清空。 |
-| 外部镜像 `runMirrorJob` | 本地备份成功后立即返回；后台单 worker 持有不可变 `mirrorJob` 快照，把同一份内容镜像到 `Backup.MirrorDir`，按同一 `Keep` 修剪且只动本应用备份文件。worker 忙碌时仅保留最新快照补跑一次；镜像/Git 配置变更会清除旧待办，已取出的陈旧任务也会在外部 I/O 前复核版本并跳过。`mirrorMu` 串行镜像与 Git，`Store.mu` 不覆盖外部文件系统或 Git I/O；任务完成后仅在配置版本仍一致时更新状态，再经 `Window.Update` 刷新 UI。镜像失败只记警告与状态，绝不影响本地备份成功。应用始终以关闭 Git 的方式镜像，设置里不再提供自动提交或推送。 |
 
-保留策略：`notes.Store.pruneBackupsLocked` 按 `Backup.Keep` 修剪，默认只保留最新 **20 份**；修剪失败只记警告（备份本体已写成功）。
+备份直写在备份路径（防抖保存 worker / 启动任务 goroutine）上同步进行，不占主线程；
+写入或修剪失败经 `ReportPersist` 如实上报状态栏。
+
+保留策略：按 `Backup.Keep` 修剪当前备份文件夹，默认只保留最新 **20 份**；修剪失败只记警告（备份本体已写成功）。
 
 ### 损坏隔离与恢复（`load` → `recoverFromBrokenFile`）
 
 - 文件不存在：首次运行，写入欢迎文本。
 - 解析失败 / 读取失败 / 版本过高：原件**复制隔离**为 `zakki.json.corrupt-<时间戳>`
-  （`notes.Store.QuarantineCorruptFile`，绝不删除或覆盖原件）→ 从备份目录按时间戳及同秒序号数值由新到旧找第一个可用备份恢复
-  （`notes.Store.LoadNewestBackup`）→ 都失败则用默认值并进入写保护（见上）。
+  （`notes.Store.QuarantineCorruptFile`，绝不删除或覆盖原件）→ 从备份文件夹按时间戳及同秒序号数值由新到旧找第一个可用备份恢复
+  （`notes.Store.LoadNewestBackup`；所选文件夹没有时回退内置目录，照顾历史版本的存量备份）→ 都失败则用默认值并进入写保护（见上）。
 - 即使已从备份恢复，`load` 也如实返回错误，状态栏/日志给出提示（`notice`/`slog`）。
 
 ### 版本迁移
@@ -182,12 +189,13 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **5**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **6**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
-外部备份目的地 `mirrorDir`（空串 = 未配置）与 Git 自动化档位 `gitMode`
-（off/commit/commitPush，缺键按 off）；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
-版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）。
-旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 5。旧版本程序读到版本 5 会按
+外部备份目的地 `mirrorDir`；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
+版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）；
+版本 6 起备份只有一个文件夹：`backup.mirrorDir` 更名为 `backup.backupDir` 并成为唯一备份地址，
+`gitMode` 随 Git 自动化移除，旧键由 `Decode` 在严格解码前摘除后平移。
+旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 6。旧版本程序读到版本 6 会按
 「版本超前」拒绝并保留原文件。
 退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
 失败返回 `finishQuit`，阻止退出或更新重启。

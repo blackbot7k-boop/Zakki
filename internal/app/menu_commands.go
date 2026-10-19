@@ -368,6 +368,8 @@ var commandRegistry = []commandDef{
 	{id: cmdH5, name: "cmdH5", group: "heading", def: "CmdOrCtrl+5"},
 	{id: cmdH6, name: "cmdH6", group: "heading", def: "CmdOrCtrl+6"},
 	{id: cmdBody, name: "cmdBody", group: "heading", def: "CmdOrCtrl+0"},
+	// 标题与正文的数字键两平台统一为「主修饰键+数字」（⌘N / Ctrl+N，Typora 式）。
+	// Windows 能这样做的代价是标签键换成 Alt+N（见 tabAccPrefix）。
 	{id: cmdQuote, name: "cmdQuote", group: "blocks", def: "CmdOrCtrl+Shift+Q"},
 	{id: cmdBullet, name: "cmdBullet", group: "blocks", def: "CmdOrCtrl+Shift+8"},
 	{id: cmdOrdered, name: "cmdOrdered", group: "blocks", def: "CmdOrCtrl+Shift+7"},
@@ -427,36 +429,64 @@ func commandDefByID(id string) (commandDef, bool) {
 
 // ---- 固定绑定（不改键） ----
 
-// fixedBindings 是不开放改键的既有快捷键：Keymap 录键时作为冲突源，
-// 让「应用命令与全局命令统一校验」有完整依据。
+// tabAccPrefixForPlatform 是标签数字键的固定修饰键：macOS 用 Control
+// （⌃N，把 ⌘1–6 留给标题）；其他平台用 Alt（Ctrl+N 让给标题，Typora 式，
+// 浏览器标签惯例只能二选一）。整库文案里的 ⌃ 符号即指这个键，Windows
+// 展示为 Alt+N（shortcutTextFor 同源约束）。
+func tabAccPrefixForPlatform(goos string) string {
+	if goos == "darwin" {
+		return "Ctrl"
+	}
+	return "Alt"
+}
+
+// fixedBindingsForPlatform 是不开放改键的既有快捷键：Keymap 录键时作为冲突源，
+// 让「应用命令与全局命令统一校验」有完整依据。标签数字键按平台取 tabAccPrefixForPlatform。
 // fixedBindingKey 是固定绑定显示名的 catalog 键；显示经 fixedBindingName 取当前语言。
-var fixedBindings = []struct{ acc, key string }{
-	{"CmdOrCtrl+F", "find"},
-	{"CmdOrCtrl+G", "findNext"},
-	{"Shift+CmdOrCtrl+G", "findPrev"},
-	{"Shift+CmdOrCtrl+P", "sourceMode"},
-	{"Alt+CmdOrCtrl+T", "keepOnTop"},
-	{"Ctrl+1", "tab1"}, {"Ctrl+2", "tab2"}, {"Ctrl+3", "tab3"},
-	{"Ctrl+4", "tab4"}, {"Ctrl+5", "tab5"}, {"Ctrl+6", "tab6"},
-	{"Ctrl+7", "tab7"}, {"Ctrl+8", "tab8"}, {"Ctrl+9", "tab9"},
-	{"CmdOrCtrl+T", "newTab"},
-	{"CmdOrCtrl+R", "renameTab"},
-	{"Alt+CmdOrCtrl+Left", "prevTab"},
-	{"Alt+CmdOrCtrl+Right", "nextTab"},
-	{"CmdOrCtrl+S", "backupNow"},
-	{"Shift+CmdOrCtrl+C", "copyTabText"},
-	{"CmdOrCtrl+Z", "undo"},
-	{"Shift+CmdOrCtrl+Z", "redo"},
-	{"CmdOrCtrl+X", "cut"},
-	{"CmdOrCtrl+C", "copy"},
-	{"CmdOrCtrl+V", "paste"},
-	{"CmdOrCtrl+A", "selectAll"},
-	{"CmdOrCtrl+Q", "quit"},
-	{"CmdOrCtrl+W", "closeWindow"},
-	{"CmdOrCtrl+M", "minimize"},
-	{"CmdOrCtrl+H", "hideApp"},
-	{"CmdOrCtrl+,", "settings"},
-	{"CmdOrCtrl+Tab", "appSwitcher"},
+func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
+	tab := tabAccPrefixForPlatform(goos)
+	return []struct{ acc, key string }{
+		{"CmdOrCtrl+F", "find"},
+		{"CmdOrCtrl+G", "findNext"},
+		{"Shift+CmdOrCtrl+G", "findPrev"},
+		{"Shift+CmdOrCtrl+P", "sourceMode"},
+		{"Alt+CmdOrCtrl+T", "keepOnTop"},
+		{tab + "+1", "tab1"}, {tab + "+2", "tab2"}, {tab + "+3", "tab3"},
+		{tab + "+4", "tab4"}, {tab + "+5", "tab5"}, {tab + "+6", "tab6"},
+		{tab + "+7", "tab7"}, {tab + "+8", "tab8"}, {tab + "+9", "tab9"},
+		{"CmdOrCtrl+T", "newTab"},
+		{"CmdOrCtrl+R", "renameTab"},
+		{"Alt+CmdOrCtrl+Left", "prevTab"},
+		{"Alt+CmdOrCtrl+Right", "nextTab"},
+		{"CmdOrCtrl+S", "backupNow"},
+		{"Shift+CmdOrCtrl+C", "copyTabText"},
+		{"CmdOrCtrl+Z", "undo"},
+		{"Shift+CmdOrCtrl+Z", "redo"},
+		{"CmdOrCtrl+X", "cut"},
+		{"CmdOrCtrl+C", "copy"},
+		{"CmdOrCtrl+V", "paste"},
+		{"CmdOrCtrl+A", "selectAll"},
+		{"CmdOrCtrl+Q", "quit"},
+		{"CmdOrCtrl+W", "closeWindow"},
+		{"CmdOrCtrl+M", "minimize"},
+		{"CmdOrCtrl+H", "hideApp"},
+		{"CmdOrCtrl+,", "settings"},
+		{"CmdOrCtrl+Tab", "appSwitcher"},
+	}
+}
+
+// fixedBindingByKey 按 catalog 键取当前平台的固定绑定 accelerator（测试与展示共用）。
+func fixedBindingByKey(key string) string {
+	return fixedBindingByKeyForPlatform(key, runtime.GOOS)
+}
+
+func fixedBindingByKeyForPlatform(key, goos string) string {
+	for _, fixed := range fixedBindingsForPlatform(goos) {
+		if fixed.key == key {
+			return fixed.acc
+		}
+	}
+	return ""
 }
 
 // fixedBindingName 按 catalog 键给出固定绑定的当前语言显示名。
@@ -529,19 +559,9 @@ func (a *app) commandBindingForPlatform(id, goos string) string {
 		return over
 	}
 	if def, ok := commandDefByID(id); ok {
-		return defaultBindingForPlatform(def, goos)
+		return def.def
 	}
 	return ""
-}
-
-func defaultBindingForPlatform(def commandDef, goos string) string {
-	if goos == "windows" {
-		switch def.id {
-		case cmdH1, cmdH2, cmdH3, cmdH4, cmdH5, cmdH6:
-			return strings.Replace(def.def, "CmdOrCtrl+", "CmdOrCtrl+Alt+", 1)
-		}
-	}
-	return def.def
 }
 
 // parsedCommandBinding 返回当前平台解析后的绑定；未绑定或解析失败返回 false。
@@ -576,11 +596,11 @@ func validateBinding(b keyBinding) error {
 	cmdMod := b.mods&(ui.Super|ui.Ctrl|ui.Alt) != 0
 	if !cmdMod {
 		if b.key >= ui.KeyA && b.key <= ui.KeyZ || b.key >= ui.Key0 && b.key <= ui.Key9 {
-			return fmt.Errorf("%s", locales.AccBareLetter())
+			return fmt.Errorf("%s", shortcutText(locales.AccBareLetter()))
 		}
 		switch b.key {
 		case ui.KeySpace:
-			return fmt.Errorf("%s", locales.AccSpaceNeedsMod())
+			return fmt.Errorf("%s", shortcutText(locales.AccSpaceNeedsMod()))
 		}
 	}
 	return nil
@@ -600,7 +620,7 @@ func (a *app) findBindingConflictForPlatform(id string, b keyBinding, goos strin
 			return commandDisplayName(def)
 		}
 	}
-	for _, fixed := range fixedBindings {
+	for _, fixed := range fixedBindingsForPlatform(goos) {
 		if other, err := parseAcceleratorForPlatform(fixed.acc, goos); err == nil && sameBinding(other, b) {
 			return fixedBindingName(fixed.key)
 		}
@@ -671,7 +691,7 @@ func (a *app) resetCommandBindingForPlatform(id, goos string) error {
 	if !ok {
 		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(id))
 	}
-	if err := a.validateKeymapChangeForPlatform(id, defaultBindingForPlatform(def, goos), goos); err != nil {
+	if err := a.validateKeymapChangeForPlatform(id, def.def, goos); err != nil {
 		return err
 	}
 	return a.updatePreferences(func(p *preferences) {
@@ -692,7 +712,7 @@ func defBindingOf(id string) string {
 
 func defBindingOfForPlatform(id, goos string) string {
 	if def, ok := commandDefByID(id); ok {
-		return defaultBindingForPlatform(def, goos)
+		return def.def
 	}
 	return ""
 }

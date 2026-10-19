@@ -128,26 +128,6 @@ func (msgs Messages) CommonDisconnect() string {
 	return Catalog.Format(msgs.locale, "commonDisconnect", nil)
 }
 
-// CommonFolder says "Folder"
-// in the language the app shows.
-func CommonFolder() string { return In(i18n.Locale()).CommonFolder() }
-
-// CommonFolder says "Folder"
-// in the language of msgs.
-func (msgs Messages) CommonFolder() string {
-	return Catalog.Format(msgs.locale, "commonFolder", nil)
-}
-
-// CommonGitRepo says "Git repository"
-// in the language the app shows.
-func CommonGitRepo() string { return In(i18n.Locale()).CommonGitRepo() }
-
-// CommonGitRepo says "Git repository"
-// in the language of msgs.
-func (msgs Messages) CommonGitRepo() string {
-	return Catalog.Format(msgs.locale, "commonGitRepo", nil)
-}
-
 // CommonNotSet says "Not set"
 // in the language the app shows.
 func CommonNotSet() string { return In(i18n.Locale()).CommonNotSet() }
@@ -504,66 +484,6 @@ func StatusBackedUpAt(time_ string) string { return In(i18n.Locale()).StatusBack
 // time is 01-02 15:04
 func (msgs Messages) StatusBackedUpAt(time_ string) string {
 	return Catalog.Format(msgs.locale, "statusBackedUpAt", map[string]any{"time": time_})
-}
-
-// StatusMirrorFailed says "Mirror failed"
-// in the language the app shows.
-func StatusMirrorFailed() string { return In(i18n.Locale()).StatusMirrorFailed() }
-
-// StatusMirrorFailed says "Mirror failed"
-// in the language of msgs.
-func (msgs Messages) StatusMirrorFailed() string {
-	return Catalog.Format(msgs.locale, "statusMirrorFailed", nil)
-}
-
-// StatusNeverMirrored says "Not mirrored yet"
-// in the language the app shows.
-func StatusNeverMirrored() string { return In(i18n.Locale()).StatusNeverMirrored() }
-
-// StatusNeverMirrored says "Not mirrored yet"
-// in the language of msgs.
-func (msgs Messages) StatusNeverMirrored() string {
-	return Catalog.Format(msgs.locale, "statusNeverMirrored", nil)
-}
-
-// StatusMirroredJustNow says "Mirrored just now"
-// in the language the app shows.
-func StatusMirroredJustNow() string { return In(i18n.Locale()).StatusMirroredJustNow() }
-
-// StatusMirroredJustNow says "Mirrored just now"
-// in the language of msgs.
-func (msgs Messages) StatusMirroredJustNow() string {
-	return Catalog.Format(msgs.locale, "statusMirroredJustNow", nil)
-}
-
-// StatusMirroredMinutes says "Mirrored {n, number} min ago"
-// in the language the app shows.
-func StatusMirroredMinutes(n int) string { return In(i18n.Locale()).StatusMirroredMinutes(n) }
-
-// StatusMirroredMinutes says "Mirrored {n, number} min ago"
-// in the language of msgs.
-func (msgs Messages) StatusMirroredMinutes(n int) string {
-	return Catalog.Format(msgs.locale, "statusMirroredMinutes", map[string]any{"n": n})
-}
-
-// StatusMirroredHours says "Mirrored {n, number} h ago"
-// in the language the app shows.
-func StatusMirroredHours(n int) string { return In(i18n.Locale()).StatusMirroredHours(n) }
-
-// StatusMirroredHours says "Mirrored {n, number} h ago"
-// in the language of msgs.
-func (msgs Messages) StatusMirroredHours(n int) string {
-	return Catalog.Format(msgs.locale, "statusMirroredHours", map[string]any{"n": n})
-}
-
-// StatusMirroredAt says "Mirrored {time}"
-// in the language the app shows.
-func StatusMirroredAt(time_ string) string { return In(i18n.Locale()).StatusMirroredAt(time_) }
-
-// StatusMirroredAt says "Mirrored {time}"
-// in the language of msgs.
-func (msgs Messages) StatusMirroredAt(time_ string) string {
-	return Catalog.Format(msgs.locale, "statusMirroredAt", map[string]any{"time": time_})
 }
 
 // MenuSourceMode says "Source Mode"
@@ -3162,36 +3082,6 @@ func (msgs Messages) TabsPageFootnote() string {
 	return Catalog.Format(msgs.locale, "tabsPageFootnote", nil)
 }
 
-// CardExternalBackup says "Copy to another folder"
-// in the language the app shows.
-func CardExternalBackup() string { return In(i18n.Locale()).CardExternalBackup() }
-
-// CardExternalBackup says "Copy to another folder"
-// in the language of msgs.
-func (msgs Messages) CardExternalBackup() string {
-	return Catalog.Format(msgs.locale, "cardExternalBackup", nil)
-}
-
-// MirrorUnconfigured says "None chosen"
-// in the language the app shows.
-func MirrorUnconfigured() string { return In(i18n.Locale()).MirrorUnconfigured() }
-
-// MirrorUnconfigured says "None chosen"
-// in the language of msgs.
-func (msgs Messages) MirrorUnconfigured() string {
-	return Catalog.Format(msgs.locale, "mirrorUnconfigured", nil)
-}
-
-// MirrorUnconfiguredHint says "After each backup, copy it here too. A cloud folder syncs; a Git repo can commit."
-// in the language the app shows.
-func MirrorUnconfiguredHint() string { return In(i18n.Locale()).MirrorUnconfiguredHint() }
-
-// MirrorUnconfiguredHint says "After each backup, copy it here too. A cloud folder syncs; a Git repo can commit."
-// in the language of msgs.
-func (msgs Messages) MirrorUnconfiguredHint() string {
-	return Catalog.Format(msgs.locale, "mirrorUnconfiguredHint", nil)
-}
-
 // ChooseFolder says "Choose Folder…"
 // in the language the app shows.
 func ChooseFolder() string { return In(i18n.Locale()).ChooseFolder() }
@@ -3212,96 +3102,6 @@ func (msgs Messages) OpenFolder() string {
 	return Catalog.Format(msgs.locale, "openFolder", nil)
 }
 
-// GitAutomation says "Git automation"
-// in the language the app shows.
-func GitAutomation() string { return In(i18n.Locale()).GitAutomation() }
-
-// GitAutomation says "Git automation"
-// in the language of msgs.
-func (msgs Messages) GitAutomation() string {
-	return Catalog.Format(msgs.locale, "gitAutomation", nil)
-}
-
-// CardAutoBackup says "On this Mac"
-// in the language the app shows.
-func CardAutoBackup() string { return In(i18n.Locale()).CardAutoBackup() }
-
-// CardAutoBackup says "On this Mac"
-// in the language of msgs.
-func (msgs Messages) CardAutoBackup() string {
-	return Catalog.Format(msgs.locale, "cardAutoBackup", nil)
-}
-
-// AutoBackupInterval says "Wait after edits"
-// in the language the app shows.
-func AutoBackupInterval() string { return In(i18n.Locale()).AutoBackupInterval() }
-
-// AutoBackupInterval says "Wait after edits"
-// in the language of msgs.
-func (msgs Messages) AutoBackupInterval() string {
-	return Catalog.Format(msgs.locale, "autoBackupInterval", nil)
-}
-
-// AutoBackupIntervalHint says "Backs up a while after you stop editing, not on a clock."
-// in the language the app shows.
-func AutoBackupIntervalHint() string { return In(i18n.Locale()).AutoBackupIntervalHint() }
-
-// AutoBackupIntervalHint says "Backs up a while after you stop editing, not on a clock."
-// in the language of msgs.
-func (msgs Messages) AutoBackupIntervalHint() string {
-	return Catalog.Format(msgs.locale, "autoBackupIntervalHint", nil)
-}
-
-// BackupKeep says "Keep at most"
-// in the language the app shows.
-func BackupKeep() string { return In(i18n.Locale()).BackupKeep() }
-
-// BackupKeep says "Keep at most"
-// in the language of msgs.
-func (msgs Messages) BackupKeep() string {
-	return Catalog.Format(msgs.locale, "backupKeep", nil)
-}
-
-// BackupKeepHint says "A smaller number deletes extras on the next backup, not now"
-// in the language the app shows.
-func BackupKeepHint() string { return In(i18n.Locale()).BackupKeepHint() }
-
-// BackupKeepHint says "A smaller number deletes extras on the next backup, not now"
-// in the language of msgs.
-func (msgs Messages) BackupKeepHint() string {
-	return Catalog.Format(msgs.locale, "backupKeepHint", nil)
-}
-
-// BackupOnLaunch says "Back up when the app opens"
-// in the language the app shows.
-func BackupOnLaunch() string { return In(i18n.Locale()).BackupOnLaunch() }
-
-// BackupOnLaunch says "Back up when the app opens"
-// in the language of msgs.
-func (msgs Messages) BackupOnLaunch() string {
-	return Catalog.Format(msgs.locale, "backupOnLaunch", nil)
-}
-
-// BackupOnLaunchHint says "If notes already exist, back them up once at launch"
-// in the language the app shows.
-func BackupOnLaunchHint() string { return In(i18n.Locale()).BackupOnLaunchHint() }
-
-// BackupOnLaunchHint says "If notes already exist, back them up once at launch"
-// in the language of msgs.
-func (msgs Messages) BackupOnLaunchHint() string {
-	return Catalog.Format(msgs.locale, "backupOnLaunchHint", nil)
-}
-
-// BackupOnLaunchSwitch says "Back up on launch"
-// in the language the app shows.
-func BackupOnLaunchSwitch() string { return In(i18n.Locale()).BackupOnLaunchSwitch() }
-
-// BackupOnLaunchSwitch says "Back up on launch"
-// in the language of msgs.
-func (msgs Messages) BackupOnLaunchSwitch() string {
-	return Catalog.Format(msgs.locale, "backupOnLaunchSwitch", nil)
-}
-
 // CardManualActions says "Do it now"
 // in the language the app shows.
 func CardManualActions() string { return In(i18n.Locale()).CardManualActions() }
@@ -3312,36 +3112,6 @@ func (msgs Messages) CardManualActions() string {
 	return Catalog.Format(msgs.locale, "cardManualActions", nil)
 }
 
-// BackupNowButton says "Back Up Now"
-// in the language the app shows.
-func BackupNowButton() string { return In(i18n.Locale()).BackupNowButton() }
-
-// BackupNowButton says "Back Up Now"
-// in the language of msgs.
-func (msgs Messages) BackupNowButton() string {
-	return Catalog.Format(msgs.locale, "backupNowButton", nil)
-}
-
-// BackupNowHint says "Save the notes and write a new backup."
-// in the language the app shows.
-func BackupNowHint() string { return In(i18n.Locale()).BackupNowHint() }
-
-// BackupNowHint says "Save the notes and write a new backup."
-// in the language of msgs.
-func (msgs Messages) BackupNowHint() string {
-	return Catalog.Format(msgs.locale, "backupNowHint", nil)
-}
-
-// OpenBackupFolder says "Open Backup Folder"
-// in the language the app shows.
-func OpenBackupFolder() string { return In(i18n.Locale()).OpenBackupFolder() }
-
-// OpenBackupFolder says "Open Backup Folder"
-// in the language of msgs.
-func (msgs Messages) OpenBackupFolder() string {
-	return Catalog.Format(msgs.locale, "openBackupFolder", nil)
-}
-
 // ShowDataLocation says "Show Data Location"
 // in the language the app shows.
 func ShowDataLocation() string { return In(i18n.Locale()).ShowDataLocation() }
@@ -3350,96 +3120,6 @@ func ShowDataLocation() string { return In(i18n.Locale()).ShowDataLocation() }
 // in the language of msgs.
 func (msgs Messages) ShowDataLocation() string {
 	return Catalog.Format(msgs.locale, "showDataLocation", nil)
-}
-
-// BackupDirLine says "Backup folder: {path}"
-// in the language the app shows.
-func BackupDirLine(path string) string { return In(i18n.Locale()).BackupDirLine(path) }
-
-// BackupDirLine says "Backup folder: {path}"
-// in the language of msgs.
-func (msgs Messages) BackupDirLine(path string) string {
-	return Catalog.Format(msgs.locale, "backupDirLine", map[string]any{"path": path})
-}
-
-// DataFileLine says "Data file: {path}"
-// in the language the app shows.
-func DataFileLine(path string) string { return In(i18n.Locale()).DataFileLine(path) }
-
-// DataFileLine says "Data file: {path}"
-// in the language of msgs.
-func (msgs Messages) DataFileLine(path string) string {
-	return Catalog.Format(msgs.locale, "dataFileLine", map[string]any{"path": path})
-}
-
-// GitModeOffDetail says "Copies the file only. Git stays off."
-// in the language the app shows.
-func GitModeOffDetail() string { return In(i18n.Locale()).GitModeOffDetail() }
-
-// GitModeOffDetail says "Copies the file only. Git stays off."
-// in the language of msgs.
-func (msgs Messages) GitModeOffDetail() string {
-	return Catalog.Format(msgs.locale, "gitModeOffDetail", nil)
-}
-
-// GitModeCommitDetail says "Commits after each backup. A failure is only a notice; the backup still stands."
-// in the language the app shows.
-func GitModeCommitDetail() string { return In(i18n.Locale()).GitModeCommitDetail() }
-
-// GitModeCommitDetail says "Commits after each backup. A failure is only a notice; the backup still stands."
-// in the language of msgs.
-func (msgs Messages) GitModeCommitDetail() string {
-	return Catalog.Format(msgs.locale, "gitModeCommitDetail", nil)
-}
-
-// GitModeCommitPushDetail says "Commits and pushes after each backup. A failure is only a notice; the backup still stands."
-// in the language the app shows.
-func GitModeCommitPushDetail() string { return In(i18n.Locale()).GitModeCommitPushDetail() }
-
-// GitModeCommitPushDetail says "Commits and pushes after each backup. A failure is only a notice; the backup still stands."
-// in the language of msgs.
-func (msgs Messages) GitModeCommitPushDetail() string {
-	return Catalog.Format(msgs.locale, "gitModeCommitPushDetail", nil)
-}
-
-// DialogChooseMirrorTitle says "Choose Backup Folder"
-// in the language the app shows.
-func DialogChooseMirrorTitle() string { return In(i18n.Locale()).DialogChooseMirrorTitle() }
-
-// DialogChooseMirrorTitle says "Choose Backup Folder"
-// in the language of msgs.
-func (msgs Messages) DialogChooseMirrorTitle() string {
-	return Catalog.Format(msgs.locale, "dialogChooseMirrorTitle", nil)
-}
-
-// DialogChooseMirrorMessage says "Choose a cloud-sync folder (iCloud, Nutstore, …) or a local Git clone; every backup is mirrored there."
-// in the language the app shows.
-func DialogChooseMirrorMessage() string { return In(i18n.Locale()).DialogChooseMirrorMessage() }
-
-// DialogChooseMirrorMessage says "Choose a cloud-sync folder (iCloud, Nutstore, …) or a local Git clone; every backup is mirrored there."
-// in the language of msgs.
-func (msgs Messages) DialogChooseMirrorMessage() string {
-	return Catalog.Format(msgs.locale, "dialogChooseMirrorMessage", nil)
-}
-
-// DialogChooseMirrorButton says "Use as Backup Folder"
-// in the language the app shows.
-func DialogChooseMirrorButton() string { return In(i18n.Locale()).DialogChooseMirrorButton() }
-
-// DialogChooseMirrorButton says "Use as Backup Folder"
-// in the language of msgs.
-func (msgs Messages) DialogChooseMirrorButton() string {
-	return Catalog.Format(msgs.locale, "dialogChooseMirrorButton", nil)
-}
-
-// MirrorGitDetailLine says "{kind} · mirrored here on every backup"
-// in the language the app shows.
-func MirrorGitDetailLine(kind string) string { return In(i18n.Locale()).MirrorGitDetailLine(kind) }
-
-// MirrorGitDetailLine says "{kind} · mirrored here on every backup"
-// in the language of msgs.
-func (msgs Messages) MirrorGitDetailLine(kind string) string {
-	return Catalog.Format(msgs.locale, "mirrorGitDetailLine", map[string]any{"kind": kind})
 }
 
 // SaveFailedQuitCancelled says "Save failed; quit or update-restart cancelled: {err}"
@@ -3546,21 +3226,21 @@ func (msgs Messages) OnboardChooseBackupTitle() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupTitle", nil)
 }
 
-// OnboardChooseBackupBody says "Every backup is additionally mirrored to this folder. A default location is preselected — just continue, or click C…"
+// OnboardChooseBackupBody says "Backups are written only to this folder. A default location is preselected — just continue, or click Change to pick…"
 // in the language the app shows.
 func OnboardChooseBackupBody() string { return In(i18n.Locale()).OnboardChooseBackupBody() }
 
-// OnboardChooseBackupBody says "Every backup is additionally mirrored to this folder. A default location is preselected — just continue, or click C…"
+// OnboardChooseBackupBody says "Backups are written only to this folder. A default location is preselected — just continue, or click Change to pick…"
 // in the language of msgs.
 func (msgs Messages) OnboardChooseBackupBody() string {
 	return Catalog.Format(msgs.locale, "onboardChooseBackupBody", nil)
 }
 
-// OnboardFolderCap says "Backups will be mirrored to:"
+// OnboardFolderCap says "Backups will be saved to:"
 // in the language the app shows.
 func OnboardFolderCap() string { return In(i18n.Locale()).OnboardFolderCap() }
 
-// OnboardFolderCap says "Backups will be mirrored to:"
+// OnboardFolderCap says "Backups will be saved to:"
 // in the language of msgs.
 func (msgs Messages) OnboardFolderCap() string {
 	return Catalog.Format(msgs.locale, "onboardFolderCap", nil)
@@ -3614,16 +3294,6 @@ func OnboardWriteErr(err string) string { return In(i18n.Locale()).OnboardWriteE
 // in the language of msgs.
 func (msgs Messages) OnboardWriteErr(err string) string {
 	return Catalog.Format(msgs.locale, "onboardWriteErr", map[string]any{"err": err})
-}
-
-// OnboardFirstMirrorErr says "Data saved, but the first external backup failed: {err}"
-// in the language the app shows.
-func OnboardFirstMirrorErr(err string) string { return In(i18n.Locale()).OnboardFirstMirrorErr(err) }
-
-// OnboardFirstMirrorErr says "Data saved, but the first external backup failed: {err}"
-// in the language of msgs.
-func (msgs Messages) OnboardFirstMirrorErr(err string) string {
-	return Catalog.Format(msgs.locale, "onboardFirstMirrorErr", map[string]any{"err": err})
 }
 
 // OnboardDraftPendingNotice says "First-run data was not saved; the setup wizard may show again next launch"
@@ -3688,16 +3358,6 @@ func WindowTitle(app string) string { return In(i18n.Locale()).WindowTitle(app) 
 // Main window title
 func (msgs Messages) WindowTitle(app string) string {
 	return Catalog.Format(msgs.locale, "windowTitle", map[string]any{"app": app})
-}
-
-// GitModeOff says "Off"
-// in the language the app shows.
-func GitModeOff() string { return In(i18n.Locale()).GitModeOff() }
-
-// GitModeOff says "Off"
-// in the language of msgs.
-func (msgs Messages) GitModeOff() string {
-	return Catalog.Format(msgs.locale, "gitModeOff", nil)
 }
 
 // GitModeCommit says "Auto commit"
@@ -3930,31 +3590,11 @@ func (msgs Messages) GitDetailOff() string {
 	return Catalog.Format(msgs.locale, "gitDetailOff", nil)
 }
 
-// GitDetailNotRepo says "This is a plain folder, so backups are only copied here."
-// in the language the app shows.
-func GitDetailNotRepo() string { return In(i18n.Locale()).GitDetailNotRepo() }
-
-// GitDetailNotRepo says "This is a plain folder, so backups are only copied here."
-// in the language of msgs.
-func (msgs Messages) GitDetailNotRepo() string {
-	return Catalog.Format(msgs.locale, "gitDetailNotRepo", nil)
-}
-
-// GitDetailPickFirst says "Choose a folder first. Only a Git repo can commit."
-// in the language the app shows.
-func GitDetailPickFirst() string { return In(i18n.Locale()).GitDetailPickFirst() }
-
-// GitDetailPickFirst says "Choose a folder first. Only a Git repo can commit."
-// in the language of msgs.
-func (msgs Messages) GitDetailPickFirst() string {
-	return Catalog.Format(msgs.locale, "gitDetailPickFirst", nil)
-}
-
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–⌃9 switch tabs; ⌘T new ta…"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–9 switch tabs; ⌘T new tab, …"
 // in the language the app shows.
 func WelcomeBodyTips() string { return In(i18n.Locale()).WelcomeBodyTips() }
 
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–⌃9 switch tabs; ⌘T new ta…"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–9 switch tabs; ⌘T new tab, …"
 // in the language of msgs.
 func (msgs Messages) WelcomeBodyTips() string {
 	return Catalog.Format(msgs.locale, "welcomeBodyTips", nil)
@@ -4050,58 +3690,6 @@ func (msgs Messages) AccSpaceNeedsMod() string {
 	return Catalog.Format(msgs.locale, "accSpaceNeedsMod", nil)
 }
 
-// MirrorNotGitErr says "The backup folder is not a Git repository; Git automation cannot be enabled"
-// in the language the app shows.
-func MirrorNotGitErr() string { return In(i18n.Locale()).MirrorNotGitErr() }
-
-// MirrorNotGitErr says "The backup folder is not a Git repository; Git automation cannot be enabled"
-// in the language of msgs.
-func (msgs Messages) MirrorNotGitErr() string {
-	return Catalog.Format(msgs.locale, "mirrorNotGitErr", nil)
-}
-
-// MirrorStatusLine says "{kind} · {state}"
-// in the language the app shows.
-func MirrorStatusLine(kind string, state string) string {
-	return In(i18n.Locale()).MirrorStatusLine(kind, state)
-}
-
-// MirrorStatusLine says "{kind} · {state}"
-// in the language of msgs.
-func (msgs Messages) MirrorStatusLine(kind string, state string) string {
-	return Catalog.Format(msgs.locale, "mirrorStatusLine", map[string]any{"kind": kind, "state": state})
-}
-
-// MirrorStateFailed says "last mirror failed: {err}"
-// in the language the app shows.
-func MirrorStateFailed(err string) string { return In(i18n.Locale()).MirrorStateFailed(err) }
-
-// MirrorStateFailed says "last mirror failed: {err}"
-// in the language of msgs.
-func (msgs Messages) MirrorStateFailed(err string) string {
-	return Catalog.Format(msgs.locale, "mirrorStateFailed", map[string]any{"err": err})
-}
-
-// MirrorStatePending says "not mirrored yet (written on next backup)"
-// in the language the app shows.
-func MirrorStatePending() string { return In(i18n.Locale()).MirrorStatePending() }
-
-// MirrorStatePending says "not mirrored yet (written on next backup)"
-// in the language of msgs.
-func (msgs Messages) MirrorStatePending() string {
-	return Catalog.Format(msgs.locale, "mirrorStatePending", nil)
-}
-
-// MirrorStateLast says "last mirror {time}"
-// in the language the app shows.
-func MirrorStateLast(time_ string) string { return In(i18n.Locale()).MirrorStateLast(time_) }
-
-// MirrorStateLast says "last mirror {time}"
-// in the language of msgs.
-func (msgs Messages) MirrorStateLast(time_ string) string {
-	return Catalog.Format(msgs.locale, "mirrorStateLast", map[string]any{"time": time_})
-}
-
 // PrefsVersionAheadHint says "the preferences file version may be newer than this app"
 // in the language the app shows.
 func PrefsVersionAheadHint() string { return In(i18n.Locale()).PrefsVersionAheadHint() }
@@ -4130,46 +3718,6 @@ func PrefsSaveBlockedPending() string { return In(i18n.Locale()).PrefsSaveBlocke
 // in the language of msgs.
 func (msgs Messages) PrefsSaveBlockedPending() string {
 	return Catalog.Format(msgs.locale, "prefsSaveBlockedPending", nil)
-}
-
-// MirrorErrParse says "Cannot resolve the path"
-// in the language the app shows.
-func MirrorErrParse() string { return In(i18n.Locale()).MirrorErrParse() }
-
-// MirrorErrParse says "Cannot resolve the path"
-// in the language of msgs.
-func (msgs Messages) MirrorErrParse() string {
-	return Catalog.Format(msgs.locale, "mirrorErrParse", nil)
-}
-
-// MirrorErrLocalBackup says "The local backup folder (or its subfolders) cannot be the external backup destination"
-// in the language the app shows.
-func MirrorErrLocalBackup() string { return In(i18n.Locale()).MirrorErrLocalBackup() }
-
-// MirrorErrLocalBackup says "The local backup folder (or its subfolders) cannot be the external backup destination"
-// in the language of msgs.
-func (msgs Messages) MirrorErrLocalBackup() string {
-	return Catalog.Format(msgs.locale, "mirrorErrLocalBackup", nil)
-}
-
-// MirrorErrAppData says "The app data directory cannot be the external backup destination"
-// in the language the app shows.
-func MirrorErrAppData() string { return In(i18n.Locale()).MirrorErrAppData() }
-
-// MirrorErrAppData says "The app data directory cannot be the external backup destination"
-// in the language of msgs.
-func (msgs Messages) MirrorErrAppData() string {
-	return Catalog.Format(msgs.locale, "mirrorErrAppData", nil)
-}
-
-// MirrorErrNotWritable says "Folder is not writable"
-// in the language the app shows.
-func MirrorErrNotWritable() string { return In(i18n.Locale()).MirrorErrNotWritable() }
-
-// MirrorErrNotWritable says "Folder is not writable"
-// in the language of msgs.
-func (msgs Messages) MirrorErrNotWritable() string {
-	return Catalog.Format(msgs.locale, "mirrorErrNotWritable", nil)
 }
 
 // ResetPageButton says "Reset this page"
@@ -4240,4 +3788,104 @@ func CtxSelectedLines() string { return In(i18n.Locale()).CtxSelectedLines() }
 // in the language of msgs.
 func (msgs Messages) CtxSelectedLines() string {
 	return Catalog.Format(msgs.locale, "ctxSelectedLines", nil)
+}
+
+// DialogChooseBackupTitle says "Choose Backup Folder"
+// in the language the app shows.
+func DialogChooseBackupTitle() string { return In(i18n.Locale()).DialogChooseBackupTitle() }
+
+// DialogChooseBackupTitle says "Choose Backup Folder"
+// in the language of msgs.
+func (msgs Messages) DialogChooseBackupTitle() string {
+	return Catalog.Format(msgs.locale, "dialogChooseBackupTitle", nil)
+}
+
+// DialogChooseBackupMessage says "Pick the folder where backups are stored — a cloud-sync folder (iCloud, Nutstore, …) makes it a cloud backup."
+// in the language the app shows.
+func DialogChooseBackupMessage() string { return In(i18n.Locale()).DialogChooseBackupMessage() }
+
+// DialogChooseBackupMessage says "Pick the folder where backups are stored — a cloud-sync folder (iCloud, Nutstore, …) makes it a cloud backup."
+// in the language of msgs.
+func (msgs Messages) DialogChooseBackupMessage() string {
+	return Catalog.Format(msgs.locale, "dialogChooseBackupMessage", nil)
+}
+
+// DialogChooseBackupButton says "Use as Backup Folder"
+// in the language the app shows.
+func DialogChooseBackupButton() string { return In(i18n.Locale()).DialogChooseBackupButton() }
+
+// DialogChooseBackupButton says "Use as Backup Folder"
+// in the language of msgs.
+func (msgs Messages) DialogChooseBackupButton() string {
+	return Catalog.Format(msgs.locale, "dialogChooseBackupButton", nil)
+}
+
+// BackupErrParse says "Cannot resolve the path"
+// in the language the app shows.
+func BackupErrParse() string { return In(i18n.Locale()).BackupErrParse() }
+
+// BackupErrParse says "Cannot resolve the path"
+// in the language of msgs.
+func (msgs Messages) BackupErrParse() string {
+	return Catalog.Format(msgs.locale, "backupErrParse", nil)
+}
+
+// BackupErrAppData says "The app data directory cannot be the backup folder"
+// in the language the app shows.
+func BackupErrAppData() string { return In(i18n.Locale()).BackupErrAppData() }
+
+// BackupErrAppData says "The app data directory cannot be the backup folder"
+// in the language of msgs.
+func (msgs Messages) BackupErrAppData() string {
+	return Catalog.Format(msgs.locale, "backupErrAppData", nil)
+}
+
+// BackupErrNotWritable says "Folder is not writable"
+// in the language the app shows.
+func BackupErrNotWritable() string { return In(i18n.Locale()).BackupErrNotWritable() }
+
+// BackupErrNotWritable says "Folder is not writable"
+// in the language of msgs.
+func (msgs Messages) BackupErrNotWritable() string {
+	return Catalog.Format(msgs.locale, "backupErrNotWritable", nil)
+}
+
+// OnboardFirstBackupErr says "Data saved, but the first backup failed: {err}"
+// in the language the app shows.
+func OnboardFirstBackupErr(err string) string { return In(i18n.Locale()).OnboardFirstBackupErr(err) }
+
+// OnboardFirstBackupErr says "Data saved, but the first backup failed: {err}"
+// in the language of msgs.
+func (msgs Messages) OnboardFirstBackupErr(err string) string {
+	return Catalog.Format(msgs.locale, "onboardFirstBackupErr", map[string]any{"err": err})
+}
+
+// CardBackupFolder says "Backup folder"
+// in the language the app shows.
+func CardBackupFolder() string { return In(i18n.Locale()).CardBackupFolder() }
+
+// CardBackupFolder says "Backup folder"
+// in the language of msgs.
+func (msgs Messages) CardBackupFolder() string {
+	return Catalog.Format(msgs.locale, "cardBackupFolder", nil)
+}
+
+// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. Left unset, b…"
+// in the language the app shows.
+func BackupFolderHint() string { return In(i18n.Locale()).BackupFolderHint() }
+
+// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. Left unset, b…"
+// in the language of msgs.
+func (msgs Messages) BackupFolderHint() string {
+	return Catalog.Format(msgs.locale, "backupFolderHint", nil)
+}
+
+// BackupNotSet says "None chosen"
+// in the language the app shows.
+func BackupNotSet() string { return In(i18n.Locale()).BackupNotSet() }
+
+// BackupNotSet says "None chosen"
+// in the language of msgs.
+func (msgs Messages) BackupNotSet() string {
+	return Catalog.Format(msgs.locale, "backupNotSet", nil)
 }

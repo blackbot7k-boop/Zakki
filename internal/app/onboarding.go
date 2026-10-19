@@ -24,9 +24,9 @@ import (
 // onboardingLastStep 向导最后一步的序号。
 const onboardingLastStep = 3
 
-// defaultMirrorDir 新安装的默认外部备份目录（~/Documents/Zakki 备份）。
+// defaultBackupDir 新安装的默认备份文件夹（~/Documents/Zakki 备份）。
 // 可注入以便测试；空串表示无法定位主目录，此时向导必须手选文件夹。
-var defaultMirrorDir = func() string {
+var defaultBackupDir = func() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
@@ -60,7 +60,7 @@ func (a *app) openOnboarding() {
 		step:         1,
 		tabCount:     DefaultTabCount,
 		tabCountText: strconv.Itoa(DefaultTabCount),
-		dirDraft:     defaultMirrorDir(),
+		dirDraft:     defaultBackupDir(),
 	}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:     locales.OnboardWindowTitle(),
@@ -86,7 +86,7 @@ func (a *app) openOnboarding() {
 // abandonOnboarding 放弃向导（跳过/关窗等同接受默认）：备份文件夹落默认路径，
 // 数据写默认快照，之后照常进入主界面。
 func (a *app) abandonOnboarding() {
-	a.applyDefaultMirrorDir()
+	a.applyDefaultBackupDir()
 	if err := a.persistFirstRunSnapshot(); err != nil {
 		a.notice = locales.OnboardDraftPendingNotice()
 	}
@@ -94,11 +94,10 @@ func (a *app) abandonOnboarding() {
 	a.enterMainFromOnboarding()
 }
 
-// applyDefaultMirrorDir 跳过/关窗路径的偏好写入：不选也有默认备份文件夹。
-// Git 档位不在向导出现，保持默认 off。
-func (a *app) applyDefaultMirrorDir() {
+// applyDefaultBackupDir 跳过/关窗路径的偏好写入：不选也有默认备份文件夹。
+func (a *app) applyDefaultBackupDir() {
 	if err := a.updatePreferences(func(p *preferences) {
-		p.Backup.MirrorDir = defaultMirrorDir()
+		p.Backup.BackupDir = defaultBackupDir()
 	}); err != nil {
 		a.notice = locales.OnboardSaveErr(err.Error())
 	}
@@ -117,7 +116,7 @@ func (a *app) finishOnboarding(configured bool) {
 			n = MaxTabCount
 		}
 		if err := a.updatePreferences(func(p *preferences) {
-			p.Backup.MirrorDir = dir
+			p.Backup.BackupDir = dir
 		}); err != nil {
 			ob.dirErr = locales.OnboardSaveErr(err.Error())
 			return // 留在向导，让用户重试或跳过
@@ -129,12 +128,12 @@ func (a *app) finishOnboarding(configured bool) {
 		if dir != "" {
 			if err := a.backupNow(); err != nil {
 				slog.Warn("向导完成后首次备份失败", "error", err)
-				a.notice = locales.OnboardFirstMirrorErr(err.Error())
+				a.notice = locales.OnboardFirstBackupErr(err.Error())
 			}
 		}
 	} else {
 		// 跳过等同接受默认：备份文件夹落默认路径，再写默认数据快照。
-		a.applyDefaultMirrorDir()
+		a.applyDefaultBackupDir()
 		if err := a.persistFirstRunSnapshot(); err != nil {
 			ob.dirErr = locales.OnboardWriteErr(err.Error())
 			return
@@ -170,12 +169,12 @@ func (a *app) rebuildInitialTabs(n int) {
 
 // obPickFolder 向导里的目录选择：结果回主线程应用到草稿。
 func (a *app) obPickFolder() {
-	a.chooseMirrorDirAsync(a.onboarding.obWin, a.obApplyFolder)
+	a.chooseBackupDirAsync(a.onboarding.obWin, a.obApplyFolder)
 }
 
 // obApplyFolder 主线程：校验并记录所选文件夹（覆盖默认路径）。
 func (a *app) obApplyFolder(path string) {
-	abs, err := a.validateMirrorDir(path)
+	abs, err := a.validateBackupDir(path)
 	if err != nil {
 		a.onboarding.dirErr = err.Error()
 		return

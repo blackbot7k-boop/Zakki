@@ -89,11 +89,11 @@ func TestTabDeleteMinAndBackup(t *testing.T) {
 				t.Fatal("内容还在标签里")
 			}
 		}
-		names := persistBackupNames(t, a.notes.BackupDir)
+		names := persistBackupNames(t, a.notes.BackupDir())
 		if len(names) != 1 {
 			t.Fatalf("备份 = %v, want 1 份", names)
 		}
-		if bak := persistReadSaved(t, a.notes.BackupDir+"/"+names[0]); bak.Tabs[1].Text != "要被删除的内容" {
+		if bak := persistReadSaved(t, a.notes.BackupDir()+"/"+names[0]); bak.Tabs[1].Text != "要被删除的内容" {
 			t.Fatalf("备份不含被删内容: %+v", bak.Tabs)
 		}
 	})
@@ -101,9 +101,9 @@ func TestTabDeleteMinAndBackup(t *testing.T) {
 	t.Run("备份失败取消删除", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
-		blocker := a.notes.BackupDir + "-blocked"
+		blocker := a.notes.BackupDir() + "-blocked"
 		persistWrite(t, blocker, "普通文件")
-		a.notes.BackupDir = blocker
+		a.notes.SetBackupDir(blocker) // 选择的备份文件夹不可写
 		a.tabs[1].Text = "备份失败要保留"
 		if a.deleteTabNow(1) {
 			t.Fatal("备份失败应取消删除")

@@ -438,7 +438,7 @@ func TestPrefsMigrationKeepsNormalizedNoteThemeFromRealNotesLoad(t *testing.T) {
 	}
 
 	b := newTestApp(t)
-	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir, b.now)
+	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir(), b.now)
 	if err := b.load(); err != nil {
 		t.Fatal(err)
 	}

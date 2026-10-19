@@ -58,9 +58,6 @@ type settingsUIState struct {
 	recording string
 	keyErr    string
 
-	// Git 自动化 Select 绑定的显示文案。
-	gitModeSel string
-
 	resetTarget string // 待确认的「恢复本页默认值」页面
 }
 
@@ -124,8 +121,7 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 	mergeInt(&backupDraft.IntervalMinutes, backupBefore.IntervalMinutes, backupCurrent.IntervalMinutes)
 	mergeInt(&backupDraft.Keep, backupBefore.Keep, backupCurrent.Keep)
 	mergeBool(&backupDraft.OnLaunch, backupBefore.OnLaunch, backupCurrent.OnLaunch)
-	mergeString(&backupDraft.MirrorDir, backupBefore.MirrorDir, backupCurrent.MirrorDir)
-	mergeString(&backupDraft.GitMode, backupBefore.GitMode, backupCurrent.GitMode)
+	mergeString(&backupDraft.BackupDir, backupBefore.BackupDir, backupCurrent.BackupDir)
 
 	ui.draft.Version = next.Version
 	ui.draft.Keymap = next.Keymap
@@ -156,7 +152,6 @@ func (ui *settingsUIState) syncDraftBindings() {
 		ui.lineHeightText = floatText(p.Appearance.LineHeight)
 		ui.lineHeightErr = ""
 	}
-	ui.gitModeSel = gitModeDisplay(p.Backup.GitMode)
 }
 
 func floatText(v float32) string {
@@ -337,11 +332,8 @@ func (ui *settingsUIState) applyBackupDraft(p *preferences) {
 	if draft.OnLaunch != before.OnLaunch {
 		p.Backup.OnLaunch = draft.OnLaunch
 	}
-	if draft.MirrorDir != before.MirrorDir {
-		p.Backup.MirrorDir = draft.MirrorDir
-	}
-	if draft.GitMode != before.GitMode {
-		p.Backup.GitMode = draft.GitMode
+	if draft.BackupDir != before.BackupDir {
+		p.Backup.BackupDir = draft.BackupDir
 	}
 }
 

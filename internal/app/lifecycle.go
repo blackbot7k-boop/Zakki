@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -178,8 +179,6 @@ func (a *app) createWindow() {
 		a.winOpen, a.win, a.hidden = false, nil, true
 		a.syncMenus() // Markdown 命令随主窗口关闭禁用
 	})
-	// 后台镜像/Git 任务结束后回主线程刷新状态栏；窗口关闭后 Update 自然空转。
-	a.notes.SetOnMirrorSettled(func() { win.Update(func() {}) })
 	a.syncMenus() // 重新打开后恢复可用
 }
 
@@ -263,7 +262,7 @@ func formatContextNote(id string) string {
 // 显示收视图模式与标签切换。标签列表用稳定 ID 构造，设置窗口统一从应用菜单的「设置…」进入；
 // 只为前 9 个标签注册数字快捷键，10–12 用顶栏或设置页访问。
 func (a *app) createMenu() *mygo.Menu {
-	// 标签 1..N，⌃1..⌃9（10–12 不注册数字键）。
+	// 标签 1..N，⌃1..⌃9（Windows 上是 Alt+N，10–12 不注册数字键）。
 	tabItems := make([]*mygo.MenuItem, 0, len(a.tabs))
 	for i := range a.tabs {
 		i := i
@@ -275,7 +274,7 @@ func (a *app) createMenu() *mygo.Menu {
 			},
 		}
 		if i < 9 {
-			item.Accelerator = fmt.Sprintf("Ctrl+%d", i+1)
+			item.Accelerator = fmt.Sprintf("%s+%d", tabAccPrefixForPlatform(runtime.GOOS), i+1)
 		}
 		tabItems = append(tabItems, item)
 	}
@@ -466,15 +465,22 @@ func (a *app) syncMenus() {
 }
 
 // setupTray 托盘图标：左键显示/隐藏，右键菜单（显示/隐藏、设置、退出）。
+// macOS 用模板图标由系统着色；其他平台系统不管模板，按桌面明暗自选白/黑，
+// 并随系统主题切换更新，否则图标会隐入同色任务栏。
 func (a *app) setupTray() {
+	template := runtime.GOOS == "darwin"
 	tray, err := mygo.NewTray(mygo.TrayOptions{
-		Icon:           trayPNG(),
-		IconIsTemplate: true,
+		Icon:           trayPNG(template || mygo.Theme.IsDark()),
+		IconIsTemplate: template,
 		ToolTip:        appName,
 	})
 	if err != nil {
 		slog.Error("托盘创建失败", "error", err)
 		return
+	}
+	a.tray = tray
+	if !template {
+		mygo.Theme.OnUpdated(func() { a.tray.SetIcon(trayPNG(mygo.Theme.IsDark()), false) })
 	}
 	tray.OnClick(func() { a.toggleWindow() })
 	tray.OnRightClick(func() {

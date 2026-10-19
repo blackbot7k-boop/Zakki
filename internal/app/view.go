@@ -479,14 +479,6 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 			FontSize(12).TextColor(fg)
 		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
 		ui.Text(c, a.backupLabel()).FontSize(12).TextColor(fg)
-		// 外部备份镜像状态（未配置不显示）。
-		if label, warn := a.mirrorLabel(); label != "" {
-			ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
-			text := ui.Text(c, label).FontSize(12).TextColor(fg)
-			if warn {
-				text.Bold()
-			}
-		}
 		// 保存/载入异常要在界面上可见（完整内容在日志里）。
 		if warn := a.statusWarn(); warn != "" {
 			ui.Text(c, warn).FontSize(12).TextColor(fg).Bold()

@@ -152,7 +152,14 @@ func absByte(a, b uint8) int {
 }
 
 func TestTrayInkZPNG(t *testing.T) {
-	img, err := png.Decode(bytes.NewReader(trayPNG()))
+	for name, whiteInk := range map[string]bool{"white": true, "black": false} {
+		t.Run(name, func(t *testing.T) { testTrayPNG(t, trayPNG(whiteInk), whiteInk) })
+	}
+}
+
+func testTrayPNG(t *testing.T, pngBytes []byte, whiteInk bool) {
+	t.Helper()
+	img, err := png.Decode(bytes.NewReader(pngBytes))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,8 +184,12 @@ func TestTrayInkZPNG(t *testing.T) {
 	for y := 0; y < 36; y++ {
 		for x := 0; x < 36; x++ {
 			c := at(x, y)
-			if c.A > 0 && (c.R != 255 || c.G != 255 || c.B != 255) {
-				t.Fatalf("non-white tray pixel at %d,%d: %+v", x, y, c)
+			want := uint8(0)
+			if whiteInk {
+				want = 255
+			}
+			if c.A > 0 && (c.R != want || c.G != want || c.B != want) {
+				t.Fatalf("wrong tray ink at %d,%d: %+v", x, y, c)
 			}
 			if (x == 0 || x == 35 || y == 0 || y == 35) && c.A != 0 {
 				t.Fatalf("tray should have transparent padding at %d,%d", x, y)

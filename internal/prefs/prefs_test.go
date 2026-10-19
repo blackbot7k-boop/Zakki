@@ -29,8 +29,8 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 	if p.Backup.IntervalMinutes != 5 || p.Backup.Keep != 20 || !p.Backup.OnLaunch {
 		t.Fatalf("备份默认值错误: %+v", p.Backup)
 	}
-	if p.Backup.MirrorDir != "" || p.Backup.GitMode != "off" {
-		t.Fatalf("全新安装不应启用外部备份: %+v", p.Backup)
+	if p.Backup.BackupDir != "" {
+		t.Fatalf("全新安装不应预选备份文件夹: %+v", p.Backup)
 	}
 	if p.Advanced.AutosaveDelayMS != 800 || p.Advanced.WindowWidth != 400 || p.Advanced.WindowHeight != 540 {
 		t.Fatalf("兼容参数默认值错误: %+v", p.Advanced)
@@ -47,7 +47,6 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 		func(p *Preferences) { p.Backup.IntervalMinutes = 0 },
 		func(p *Preferences) { p.Backup.IntervalMinutes = 1441 },
 		func(p *Preferences) { p.Backup.Keep = 1001 },
-		func(p *Preferences) { p.Backup.GitMode = "auto" },
 		func(p *Preferences) { p.Advanced.AutosaveDelayMS = 99 },
 		func(p *Preferences) { p.Advanced.WindowWidth = 299 },
 		func(p *Preferences) { p.Advanced.WindowHeight = 339 },
@@ -95,14 +94,14 @@ func TestPreferencesDecodeStrict(t *testing.T) {
 
 // TestPreferencesMigrateFontSplit 版本 1 只有单一正文字体键；升级后
 // latinFont 留空（跟随中文字体），渲染结果与升级前一致，其余字段原样保留；
-// 新增的 backup.mirrorDir/gitMode 缺键按未配置处理，行为与升级前一致。
+// backup 节缺键按未选择备份文件夹处理，行为与升级前一致。
 func TestPreferencesMigrateFontSplit(t *testing.T) {
 	v1 := `{"version":1,"appearance":{"bodyFont":"songti","monoFont":"menlo","bodySize":19,"colorTheme":"paper"},"backup":{"keep":7}}`
 	got, err := Decode([]byte(v1), testAccel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 5 {
+	if got.Version != CurrentVersion || CurrentVersion != 6 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -131,25 +130,25 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if _, err := Decode([]byte(`{"version":2,"appearance":{"latinFont":"comic"}}`), testAccel); err == nil {
 		t.Fatal("未知西文字体必须拒绝")
 	}
-	// 版本 2 文件没有 backup.mirrorDir/gitMode 键：读回未配置状态，写回即版本 3。
+	// 版本 2 文件没有 backup 节的目录键：读回未选择状态。
 	v2b, err := Decode([]byte(`{"version":2,"backup":{"intervalMinutes":30,"keep":9}}`), testAccel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v2b.Backup.MirrorDir != "" || v2b.Backup.GitMode != "off" ||
+	if v2b.Backup.BackupDir != "" ||
 		v2b.Backup.IntervalMinutes != 30 || v2b.Backup.Keep != 9 {
-		t.Fatalf("版本 2 备份策略应原样保留且外部备份未配置: %+v", v2b.Backup)
+		t.Fatalf("版本 2 备份策略应原样保留且未选择备份文件夹: %+v", v2b.Backup)
 	}
-	// 版本 3 显式值原样读回。
+	// 版本 3 的 mirrorDir 迁移为 backupDir；gitMode 随 Git 自动化移除。
 	v3, err := Decode([]byte(`{"version":3,"backup":{"mirrorDir":"/tmp/bak","gitMode":"commitPush"}}`), testAccel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v3.Backup.MirrorDir != "/tmp/bak" || v3.Backup.GitMode != "commitPush" {
-		t.Fatalf("版本 3 应读回外部备份配置: %+v", v3.Backup)
+	if v3.Backup.BackupDir != "/tmp/bak" {
+		t.Fatalf("版本 3 的外部备份目录应迁移为备份文件夹: %+v", v3.Backup)
 	}
 	// 保存的是版本 5。
-	if d := Default(5); d.Version != 5 || d.Appearance.LatinFont != "" {
+	if d := Default(5); d.Version != 6 || d.Appearance.LatinFont != "" {
 		t.Fatalf("默认偏好应为版本 5 且西文跟随中文: %+v", d)
 	}
 }
@@ -219,5 +218,43 @@ func TestPreferencesMigrateCodeThemeSoft(t *testing.T) {
 	}
 	if got := Default(5).Appearance.CodeTheme; got != "soft" {
 		t.Fatalf("全新安装默认应为 soft: %q", got)
+	}
+}
+
+// TestPreferencesMigrateSingleBackupFolder 版本 6 起备份只有一个文件夹：
+// mirrorDir 平移为 backupDir 并成为唯一备份地址，gitMode 随 Git 自动化移除。
+func TestPreferencesMigrateSingleBackupFolder(t *testing.T) {
+	// v5 文件的 mirrorDir 原样迁移；gitMode 键被摘除后严格解码放行。
+	v5, err := Decode([]byte(`{"version":5,"backup":{"mirrorDir":"/tmp/bak","gitMode":"commitPush"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v5.Version != CurrentVersion {
+		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, v5.Version)
+	}
+	if v5.Backup.BackupDir != "/tmp/bak" {
+		t.Fatalf("mirrorDir 应迁移为备份文件夹: %+v", v5.Backup)
+	}
+	// 只有 gitMode 没有 mirrorDir 的文件也能解码：迁移结果为未选择。
+	v5git, err := Decode([]byte(`{"version":5,"backup":{"gitMode":"commit"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v5git.Backup.BackupDir != "" {
+		t.Fatalf("无目录时迁移后应未选择: %+v", v5git.Backup)
+	}
+	// v6 文件直接用新键，旧键按未知字段拒绝。
+	v6, err := Decode([]byte(`{"version":6,"backup":{"backupDir":"/tmp/new"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v6.Backup.BackupDir != "/tmp/new" || v6.Version != 6 {
+		t.Fatalf("v6 应原样读回: %+v", v6.Backup)
+	}
+	if _, err := Decode([]byte(`{"version":6,"backup":{"mirrorDir":"/tmp/old"}}`), testAccel); err == nil {
+		t.Fatal("v6 文件出现旧键 mirrorDir 必须拒绝")
+	}
+	if _, err := Decode([]byte(`{"version":6,"backup":{"gitMode":"commit"}}`), testAccel); err == nil {
+		t.Fatal("v6 文件出现旧键 gitMode 必须拒绝")
 	}
 }

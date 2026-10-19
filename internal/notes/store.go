@@ -1,13 +1,11 @@
 package notes
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,64 +18,38 @@ import (
 // Store 负责笔记数据文件的读写、防抖保存、滚动备份与写保护协调。
 // 路径与时钟在构造时注入，便于测试使用临时目录与固定时钟。
 type Store struct {
-	DataFile  string
-	BackupDir string
-	Now       func() time.Time
-	Migrate   MigrateOptions
-	// RunGit 在镜像目录执行 git 命令；生产用 DefaultGitRunner，测试注入假 runner。
-	// 为 nil 时禁用 Git 自动化。
-	RunGit GitRunner
-	// SetOnMirrorSettled 安装镜像/Git 结束回调；回调可从后台 goroutine 调用，
-	// app 用它回主线程刷新状态栏。
-	mu            sync.Mutex
-	pending       *pendingSave
-	stopped       bool
-	saveBlocked   bool
-	lastBackup    time.Time
-	lastSaveErr   string
-	saveTimer     *time.Timer
-	saveRunning   bool
-	saveRevision  uint64
-	saveCompleted uint64
-	saveResult    error
-	stateWrite    func(string, []byte) error
-	statusReadDir func(string) ([]os.DirEntry, error)
+	DataFile string
+	// DefaultBackupDir 是未选择备份文件夹时的内置目的地（应用数据 backups/）。
+	DefaultBackupDir string
+	Now              func() time.Time
+	Migrate          MigrateOptions
+	mu               sync.Mutex
+	pending          *pendingSave
+	stopped          bool
+	saveBlocked      bool
+	lastBackup       time.Time
+	lastSaveErr      string
+	saveTimer        *time.Timer
+	saveRunning      bool
+	saveRevision     uint64
+	saveCompleted    uint64
+	saveResult       error
+	stateWrite       func(string, []byte) error
+	statusReadDir    func(string) ([]os.DirEntry, error)
 
 	// writeMu 串行笔记写入与写保护切换，不保护 UI 查询的状态。
 	writeMu    sync.Mutex
 	shutdownMu sync.Mutex
 
-	// backupMu 串行备份状态初始化、本地备份的命名、写入与修剪；不保护可查询状态。
+	// backupMu 串行备份状态初始化、备份的命名、写入与修剪；不保护可查询状态。
 	backupMu       sync.Mutex
 	backupLoaded   bool
 	backupStamp    string
 	backupSequence int
-	// mirrorMu 只串行外部镜像与 Git I/O，不保护可查询状态。
-	mirrorMu      sync.Mutex
-	mirrorRunning bool
-	mirrorPending *mirrorJob
 
-	// 外部备份目的地与 Git 自动化（随偏好变更由 SetMirror 更新）。
-	mirrorDir       string
-	gitMode         string
-	lastMirror      time.Time
-	mirrorErr       string // 最近一次镜像拷贝失败原因（空 = 正常）
-	gitErr          string // 最近一次 Git 提交/推送失败原因（空 = 正常）
-	mirrorVersion   uint64 // 配置变更使已启动任务的状态失效
-	mirrorRevision  uint64 // 本进程的镜像结果使尚未完成的状态扫描失效
-	onMirrorSettled func()
-	mirrorWrite     func(string, []byte) error
-}
-
-// GitRunner 在目录 dir 上执行 git 参数并返回合并输出。
-type GitRunner func(dir string, args ...string) (string, error)
-
-// MirrorStatus 是外部备份的当前状态快照（主线程每帧读取）。
-type MirrorStatus struct {
-	Dir  string    // 目的地，空 = 未配置
-	Mode string    // off / commit / commitPush
-	Last time.Time // 最近一次成功镜像；零值 = 尚未镜像
-	Err  string    // 最近一次镜像或 Git 错误（空 = 正常）
+	// backupDir 是用户选择的备份文件夹，唯一的备份存储地址；空 = DefaultBackupDir。
+	// 随偏好变更由 SetBackupDir 更新（主线程）。
+	backupDir string
 }
 
 type pendingSave struct {
@@ -89,32 +61,39 @@ type pendingSave struct {
 	ready          bool
 }
 
-type mirrorJob struct {
-	dir       string
-	mode      string
-	name      string
-	raw       []byte
-	names     []string
-	stamp     string
-	version   uint64
-	at        time.Time
-	runner    GitRunner
-	writeFile func(string, []byte) error
-}
-
 // NewStore 创建笔记持久化 Store。now 为 nil 时使用 time.Now。
-func NewStore(dataFile, backupDir string, now func() time.Time, migrate MigrateOptions) *Store {
+func NewStore(dataFile, defaultBackupDir string, now func() time.Time, migrate MigrateOptions) *Store {
 	if now == nil {
 		now = time.Now
 	}
 	return &Store{
-		DataFile:    dataFile,
-		BackupDir:   backupDir,
-		Now:         now,
-		Migrate:     migrate,
-		mirrorWrite: atomicfile.WriteBytes,
-		stateWrite:  atomicfile.WriteBytes,
+		DataFile:         dataFile,
+		DefaultBackupDir: defaultBackupDir,
+		Now:              now,
+		Migrate:          migrate,
+		stateWrite:       atomicfile.WriteBytes,
 	}
+}
+
+// SetBackupDir 更新备份文件夹（主线程随偏好变更调用）；空串回到内置目录。
+func (s *Store) SetBackupDir(dir string) {
+	s.mu.Lock()
+	s.backupDir = dir
+	s.mu.Unlock()
+}
+
+// BackupDir 返回当前生效的备份目的地：所选文件夹，未选择时是内置目录。
+func (s *Store) BackupDir() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.backupDirLocked()
+}
+
+func (s *Store) backupDirLocked() string {
+	if s.backupDir != "" {
+		return s.backupDir
+	}
+	return s.DefaultBackupDir
 }
 
 // PendingPath 写保护期间新改动的暂存文件路径。
@@ -209,9 +188,20 @@ func (s *Store) QuarantineCorruptFile() {
 	slog.Info("损坏文件已隔离", "path", dst)
 }
 
-// LoadNewestBackup 从备份目录新→旧找第一个可用备份。
+// LoadNewestBackup 从备份文件夹新→旧找第一个可用备份；文件夹里没有时回退
+// 内置目录（历史版本的备份都在那里，换文件夹后首次损坏仍可恢复）。
 func (s *Store) LoadNewestBackup() (File, string, bool) {
-	entries, err := os.ReadDir(s.BackupDir)
+	if f, name, ok := s.loadNewestBackupFrom(s.BackupDir()); ok {
+		return f, name, true
+	}
+	if s.BackupDir() == s.DefaultBackupDir {
+		return File{}, "", false
+	}
+	return s.loadNewestBackupFrom(s.DefaultBackupDir)
+}
+
+func (s *Store) loadNewestBackupFrom(dir string) (File, string, bool) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return File{}, "", false
 	}
@@ -223,7 +213,7 @@ func (s *Store) LoadNewestBackup() (File, string, bool) {
 	}
 	sort.Slice(names, func(i, j int) bool { return backupNameNewer(names[i], names[j]) })
 	for _, name := range names {
-		raw, err := os.ReadFile(filepath.Join(s.BackupDir, name))
+		raw, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			continue
 		}
@@ -236,7 +226,7 @@ func (s *Store) LoadNewestBackup() (File, string, bool) {
 	return File{}, "", false
 }
 
-// BackupNow 在已保存数据基础上无条件写一份本地备份，并在后台镜像。
+// BackupNow 在已保存数据基础上无条件写一份备份。
 func (s *Store) BackupNow(keep int) error {
 	name, err := s.writeBackup(keep, 0, false)
 	if name == "" && err == nil {
@@ -256,7 +246,9 @@ func (s *Store) maybeWritePeriodicBackup(interval time.Duration, keep int) error
 	return err
 }
 
-// writeBackup 写本地备份并提交不可变镜像任务。外部 I/O 不占用 s.mu。
+// writeBackup 向备份文件夹写一份备份。所选文件夹可能在云盘同步目录，写入
+// 在备份路径（防抖保存 worker / 启动任务 goroutine）上同步进行，不占主线程；
+// 用 tmp+rename 原子写，避免云盘同步到半截文件。
 func (s *Store) writeBackup(keep int, interval time.Duration, periodic bool) (string, error) {
 	s.backupMu.Lock()
 	defer s.backupMu.Unlock()
@@ -270,121 +262,31 @@ func (s *Store) writeBackup(keep int, interval time.Duration, periodic bool) (st
 		return "", nil
 	}
 	dataPath := s.currentDataPathLocked()
+	dest := s.backupDirLocked()
 	s.mu.Unlock()
 
 	raw, err := os.ReadFile(dataPath)
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(s.BackupDir, 0o755); err != nil {
+	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return "", err
 	}
 	name := s.uniqueBackupName()
-	if err := os.WriteFile(filepath.Join(s.BackupDir, name), raw, 0o644); err != nil {
+	if err := atomicfile.WriteBytes(filepath.Join(dest, name), raw); err != nil {
 		return "", err
 	}
-	if err := s.pruneJSON(s.BackupDir, keep); err != nil {
+	if err := s.pruneJSON(dest, keep); err != nil {
 		slog.Warn("修剪旧备份失败", "error", err)
 	}
 
-	at := s.Now()
 	s.mu.Lock()
-	s.lastBackup = at
-	job, ok := s.mirrorJobLocked(name, raw, at)
+	s.lastBackup = s.Now()
 	s.mu.Unlock()
-	if ok {
-		job.names = listBackupNames(s.BackupDir)
-		s.enqueueMirrorJob(job)
-	}
 	return name, nil
 }
 
-func (s *Store) mirrorJobLocked(name string, raw []byte, at time.Time) (mirrorJob, bool) {
-	if s.mirrorDir == "" {
-		return mirrorJob{}, false
-	}
-	writeFile := s.mirrorWrite
-	if writeFile == nil {
-		writeFile = atomicfile.WriteBytes
-	}
-	return mirrorJob{
-		dir:       s.mirrorDir,
-		mode:      s.gitMode,
-		name:      name,
-		raw:       raw,
-		stamp:     at.Format("20060102-150405"),
-		version:   s.mirrorVersion,
-		at:        at,
-		runner:    s.RunGit,
-		writeFile: writeFile,
-	}, true
-}
-
-// runGitJob 在镜像目录执行 Git 提交（可选推送）。无变更时静默跳过。
-// 精确路径来自当前文件和已跟踪文件，既能记录删除，也不会把不存在的旧前缀
-// 作为 pathspec 交给 add/commit。
-func runGitJob(runner GitRunner, dir, mode, stamp string) error {
-	paths, err := gitBackupPaths(runner, dir)
-	if err != nil {
-		return err
-	}
-	if len(paths) == 0 {
-		return nil
-	}
-	args := append([]string{"add", "--"}, paths...)
-	if _, err := runner(dir, args...); err != nil {
-		return err
-	}
-	args = append([]string{"status", "--porcelain", "--"}, paths...)
-	out, err := runner(dir, args...)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(out) == "" {
-		return nil // 没有本应用备份变更：跳过提交
-	}
-	args = append([]string{"commit", "--only", "-m", "backup: zakki-" + stamp, "--"}, paths...)
-	if _, err := runner(dir, args...); err != nil {
-		return err
-	}
-	if mode == "commitPush" {
-		if _, err := runner(dir, "push"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func gitBackupPaths(runner GitRunner, dir string) ([]string, error) {
-	paths := make(map[string]struct{})
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() && isBackupFileName(entry.Name()) {
-			paths[entry.Name()] = struct{}{}
-		}
-	}
-	tracked, err := runner(dir, "ls-files", "-z", "--", "zakki-*.json", "tot-md-*.json")
-	if err != nil {
-		return nil, err
-	}
-	for _, path := range strings.Split(tracked, "\x00") {
-		if path == "" || filepath.Clean(path) != filepath.Base(path) || !isBackupFileName(path) {
-			continue
-		}
-		paths[path] = struct{}{}
-	}
-	out := make([]string, 0, len(paths))
-	for path := range paths {
-		out = append(out, path)
-	}
-	sort.Strings(out)
-	return out, nil
-}
-
-// backupFilePrefix 是当前备份与镜像文件的命名前缀；legacyBackupFilePrefix
+// backupFilePrefix 是备份文件的命名前缀；legacyBackupFilePrefix
 // 是应用更名前旧版本写入的前缀。识别、修剪与 Git 路径规范继续匹配旧前缀，
 // 让外部目录里遗留的旧命名文件随保留策略自然淘汰，不额外改写用户目录。
 const (
@@ -444,62 +346,14 @@ func backupNameParts(name string) (timestamp string, sequence int, ok bool) {
 	return "", 0, false
 }
 
-// DefaultGitRunner 返回调用本机 git CLI 的 runner。
-func DefaultGitRunner() GitRunner {
-	return func(dir string, args ...string) (string, error) {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		var out bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &out, &out
-		err := cmd.Run()
-		if err != nil {
-			return strings.TrimSpace(out.String()), fmt.Errorf("git %s: %w（%s）",
-				strings.Join(args, " "), err, strings.TrimSpace(out.String()))
-		}
-		return out.String(), nil
-	}
-}
-
-// SetOnMirrorSettled 原子替换后台镜像/Git 完成通知回调。
-func (s *Store) SetOnMirrorSettled(fn func()) {
-	s.mu.Lock()
-	s.onMirrorSettled = fn
-	s.mu.Unlock()
-}
-
-// SetMirror 更新外部备份目的地与 Git 模式（主线程随偏好变更调用）。
-// 目录变更后全部旧状态作废；Git 模式变更后旧 Git 错误作废。
-func (s *Store) SetMirror(dir, gitMode string) {
-	s.mu.Lock()
-	if dir != s.mirrorDir || gitMode != s.gitMode {
-		s.mirrorVersion++
-		s.mirrorPending = nil
-	}
-	if dir != s.mirrorDir {
-		s.mirrorErr, s.gitErr, s.lastMirror = "", "", time.Time{}
-	} else if gitMode != s.gitMode {
-		s.gitErr = ""
-	}
-	s.mirrorDir, s.gitMode = dir, gitMode
-	s.mu.Unlock()
-}
-
-// MirrorStatus 外部备份当前状态。
-func (s *Store) MirrorStatus() MirrorStatus {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	err := s.mirrorErr
-	if err == "" {
-		err = s.gitErr
-	}
-	return MirrorStatus{Dir: s.mirrorDir, Mode: s.gitMode, Last: s.lastMirror, Err: err}
-}
-
+// uniqueBackupName 在当前备份文件夹里挑下一个未占用的名字。同秒序号缓存
+// 跨文件夹复用是安全的：候选名总会再对新目录 Stat 确认。
 func (s *Store) uniqueBackupName() string {
 	stamp := s.Now().Format("20060102-150405")
 	sequence := 1
 	if s.backupStamp == stamp {
 		sequence = s.backupSequence + 1
-	} else if entries, err := os.ReadDir(s.BackupDir); err == nil {
+	} else if entries, err := os.ReadDir(s.backupDirLocked()); err == nil {
 		for _, entry := range entries {
 			entryStamp, entrySequence, ok := backupNameParts(entry.Name())
 			if ok && entryStamp == stamp && entrySequence >= sequence {
@@ -513,7 +367,7 @@ func (s *Store) uniqueBackupName() string {
 		if sequence > 1 {
 			name = fmt.Sprintf("%s-%d.json", base, sequence)
 		}
-		_, err := os.Stat(filepath.Join(s.BackupDir, name))
+		_, err := os.Stat(filepath.Join(s.backupDirLocked(), name))
 		if errors.Is(err, os.ErrNotExist) || err != nil {
 			s.backupStamp, s.backupSequence = stamp, sequence
 			return name
@@ -535,11 +389,6 @@ func (s *Store) BackupOnLaunch(enabled bool, keep int) error {
 	}
 	_, err := s.writeBackup(keep, 0, false)
 	return err
-}
-
-// pruneBackupsLocked 修剪本地备份目录，只保留最新 keep 份。
-func (s *Store) pruneBackupsLocked(keep int) error {
-	return s.pruneJSON(s.BackupDir, keep)
 }
 
 // pruneJSON 按文件名降序只保留目录里最新 keep 份备份文件

@@ -380,11 +380,11 @@ func TestPersistenceClearDot(t *testing.T) {
 		if a.tabs[0].Text != "其他点不动" {
 			t.Fatalf("其他点被误改: %q", a.tabs[0].Text)
 		}
-		names := persistBackupNames(t, a.notes.BackupDir)
+		names := persistBackupNames(t, a.notes.BackupDir())
 		if len(names) != 1 {
 			t.Fatalf("备份 = %v, want 1 份", names)
 		}
-		if raw := string(persistReadRaw(t, filepath.Join(a.notes.BackupDir, names[0]))); !strings.Contains(raw, "清空前应进备份") {
+		if raw := string(persistReadRaw(t, filepath.Join(a.notes.BackupDir(), names[0]))); !strings.Contains(raw, "清空前应进备份") {
 			t.Fatalf("备份不含清空前内容（应先备份后清空）: %q", raw)
 		}
 	})
@@ -394,7 +394,7 @@ func TestPersistenceClearDot(t *testing.T) {
 		t.Cleanup(a.shutdown)
 		blocker := filepath.Join(filepath.Dir(a.notes.DataFile), "blocked")
 		persistWrite(t, blocker, "我是普通文件，MkdirAll 必须失败")
-		a.notes.BackupDir = blocker
+		a.notes.SetBackupDir(blocker) // 选择的备份文件夹不可写
 		a.active = 3
 		a.tabs[3].Text = "备份失败要保留"
 

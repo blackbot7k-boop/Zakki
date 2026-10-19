@@ -87,11 +87,11 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt = ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
-	if !tt.HasText(a.notes.BackupDir) || !tt.HasText("打开备份目录") {
+	if !tt.HasText(a.notes.BackupDir()) || !tt.HasText("打开文件夹") {
 		t.Fatalf("备份页缺少路径: %v", tt.Texts())
 	}
-	if tt.HasText("本机自动备份") || tt.HasText("立即备份") || tt.HasText("Git 自动化") {
-		t.Fatalf("备份页不应再有间隔、立即备份或 Git 自动化: %v", tt.Texts())
+	if tt.HasText("立即备份") || tt.HasText("Git 自动化") {
+		t.Fatalf("备份页不应再有立即备份或 Git 自动化: %v", tt.Texts())
 	}
 }
 
