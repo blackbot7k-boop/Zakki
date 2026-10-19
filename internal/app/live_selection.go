@@ -59,14 +59,15 @@ func (a *app) clearDocSelection() {
 
 // docSelectionInput 在文档级选区激活时接管编辑键与编辑命令。
 // 返回 true 表示事件已按文档语义消费，不进单块控件。
+// 原生键路径用 ui.Cmd（mac ⌘ / 其他平台 Ctrl）与菜单 InputCommand 双轨。
 func (a *app) docSelectionInput(ev ui.InputEvent) bool {
 	switch {
 	case ev.Kind == ui.InputCommand && ev.Text == "copy",
-		ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyC && ev.Mods == ui.Super:
+		ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyC && ev.Mods == ui.Cmd:
 		a.writeDocClipboard()
 		return true
 	case ev.Kind == ui.InputCommand && ev.Text == "cut",
-		ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyX && ev.Mods == ui.Super:
+		ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyX && ev.Mods == ui.Cmd:
 		a.writeDocClipboard()
 		a.spliceDocSelection("")
 		return true
