@@ -226,3 +226,131 @@ func TestTypedFenceInsideCodeBlockStaysLiteral(t *testing.T) {
 		t.Fatalf("代码块内键入 ``` 应作为内容原样替换: %q", a.tabs[0].Text)
 	}
 }
+
+// 代码块内按 Tab：插入制表符并保持焦点，不得跳出编辑器聚焦标签栏。
+func TestTabInCodeBlockKeepsFocusAndIndents(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 4, 4) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n\tabc\n```" {
+		t.Fatalf("Tab 应在光标处插入制表符: %q", got)
+	}
+	if !tt.Focused("内容") {
+		t.Fatal("Tab 后焦点必须留在编辑器内")
+	}
+	if a.mdCaret != 5 || a.mdSelEnd != 5 {
+		t.Fatalf("光标应停在制表符之后: caret=%d sel=%d", a.mdCaret, a.mdSelEnd)
+	}
+}
+
+// 同行选区按 Tab：与普通输入一致，把选区替换为制表符。
+func TestTabInCodeBlockReplacesSelection(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 5, 6) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\na\tc\n```" {
+		t.Fatalf("同行选区应被制表符替换: %q", got)
+	}
+	if !tt.Focused("内容") || a.mdCaret != 6 || a.mdSelEnd != 6 {
+		t.Fatalf("焦点与光标应停在制表符后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
+	}
+}
+
+// 跨行选区按 Tab / Shift+Tab：整行增减一级缩进，选区保留以便连续调整。
+func TestTabInCodeBlockIndentsSelectedLines(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\na\nb\nc\n```", func() { a.focusBlock(0, 4, 9) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n\ta\n\tb\n\tc\n```" {
+		t.Fatalf("跨行选区应整行缩进: %q", got)
+	}
+	if !tt.Focused("内容") || a.mdCaret != 4 || a.mdSelEnd != 12 {
+		t.Fatalf("缩进后应保留选区: focused=%v caret=%d sel=%d", tt.Focused("内容"), a.mdCaret, a.mdSelEnd)
+	}
+	tt.Key(ui.Shift, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\na\nb\nc\n```" {
+		t.Fatalf("Shift+Tab 应整行反向缩进: %q", got)
+	}
+	if a.mdCaret != 4 || a.mdSelEnd != 9 {
+		t.Fatalf("反向缩进后选区应还原: caret=%d sel=%d", a.mdCaret, a.mdSelEnd)
+	}
+}
+
+// Shift+Tab 对行首空格同样生效，每行至多移除四个空格。
+func TestShiftTabInCodeBlockDedentsSpaces(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\n x\n   y\n```", func() { a.focusBlock(0, 4, 10) })
+	tt.Key(ui.Shift, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\nx\ny\n```" {
+		t.Fatalf("Shift+Tab 应移除行首缩进: %q", got)
+	}
+}
+
+// 无缩进的行按 Shift+Tab 是无操作，但焦点仍留在编辑器内。
+func TestShiftTabWithoutIndentIsNoOp(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 4, 4) })
+	tt.Key(ui.Shift, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\nabc\n```" {
+		t.Fatalf("无缩进可移除时不得改写内容: %q", got)
+	}
+	if !tt.Focused("内容") {
+		t.Fatal("Shift+Tab 无操作时焦点必须留在编辑器内")
+	}
+}
+
+// 未确认的围栏草稿（刚键入的 ```）内按 Tab：缩进落到围栏后的内容行，
+// 不得写进围栏行的语言标识，也不得跳出编辑器。
+func TestTabInFenceDraftStartsContentLine(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "", func() { a.focusBlockEnd(0) }, "`", "`", "`")
+	if !a.fenceDraft {
+		t.Fatal("前置条件：逐键键入后应处于围栏草稿态")
+	}
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n\t" {
+		t.Fatalf("Tab 应在围栏后新开内容行落缩进: %q", got)
+	}
+	if a.fenceDraft || !tt.Focused("内容") || a.mdCaret != 5 {
+		t.Fatalf("Tab 后应退出草稿态并保持焦点在制表符后: draft=%v focused=%v caret=%d",
+			a.fenceDraft, tt.Focused("内容"), a.mdCaret)
+	}
+	tt.Type("x")
+	tt.Frame()
+	if a.tabs[0].Text != "```\n\tx" {
+		t.Fatalf("后续键入应继续落在内容行: %q", a.tabs[0].Text)
+	}
+}
+
+// 存量孤立未闭合围栏（非草稿态零宽可编辑区）内按 Tab 与键入同规则。
+func TestTabIntoStrayFenceStartsContentLine(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "前文\n\n```", func() { a.focusBlock(2, 3, 3) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "前文\n\n```\n\t" {
+		t.Fatalf("Tab 应在孤立围栏后新开内容行: %q", got)
+	}
+	if !tt.Focused("内容") || a.mdCaret != 5 {
+		t.Fatalf("焦点应留在编辑器内制表符之后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
+	}
+}
+
+// 代码块内 Tab 缩进是独立撤销事务。
+func TestTabInCodeBlockUndoRestoresDoc(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 4, 4) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	a.undoLive(false)
+	if got := a.tabs[0].Text; got != "```\nabc\n```" {
+		t.Fatalf("撤销应还原缩进前的文档: %q", got)
+	}
+}

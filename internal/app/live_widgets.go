@@ -73,6 +73,15 @@ func (a *app) recordProjectedKey(ev ui.InputEvent, p liveProjection) bool {
 		a.keyHint = ui.KeyTab
 		return true
 	}
+	// 代码块内 Tab 不再交给引擎移动焦点（会跳出编辑器落到标签栏），
+	// 改记提示键，下一帧在已发布光标上做缩进编辑。
+	if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyTab && !p.cell && (ev.Mods == 0 || ev.Mods == ui.Shift) {
+		if blocks := a.mdBlocks(); a.mdActive >= 0 && a.mdActive < len(blocks) && blocks[a.mdActive].kind == bkCode {
+			a.tableBackward = ev.Mods&ui.Shift != 0
+			a.keyHint = ui.KeyTab
+			return true
+		}
+	}
 	if ev.Kind == ui.InputKeyDown && ev.Mods == 0 && ev.Key == ui.KeyBackspace &&
 		p.visibleOffset(a.mdCaret) == 0 && a.mdSelEnd <= a.mdCaret {
 		// Backspace cannot delete invisible syntax or a table border.
@@ -95,6 +104,14 @@ func (a *app) applyProjectedHint(key ui.Key, p liveProjection, start, end int) {
 			a.applyKeyHint(key, s, e)
 		}
 		return
+	}
+	if key == ui.KeyTab {
+		if blocks := a.mdBlocks(); a.mdActive >= 0 && a.mdActive < len(blocks) && blocks[a.mdActive].kind == bkCode {
+			backward := a.tableBackward
+			a.tableBackward = false
+			a.applyCodeTab(backward, p, s, e)
+			return
+		}
 	}
 	if key == ui.KeyEnter {
 		blk := a.mdBlocks()[a.mdActive]
