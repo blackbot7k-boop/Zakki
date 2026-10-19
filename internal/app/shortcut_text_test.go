@@ -17,7 +17,7 @@ func TestShortcutTextFor(t *testing.T) {
 		{"单键", "Find ⌘F, next ⌘G", "windows", "Find Ctrl+F, next Ctrl+G"},
 		{"带 Shift", "source ⌘⇧P", "windows", "source Ctrl+Shift+P"},
 		{"Alt+主修饰键排序", "keep on top ⌥⌘T", "windows", "keep on top Ctrl+Alt+T"},
-		{"⌃ 是标签键映射 Alt", "switch tabs ⌃1–9", "windows", "switch tabs Alt+1–9"},
+		{"⌃ 是 mac 标题键映射 Alt", "headings ⌃1–6", "windows", "headings Alt+1–6"},
 		{"方向键", "⌥⌘←/→", "windows", "Ctrl+Alt+←/→"},
 		{"逗号键", "Settings… ⌘,", "windows", "Settings… Ctrl+,"},
 		{"撤销", "Undo with ⌘Z.", "windows", "Undo with Ctrl+Z."},
@@ -30,7 +30,7 @@ func TestShortcutTextFor(t *testing.T) {
 		{"孤立符号不带键", "开关 ⌘ 与 ⌥ 组合", "windows", "开关 Ctrl 与 Alt 组合"},
 		{"无符号原样", "plain text ⌘", "windows", "plain text Ctrl"},
 		{"linux 同 windows", "⌘S", "linux", "Ctrl+S"},
-		{"⌃ 在 linux 也是 Alt 标签键", "⌃1–9", "linux", "Alt+1–9"},
+		{"⌃ 在 linux 也是 Alt", "⌃1–6", "linux", "Alt+1–6"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

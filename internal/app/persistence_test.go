@@ -205,10 +205,10 @@ func TestPersistenceLoadFields(t *testing.T) {
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},
 		{
-			name:       "v2 超过 12 个截断且 active 收敛",
+			name:       "v2 超过上限截断且 active 收敛",
 			raw:        `{"version":2,"active":99,"tabs":[` + v2TabJSON(14) + `]}`,
 			wantTexts:  nil, // 下面单独断言数量
-			wantActive: 11,
+			wantActive: MaxTabCount - 1,
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},
 	}

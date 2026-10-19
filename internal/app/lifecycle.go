@@ -260,9 +260,9 @@ func formatContextNote(id string) string {
 // createMenu 只组装菜单；菜单栏按 Typora 式分工：段落/格式两个顶层菜单收纳
 // Markdown 命令（展示当前绑定并调用同一命令实现），编辑收系统操作与查找组，
 // 显示收视图模式与标签切换。标签列表用稳定 ID 构造，设置窗口统一从应用菜单的「设置…」进入；
-// 只为前 9 个标签注册数字快捷键，10–12 用顶栏或设置页访问。
+// 标签上限 9 个（MaxTabCount），数字快捷键全覆盖。
 func (a *app) createMenu() *mygo.Menu {
-	// 标签 1..N，⌃1..⌃9（Windows 上是 Alt+N，10–12 不注册数字键）。
+	// 标签 1..N，主修饰键+数字（⌘N / Ctrl+N，浏览器惯例，两平台同形）。
 	tabItems := make([]*mygo.MenuItem, 0, len(a.tabs))
 	for i := range a.tabs {
 		i := i
@@ -274,7 +274,7 @@ func (a *app) createMenu() *mygo.Menu {
 			},
 		}
 		if i < 9 {
-			item.Accelerator = fmt.Sprintf("%s+%d", tabAccPrefixForPlatform(runtime.GOOS), i+1)
+			item.Accelerator = fmt.Sprintf("CmdOrCtrl+%d", i+1)
 		}
 		tabItems = append(tabItems, item)
 	}
@@ -368,7 +368,9 @@ func (a *app) createMenu() *mygo.Menu {
 			{Role: mygo.RoleHideOthers, Label: locales.MenuHideOthers()},
 			{Role: mygo.RoleUnhide, Label: locales.MenuShowAll()},
 			mygo.Separator(),
-			{Role: mygo.RoleQuit, Label: locales.MenuQuit(appName)},
+			// 退出项显式绑定 ⌘Q / Ctrl+Q：Windows 的 RoleQuit 默认无快捷键，
+			// 而统一键位表按两平台同形保留这个键。
+			{Role: mygo.RoleQuit, Label: locales.MenuQuit(appName), Accelerator: "CmdOrCtrl+Q"},
 		}},
 		// 文件菜单按 macOS 惯例：新建/整理在前，保存类居中，关闭收尾。
 		{Label: locales.MenuFile(), Submenu: []*mygo.MenuItem{

@@ -361,15 +361,16 @@ var commandRegistry = []commandDef{
 	{id: cmdItalic, name: "cmdItalic", group: "inline", def: "CmdOrCtrl+I"},
 	{id: cmdInlineCode, name: "cmdInlineCode", group: "inline", def: "CmdOrCtrl+Shift+E"},
 	{id: cmdLink, name: "cmdLink", group: "inline", def: "CmdOrCtrl+K"},
-	{id: cmdH1, name: "cmdH1", group: "heading", def: "CmdOrCtrl+1"},
-	{id: cmdH2, name: "cmdH2", group: "heading", def: "CmdOrCtrl+2"},
-	{id: cmdH3, name: "cmdH3", group: "heading", def: "CmdOrCtrl+3"},
-	{id: cmdH4, name: "cmdH4", group: "heading", def: "CmdOrCtrl+4"},
-	{id: cmdH5, name: "cmdH5", group: "heading", def: "CmdOrCtrl+5"},
-	{id: cmdH6, name: "cmdH6", group: "heading", def: "CmdOrCtrl+6"},
-	{id: cmdBody, name: "cmdBody", group: "heading", def: "CmdOrCtrl+0"},
-	// 标题与正文的数字键两平台统一为「主修饰键+数字」（⌘N / Ctrl+N，Typora 式）。
-	// Windows 能这样做的代价是标签键换成 Alt+N（见 tabAccPrefix）。
+	{id: cmdH1, name: "cmdH1", group: "heading", def: ""},
+	{id: cmdH2, name: "cmdH2", group: "heading", def: ""},
+	{id: cmdH3, name: "cmdH3", group: "heading", def: ""},
+	{id: cmdH4, name: "cmdH4", group: "heading", def: ""},
+	{id: cmdH5, name: "cmdH5", group: "heading", def: ""},
+	{id: cmdH6, name: "cmdH6", group: "heading", def: ""},
+	{id: cmdBody, name: "cmdBody", group: "heading", def: ""},
+	// 标签与标题的数字键分工：标签统一占用主修饰键+数字（⌘N / Ctrl+N，
+	// 浏览器惯例）；标题退到各平台次级修饰键（macOS ⌃N，其他平台 Alt+N，
+	// 见 defaultBindingForPlatform），默认串在注册表里留空。
 	{id: cmdQuote, name: "cmdQuote", group: "blocks", def: "CmdOrCtrl+Shift+Q"},
 	{id: cmdBullet, name: "cmdBullet", group: "blocks", def: "CmdOrCtrl+Shift+8"},
 	{id: cmdOrdered, name: "cmdOrdered", group: "blocks", def: "CmdOrCtrl+Shift+7"},
@@ -429,31 +430,21 @@ func commandDefByID(id string) (commandDef, bool) {
 
 // ---- 固定绑定（不改键） ----
 
-// tabAccPrefixForPlatform 是标签数字键的固定修饰键：macOS 用 Control
-// （⌃N，把 ⌘1–6 留给标题）；其他平台用 Alt（Ctrl+N 让给标题，Typora 式，
-// 浏览器标签惯例只能二选一）。整库文案里的 ⌃ 符号即指这个键，Windows
-// 展示为 Alt+N（shortcutTextFor 同源约束）。
-func tabAccPrefixForPlatform(goos string) string {
-	if goos == "darwin" {
-		return "Ctrl"
-	}
-	return "Alt"
-}
-
 // fixedBindingsForPlatform 是不开放改键的既有快捷键：Keymap 录键时作为冲突源，
-// 让「应用命令与全局命令统一校验」有完整依据。标签数字键按平台取 tabAccPrefixForPlatform。
-// fixedBindingKey 是固定绑定显示名的 catalog 键；显示经 fixedBindingName 取当前语言。
+// 让「应用命令与全局命令统一校验」有完整依据，也是窗口兑底键位的来源之一。
+// 标签数字键两平台统一为主修饰键+数字（⌘N / Ctrl+N，浏览器惯例）；隐藏应用
+// 是 macOS 独有菜单项，其他平台不入表。fixedBindingKey 是固定绑定显示名的
+// catalog 键；显示经 fixedBindingName 取当前语言。
 func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
-	tab := tabAccPrefixForPlatform(goos)
-	return []struct{ acc, key string }{
+	list := []struct{ acc, key string }{
 		{"CmdOrCtrl+F", "find"},
 		{"CmdOrCtrl+G", "findNext"},
 		{"Shift+CmdOrCtrl+G", "findPrev"},
 		{"Shift+CmdOrCtrl+P", "sourceMode"},
 		{"Alt+CmdOrCtrl+T", "keepOnTop"},
-		{tab + "+1", "tab1"}, {tab + "+2", "tab2"}, {tab + "+3", "tab3"},
-		{tab + "+4", "tab4"}, {tab + "+5", "tab5"}, {tab + "+6", "tab6"},
-		{tab + "+7", "tab7"}, {tab + "+8", "tab8"}, {tab + "+9", "tab9"},
+		{"CmdOrCtrl+1", "tab1"}, {"CmdOrCtrl+2", "tab2"}, {"CmdOrCtrl+3", "tab3"},
+		{"CmdOrCtrl+4", "tab4"}, {"CmdOrCtrl+5", "tab5"}, {"CmdOrCtrl+6", "tab6"},
+		{"CmdOrCtrl+7", "tab7"}, {"CmdOrCtrl+8", "tab8"}, {"CmdOrCtrl+9", "tab9"},
 		{"CmdOrCtrl+T", "newTab"},
 		{"CmdOrCtrl+R", "renameTab"},
 		{"Alt+CmdOrCtrl+Left", "prevTab"},
@@ -469,10 +460,14 @@ func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
 		{"CmdOrCtrl+Q", "quit"},
 		{"CmdOrCtrl+W", "closeWindow"},
 		{"CmdOrCtrl+M", "minimize"},
-		{"CmdOrCtrl+H", "hideApp"},
 		{"CmdOrCtrl+,", "settings"},
 		{"CmdOrCtrl+Tab", "appSwitcher"},
 	}
+	if goos == "darwin" {
+		// ⌘H 隐藏应用只存在于 macOS 菜单（RoleHide），其他平台不占键位。
+		list = append(list, struct{ acc, key string }{"CmdOrCtrl+H", "hideApp"})
+	}
+	return list
 }
 
 // fixedBindingByKey 按 catalog 键取当前平台的固定绑定 accelerator（测试与展示共用）。
@@ -549,6 +544,23 @@ func fixedBindingName(key string) string {
 
 // ---- 绑定解析与冲突校验 ----
 
+// defaultBindingForPlatform 返回命令在目标平台的默认绑定。标题与正文的
+// 数字键是唯一的平台差异点：标签键统一占用主修饰键+数字（⌘N / Ctrl+N）后，
+// 标题退到各平台次级修饰键——macOS ⌃N，其他平台 Alt+N。
+func defaultBindingForPlatform(def commandDef, goos string) string {
+	if def.group == "heading" {
+		digit := "0" // 正文；标题 id 形如 heading.1..heading.6
+		if def.id != cmdBody {
+			digit = def.id[len(def.id)-1:]
+		}
+		if goos == "darwin" {
+			return "Ctrl+" + digit
+		}
+		return "Alt+" + digit
+	}
+	return def.def
+}
+
 // commandBinding 返回当前平台的生效绑定（""=未绑定）。
 func (a *app) commandBinding(id string) string {
 	return a.commandBindingForPlatform(id, runtime.GOOS)
@@ -559,7 +571,7 @@ func (a *app) commandBindingForPlatform(id, goos string) string {
 		return over
 	}
 	if def, ok := commandDefByID(id); ok {
-		return def.def
+		return defaultBindingForPlatform(def, goos)
 	}
 	return ""
 }
@@ -691,7 +703,7 @@ func (a *app) resetCommandBindingForPlatform(id, goos string) error {
 	if !ok {
 		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(id))
 	}
-	if err := a.validateKeymapChangeForPlatform(id, def.def, goos); err != nil {
+	if err := a.validateKeymapChangeForPlatform(id, defaultBindingForPlatform(def, goos), goos); err != nil {
 		return err
 	}
 	return a.updatePreferences(func(p *preferences) {
@@ -712,7 +724,7 @@ func defBindingOf(id string) string {
 
 func defBindingOfForPlatform(id, goos string) string {
 	if def, ok := commandDefByID(id); ok {
-		return def.def
+		return defaultBindingForPlatform(def, goos)
 	}
 	return ""
 }

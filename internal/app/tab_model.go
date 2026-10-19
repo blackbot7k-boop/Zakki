@@ -22,8 +22,8 @@ import (
 const (
 	// DefaultTabCount 是新建数据时的标签数量（Tot 的 7 个点）。
 	DefaultTabCount = 7
-	// MaxTabCount 是标签数量上限。
-	MaxTabCount = 12
+	// MaxTabCount 是标签数量上限；数字快捷键 ⌘N / Ctrl+N 恰好全覆盖。
+	MaxTabCount = 9
 	// DotCount 是固定 7 点时代的兼容别名（迁移与旧测试用）。
 	DotCount = DefaultTabCount
 )

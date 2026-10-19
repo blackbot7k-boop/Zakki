@@ -186,28 +186,34 @@ func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
 
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
-	if got := a.commandBindingForPlatform(cmdH1, "darwin"); got != "CmdOrCtrl+1" {
+	// 标签键两平台同形（主修饰键+数字）；标题退到各平台次级修饰键。
+	if got := a.commandBindingForPlatform(cmdH1, "darwin"); got != "Ctrl+1" {
 		t.Fatalf("macOS H1 默认键 = %q", got)
 	}
-	// Windows 标题与 mac 同形（CmdOrCtrl+N）；标签固定键换到 Alt+N（tabAccPrefix）。
-	if got := a.commandBindingForPlatform(cmdH1, "windows"); got != "CmdOrCtrl+1" {
+	if got := a.commandBindingForPlatform(cmdBody, "darwin"); got != "Ctrl+0" {
+		t.Fatalf("macOS 正文默认键 = %q", got)
+	}
+	if got := a.commandBindingForPlatform(cmdH1, "windows"); got != "Alt+1" {
 		t.Fatalf("Windows H1 默认键 = %q", got)
-	}
-	winTab, err := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("tab1", "windows"), "windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if winTab.mods != ui.Alt || winTab.displayNameForPlatform("windows") != "Alt+1" {
-		t.Fatalf("Windows 标签固定键 = %+v %q, want Alt+1", winTab, winTab.displayNameForPlatform("windows"))
 	}
 	macTab, err := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("tab1", "darwin"), "darwin")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if macTab.mods != ui.Ctrl || macTab.displayNameForPlatform("darwin") != "⌃1" {
-		t.Fatalf("macOS 标签固定键 = %+v %q, want ⌃1", macTab, macTab.displayNameForPlatform("darwin"))
+	if macTab.mods != ui.Super || macTab.displayNameForPlatform("darwin") != "⌘1" {
+		t.Fatalf("macOS 标签固定键 = %+v %q, want ⌘1", macTab, macTab.displayNameForPlatform("darwin"))
 	}
-	// Windows 上标题 Ctrl+1 与标签 Alt+1 不再冲突。
+	winTab, err := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("tab1", "windows"), "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winTab.mods != ui.Ctrl || winTab.displayNameForPlatform("windows") != "Ctrl+1" {
+		t.Fatalf("Windows 标签固定键 = %+v %q, want Ctrl+1", winTab, winTab.displayNameForPlatform("windows"))
+	}
+	macH1, _ := parseAcceleratorForPlatform(a.commandBindingForPlatform(cmdH1, "darwin"), "darwin")
+	if name := a.findBindingConflictForPlatform(cmdH1, macH1, "darwin"); name != "" {
+		t.Fatalf("macOS 标题键不应有冲突: %q", name)
+	}
 	h1win, _ := parseAcceleratorForPlatform(a.commandBindingForPlatform(cmdH1, "windows"), "windows")
 	if name := a.findBindingConflictForPlatform(cmdH1, h1win, "windows"); name != "" {
 		t.Fatalf("Windows 标题键不应有冲突: %q", name)
@@ -217,28 +223,35 @@ func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
 		mods ui.Modifiers
 		key  ui.Key
 	}
-	seen := map[physicalBinding]string{}
-	for _, fixed := range fixedBindingsForPlatform("windows") {
-		b, parseErr := parseAcceleratorForPlatform(fixed.acc, "windows")
-		if parseErr != nil {
-			t.Fatalf("固定键 %s: %v", fixed.acc, parseErr)
+	// 两平台各自扫一遍：默认键位表内不得有物理键冲突，且全部可解析。
+	for _, goos := range []string{"darwin", "windows"} {
+		seen := map[physicalBinding]string{}
+		for _, fixed := range fixedBindingsForPlatform(goos) {
+			b, parseErr := parseAcceleratorForPlatform(fixed.acc, goos)
+			if parseErr != nil {
+				t.Fatalf("%s 固定键 %s: %v", goos, fixed.acc, parseErr)
+			}
+			physical := physicalBinding{mods: b.mods, key: b.key}
+			if other, exists := seen[physical]; exists {
+				t.Fatalf("%s 固定键冲突: %s 与 %s 都是 %s", goos, fixed.key, other, fixed.acc)
+			}
+			seen[physical] = fixed.key
 		}
-		seen[physicalBinding{mods: b.mods, key: b.key}] = fixed.key
-	}
-	for _, def := range commandRegistry {
-		acc := a.commandBindingForPlatform(def.id, "windows")
-		if acc == "" {
-			continue
+		for _, def := range commandRegistry {
+			acc := a.commandBindingForPlatform(def.id, goos)
+			if acc == "" {
+				continue
+			}
+			b, parseErr := parseAcceleratorForPlatform(acc, goos)
+			if parseErr != nil {
+				t.Fatalf("%s 命令 %s 默认键 %s: %v", goos, def.id, acc, parseErr)
+			}
+			physical := physicalBinding{mods: b.mods, key: b.key}
+			if other, exists := seen[physical]; exists {
+				t.Fatalf("%s 默认键冲突: %s 与 %s 都是 %s", goos, def.id, other, acc)
+			}
+			seen[physical] = def.id
 		}
-		b, parseErr := parseAcceleratorForPlatform(acc, "windows")
-		if parseErr != nil {
-			t.Fatalf("命令 %s 默认键 %s: %v", def.id, acc, parseErr)
-		}
-		key := physicalBinding{mods: b.mods, key: b.key}
-		if other, exists := seen[key]; exists {
-			t.Fatalf("Windows 默认键冲突: %s 与 %s 都是 %s", def.id, other, acc)
-		}
-		seen[key] = def.id
 	}
 }
 

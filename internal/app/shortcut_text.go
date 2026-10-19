@@ -22,8 +22,9 @@ func shortcutText(s string) string {
 // ⌘→Ctrl（主命令修饰键，CmdOrCtrl）、⌥→Alt、⇧→Shift，
 // 组合按 Ctrl+Alt+Shift 排序去重，修饰键列表（⌘/⌥）映射后用 "/" 连接去重，
 // 其余字符原样保留。
-// ⌃ 是唯一例外：整库文案里它只出现在标签数字键（⌃1–9），而标签键在
-// Windows 上是 Alt+N（tabAccPrefix），所以映射为 Alt 而非 Ctrl——
+// ⌃ 是唯一例外：整库文案里它只出现在 mac 标题数字键（⌃1–6，标题在
+// macOS 上退到次级修饰键），而标题键在 Windows 上是 Alt+N
+// （defaultBindingForPlatform），所以映射为 Alt 而非 Ctrl——
 // 若将来出现表示普通 Control 组合的 ⌃ 文案，需改用占位符传入。
 func shortcutTextFor(s, goos string) string {
 	if goos == "darwin" {
@@ -88,7 +89,7 @@ func shortcutNames(glyphs []rune, sep string) string {
 		case '⌘':
 			return "Ctrl"
 		case '⌃':
-			return "Alt" // 标签修饰键：Windows 上标签是 Alt+N，见 tabAccPrefix
+			return "Alt" // mac 标题修饰键：Windows 上标题是 Alt+N，见 defaultBindingForPlatform
 		case '⌥':
 			return "Alt"
 		default: // '⇧'
