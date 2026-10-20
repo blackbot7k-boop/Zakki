@@ -511,6 +511,7 @@ func (a *app) applyDocEditAt(doc string, docCaret int, syncSel bool) {
 }
 
 func (a *app) focusBlock(idx int, start, end int) {
+	a.commitCodeLang() // 离开活动块前提交未确认的语言修改
 	if a.mdActive >= 0 {
 		blocks := a.mdBlocks()
 		if a.mdActive < len(blocks) && a.mdDraft != blocks[a.mdActive].raw {

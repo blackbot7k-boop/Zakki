@@ -156,6 +156,7 @@ func (a *app) appearanceControls(c *ui.Context) {
 		sectionDivider(c)
 		settingsSectionTitle(c, locales.CardCodeTheme())
 		a.codeThemeSelect(c)
+		a.codeIndentSelect(c)
 		sectionDivider(c)
 		a.cardResetFooter(c, "appearance", pageAppearance)
 	})
@@ -176,8 +177,8 @@ func (a *app) presetSketchRow(c *ui.Context) {
 			a.settingsUI.draft.Appearance.BodyFont = "hand"
 			a.settingsUI.draft.Appearance.LatinFont = ""
 			a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-			a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
-			a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
+			a.settingsUI.bodyFontSel = fontDisplayOf(0, "hand")
+			a.settingsUI.latinFontSel = fontDisplayOf(1, "")
 			a.pushAppearance()
 		}
 	})
@@ -280,8 +281,8 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 					a.settingsUI.draft.Appearance.BodyFont = "hand"
 					a.settingsUI.draft.Appearance.LatinFont = ""
 					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-					a.settingsUI.bodyFontSel = displayOf(bodyFontKeys, bodyFontOptions, "hand")
-					a.settingsUI.latinFontSel = displayOf(latinFontKeys, latinFontOptions, "")
+					a.settingsUI.bodyFontSel = fontDisplayOf(0, "hand")
+					a.settingsUI.latinFontSel = fontDisplayOf(1, "")
 				}
 				a.pushAppearance()
 			}
@@ -336,6 +337,34 @@ func (a *app) codeThemeSelect(c *ui.Context) {
 			a.pushAppearance()
 		}
 	})
+}
+
+// codeIndentSelect 代码块缩进下拉：Tab 插入 2 或 4 个空格。
+func (a *app) codeIndentSelect(c *ui.Context) {
+	options := []string{locales.CodeIndent2(), locales.CodeIndent4()}
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
+		ui.Text(c, locales.CodeIndentLabel()).Grow(1)
+		if ui.Select(c, &a.settingsUI.codeIndentSel, options).Width(200).Changed() {
+			a.settingsUI.draft.Appearance.CodeIndent = codeIndentKey(a.settingsUI.codeIndentSel)
+			a.pushAppearance()
+		}
+	})
+}
+
+// codeIndentKey 显示名 → 缩进档位 id。
+func codeIndentKey(display string) string {
+	if display == locales.CodeIndent2() {
+		return "space2"
+	}
+	return "space4"
+}
+
+// codeIndentDisplay 缩进档位 id → 显示名。
+func codeIndentDisplay(key string) string {
+	if key == "space2" {
+		return locales.CodeIndent2()
+	}
+	return locales.CodeIndent4()
 }
 
 // codeThemeKey 显示名 → 配色方案 id。
@@ -423,21 +452,17 @@ var (
 	latinFontOptions = []string{locales.FontFollowChinese(), locales.FontJetBrains(), locales.FontSystemWestern(), locales.FontNoteworthy(), locales.FontBradley()}
 )
 
-// typographyOverrides 排版覆盖：每项可「跟随 Markdown 主题」（空 = 跟随）。
+// typographyOverrides 排版覆盖：中西文/代码字体合并本机字体与按需准备。
 func (a *app) typographyOverrides(c *ui.Context) {
-	bodyOptions, bodyKeys := bodyFontOptions, bodyFontKeys
-	monoOptions := []string{locales.FontJetBrainsDefault(), locales.FontSFMono(), locales.FontMenlo()}
-	monoKeys := []string{"jbm", "sfmono", "menlo"}
-
 	ui.Column(c).FillWidth().Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 			ui.Column(c).Grow(1).Gap(0).Children(func() {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.bodyFontSel, bodyOptions).Width(200).Changed() {
-				a.settingsUI.draft.Appearance.BodyFont = keyOfDisplay(bodyKeys, bodyOptions, a.settingsUI.bodyFontSel)
-				a.pushAppearance()
+			options, keyOf := a.fontSelectSettings(0, a.settingsUI.draft.Appearance.BodyFont)
+			if ui.Select(c, &a.settingsUI.bodyFontSel, options).Width(200).Changed() {
+				a.applySettingsFont("bodyFont", keyOf[a.settingsUI.bodyFontSel])
 			}
 		})
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
@@ -445,9 +470,9 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.latinFontSel, latinFontOptions).Width(200).Changed() {
-				a.settingsUI.draft.Appearance.LatinFont = keyOfDisplay(latinFontKeys, latinFontOptions, a.settingsUI.latinFontSel)
-				a.pushAppearance()
+			options, keyOf := a.fontSelectSettings(1, a.settingsUI.draft.Appearance.LatinFont)
+			if ui.Select(c, &a.settingsUI.latinFontSel, options).Width(200).Changed() {
+				a.applySettingsFont("latinFont", keyOf[a.settingsUI.latinFontSel])
 			}
 		})
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
@@ -455,11 +480,35 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			if ui.Select(c, &a.settingsUI.monoFontSel, monoOptions).Width(200).Changed() {
-				a.settingsUI.draft.Appearance.MonoFont = keyOfDisplay(monoKeys, monoOptions, a.settingsUI.monoFontSel)
-				a.pushAppearance()
+			options, keyOf := a.fontSelectSettings(2, a.settingsUI.draft.Appearance.MonoFont)
+			if ui.Select(c, &a.settingsUI.monoFontSel, options).Width(200).Changed() {
+				a.applySettingsFont("monoFont", keyOf[a.settingsUI.monoFontSel])
 			}
 		})
+		// 所选字体缺失时的统一准备进度：可取消；失败保留旧偏好。
+		prep := &a.settingsUI.fontPreparation
+		if !prep.running {
+			for _, job := range a.fontJobs([]string{
+				a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont, a.prefs.Appearance.MonoFont,
+			}) {
+				ui.Text(c, job.resource.Family+" · "+locales.FontNeedsDownload()).
+					FontSize(11).TextColor(tMuted(c))
+			}
+		}
+		if prep.running || prep.err != "" {
+			ui.Column(c).FillWidth().Gap(6).Padding(6, 0, 10, 0).Children(func() {
+				fontProgressView(c, prep)
+				if prep.running {
+					ui.Row(c).FillWidth().Children(func() {
+						ui.Box(c).Grow(1)
+						if ui.Button(c, locales.FontCancel()).Clicked() {
+							prep.stop()
+							a.settingsUI.syncDraftBindings()
+						}
+					})
+				}
+			})
+		}
 		// 字号（10–40）/ 行高（1–3）：非法数字不提交，保留输入并显示行内错误。
 		a.floatOverrideRow(c, locales.FontSizeRow(), locales.OverrideFollowHint(), "bodySize")
 		a.floatOverrideRow(c, locales.LineHeightRow(), locales.OverrideLineHint(), "lineHeight")

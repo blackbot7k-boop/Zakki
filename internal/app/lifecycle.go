@@ -77,11 +77,6 @@ func Run() {
 		// 空串 = 跟随系统，覆盖 MyGo 此前自己保存过的显式选择）。
 		mygo.App.SetLocale(a.prefs.Appearance.Language)
 		a.appliedLocale = a.prefs.Appearance.Language
-		// 手写字体用户在开窗前预热注册，避免首帧渲染时的一次性读盘卡顿；
-		// 其他用户不付这份内存，首次用到手写字体栈时才懒注册。
-		if key := a.prefs.Appearance.BodyFont; key == "hand" || key == "hannotate" {
-			registerHandFont()
-		}
 		applyTheme(a.cfg.ThemeSource)
 		a.buildMenu()
 		a.setupTray()
@@ -170,6 +165,7 @@ func (a *app) createWindow() {
 	a.mainWindow.Store(win)
 	a.winOpen = true
 	a.hidden = false
+	a.loadFontFamilies(win)
 	win.OnShow(func() { a.hidden = false })
 	win.OnHide(func() { a.hidden = true })
 	win.OnFocus(func() { win.Update(func() {}) })

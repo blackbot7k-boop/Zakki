@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"zakki/internal/fonts"
 	"zakki/internal/legacyconfig"
 )
 
@@ -21,7 +22,11 @@ import (
 // soft；版本 5 起该键始终落盘，空串是显式的「跟随文本」，不再参与补默认。
 // 版本 6 起备份只有一个文件夹：backup.mirrorDir 更名为 backup.backupDir 并成为
 // 唯一备份存储地址；gitMode 随 Git 自动化一并移除，旧键由迁移读取后丢弃。
-const CurrentVersion = 6
+// 版本 7 起代码块缩进只有 2 / 4 空格两档（appearance.codeIndent，默认 2 空格）；
+// 旧文件从未写过该键，升级时统一补默认。
+// 版本 8 扩展既有字体键：支持 local:<真实家族名>，西文与代码字体另支持 fira；
+// 不新增 JSON 字段，不改默认字体或触发下载。
+const CurrentVersion = 8
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -48,6 +53,9 @@ type Appearance struct {
 	// CodeTheme 是代码块着色方案；空串 = 跟随文本（不上色）。不能加 omitempty：
 	// 空串必须落盘，否则「显式跟随文本」与「从未设置」在下次解码时无法区分。
 	CodeTheme string `json:"codeTheme"`
+	// CodeIndent 是代码块内 Tab 插入的缩进档位："space2"（默认）/ "space4"
+	// 空格；Shift+Tab 按同一档位反向移除。
+	CodeIndent string `json:"codeIndent"`
 	// BodyFont 是中文字体；LatinFont 是西文字体，空串表示跟随中文字体。
 	BodyFont   string  `json:"bodyFont"`
 	LatinFont  string  `json:"latinFont"`
@@ -91,6 +99,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			ColorTheme:     "classic",
 			MarkdownTheme:  "sonnet",
 			CodeTheme:      "soft",
+			CodeIndent:     "space2",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
 		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true},
@@ -124,13 +133,20 @@ func (p Preferences) Validate(v AccelValidator) error {
 		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "sketch", "claude", "qoder"}},
 		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact", "sketch"}},
 		{"appearance.codeTheme", p.Appearance.CodeTheme, []string{"", "soft", "vivid", "claude", "qoder"}},
+		{"appearance.codeIndent", p.Appearance.CodeIndent, []string{"space2", "space4"}},
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
-		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley"}},
-		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo"}},
+		{"appearance.latinFont", p.Appearance.LatinFont, []string{"", "jetbrains", "system", "noteworthy", "bradley", "fira"}},
+		{"appearance.monoFont", p.Appearance.MonoFont, []string{"", "jbm", "sonnet", "sfmono", "menlo", "fira"}},
 	} {
 		valid := false
 		for _, allowed := range field.allowed {
 			valid = valid || field.value == allowed
+		}
+		if !valid {
+			switch field.name {
+			case "appearance.bodyFont", "appearance.latinFont", "appearance.monoFont":
+				valid = fonts.LocalFamily(field.value) != ""
+			}
 		}
 		if !valid {
 			return fmt.Errorf("%s 的值 %q 无效，可选值：%q", field.name, field.value, field.allowed)
@@ -228,6 +244,14 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		p.Appearance.MarkdownTheme = def.Appearance.MarkdownTheme
 	}
 	// codeTheme 不做空串补默认：空串是显式「跟随文本」，默认柔和由版本 5 迁移承担。
+	// codeIndent 只认 2 / 4 空格两档：版本 7 早期内部构建写过的 tab / space8
+	// 档位（未发布）归为 4 空格，缺键或空串补默认，非法取值仍由 Validate 拒绝。
+	if p.Appearance.CodeIndent == "tab" || p.Appearance.CodeIndent == "space8" {
+		p.Appearance.CodeIndent = "space2"
+	}
+	if p.Appearance.CodeIndent == "" {
+		p.Appearance.CodeIndent = def.Appearance.CodeIndent
+	}
 	if p.Backup.IntervalMinutes == 0 {
 		p.Backup.IntervalMinutes = def.Backup.IntervalMinutes
 	}
@@ -256,6 +280,8 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // （"classic" / "note"），主题取值不变、只换名字。版本 5 给从未设置过代码
 // 配色的旧文件补默认方案 soft；带值文件原样保留。版本 6 的 mirrorDir →
 // backupDir 键更名发生在严格解码前（见 Decode），这里只承载版本号提升。
+// 版本 7 给从未写过 codeIndent 的旧文件补默认 2 空格。
+// 版本 8 仅扩展字体键取值，保留字体值与此前迁移行为。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -272,6 +298,10 @@ func migrate(p Preferences) Preferences {
 		// 版本 4 及更早的写入方从未写过 codeTheme 键，空值即「从未设置」，
 		// 补默认方案；带值的旧文件（含显式 soft/vivid）原样保留。
 		p.Appearance.CodeTheme = "soft"
+	}
+	if p.Version < 7 && p.Appearance.CodeIndent == "" {
+		// 版本 6 及更早的写入方从未写过 codeIndent 键，升级时补默认 2 空格。
+		p.Appearance.CodeIndent = "space2"
 	}
 	p.Version = CurrentVersion
 	return p

@@ -126,8 +126,11 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme, hits *[]liveHit) {
 			quoteBar(c, md, uint32(blk.start))
 			a.activeText(c, t, blk, projection, hits)
 		case bkCode:
-			codeCard(c, md, t, uint32(blk.start)).FillWidth().Children(func() {
-				a.activeText(c, t, blk, projection, hits)
+			ui.Column(c).FillWidth().Gap(4).Children(func() {
+				codeCard(c, md, t, uint32(blk.start)).FillWidth().Children(func() {
+					a.activeText(c, t, blk, projection, hits)
+				})
+				a.codeLangBadge(c, md, blk)
 			})
 		case bkRule:
 			ui.Column(c).FillWidth().Children(func() {

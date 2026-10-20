@@ -101,7 +101,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 6 {
+	if got.Version != CurrentVersion || CurrentVersion != 8 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -147,9 +147,9 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if v3.Backup.BackupDir != "/tmp/bak" {
 		t.Fatalf("版本 3 的外部备份目录应迁移为备份文件夹: %+v", v3.Backup)
 	}
-	// 保存的是版本 5。
-	if d := Default(5); d.Version != 6 || d.Appearance.LatinFont != "" {
-		t.Fatalf("默认偏好应为版本 5 且西文跟随中文: %+v", d)
+	// 保存的是版本 5，磁盘模型随当前版本落盘。
+	if d := Default(5); d.Version != CurrentVersion || d.Appearance.LatinFont != "" {
+		t.Fatalf("默认偏好应为当前版本且西文跟随中文: %+v", d)
 	}
 }
 
@@ -248,13 +248,47 @@ func TestPreferencesMigrateSingleBackupFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v6.Backup.BackupDir != "/tmp/new" || v6.Version != 6 {
-		t.Fatalf("v6 应原样读回: %+v", v6.Backup)
+	if v6.Backup.BackupDir != "/tmp/new" || v6.Version != CurrentVersion {
+		t.Fatalf("v6 备份值应原样保留并升版: %+v 版本 %d", v6.Backup, v6.Version)
 	}
 	if _, err := Decode([]byte(`{"version":6,"backup":{"mirrorDir":"/tmp/old"}}`), testAccel); err == nil {
 		t.Fatal("v6 文件出现旧键 mirrorDir 必须拒绝")
 	}
 	if _, err := Decode([]byte(`{"version":6,"backup":{"gitMode":"commit"}}`), testAccel); err == nil {
 		t.Fatal("v6 文件出现旧键 gitMode 必须拒绝")
+	}
+}
+
+// TestPreferencesMigrateCodeIndent 版本 7 起代码块缩进只有 2 / 4 空格两档：
+// 旧文件从未写过该键，升级时补默认 4 空格；早期内部构建写过的 tab / space8
+// 废弃档位归为默认；其余非法取值仍拒绝。
+func TestPreferencesMigrateCodeIndent(t *testing.T) {
+	v6, err := Decode([]byte(`{"version":6,"appearance":{"colorTheme":"paper"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v6.Version != CurrentVersion || v6.Appearance.CodeIndent != "space2" {
+		t.Fatalf("v6 升级后应补默认 2 空格: 版本 %d codeIndent=%q", v6.Version, v6.Appearance.CodeIndent)
+	}
+	for _, key := range []string{"space2", "space4"} {
+		v7, err := Decode([]byte(`{"version":7,"appearance":{"codeIndent":"`+key+`"}}`), testAccel)
+		if err != nil {
+			t.Fatalf("codeIndent=%s 应合法: %v", key, err)
+		}
+		if v7.Appearance.CodeIndent != key {
+			t.Fatalf("codeIndent 应原样保留: %q", v7.Appearance.CodeIndent)
+		}
+	}
+	for _, legacy := range []string{"tab", "space8"} {
+		v7, err := Decode([]byte(`{"version":7,"appearance":{"codeIndent":"`+legacy+`"}}`), testAccel)
+		if err != nil {
+			t.Fatalf("废弃档位 %q 应归为默认而非拒绝: %v", legacy, err)
+		}
+		if v7.Appearance.CodeIndent != "space2" {
+			t.Fatalf("废弃档位 %q 应归为默认 2 空格: %q", legacy, v7.Appearance.CodeIndent)
+		}
+	}
+	if _, err := Decode([]byte(`{"version":7,"appearance":{"codeIndent":"space3"}}`), testAccel); err == nil {
+		t.Fatal("非法 codeIndent 必须拒绝")
 	}
 }

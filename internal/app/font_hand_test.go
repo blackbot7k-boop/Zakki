@@ -1,11 +1,30 @@
 package app
 
 import (
+	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 )
+
+var registerHandFontOnce sync.Once
+
+func handFontData() ([]byte, error) { return os.ReadFile("testdata/LXGWWenKaiLite-Regular.ttf") }
+
+// 无头测试使用固定字体夹具，生产包不携带这份文件或读取源码树。
+func registerHandFont() {
+	registerHandFontOnce.Do(func() {
+		data, err := handFontData()
+		if err != nil {
+			panic(err)
+		}
+		if err = ui.RegisterFont(data, "LXGW WenKai Lite"); err != nil {
+			panic(err)
+		}
+	})
+}
 
 // 手写字体栈里允许出现的非注册家族名：都是 Apple 之外的普通字体名，
 // 未安装时 CoreText 匹配快速返回空，不会像按需下载字体那样在无头环境阻塞。

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 // 键入围栏后按 Enter 新建代码块；退化未闭合围栏的键入重定向到内容行。
@@ -233,14 +235,14 @@ func TestTabInCodeBlockKeepsFocusAndIndents(t *testing.T) {
 	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 4, 4) })
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.tabs[0].Text; got != "```\n\tabc\n```" {
-		t.Fatalf("Tab 应在光标处插入制表符: %q", got)
+	if got := a.tabs[0].Text; got != "```\n  abc\n```" {
+		t.Fatalf("Tab 应在光标处插入缩进: %q", got)
 	}
 	if !tt.Focused("内容") {
 		t.Fatal("Tab 后焦点必须留在编辑器内")
 	}
-	if a.mdCaret != 5 || a.mdSelEnd != 5 {
-		t.Fatalf("光标应停在制表符之后: caret=%d sel=%d", a.mdCaret, a.mdSelEnd)
+	if a.mdCaret != 6 || a.mdSelEnd != 6 {
+		t.Fatalf("光标应停在缩进之后: caret=%d sel=%d", a.mdCaret, a.mdSelEnd)
 	}
 }
 
@@ -250,24 +252,25 @@ func TestTabInCodeBlockReplacesSelection(t *testing.T) {
 	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 5, 6) })
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.tabs[0].Text; got != "```\na\tc\n```" {
-		t.Fatalf("同行选区应被制表符替换: %q", got)
+	if got := a.tabs[0].Text; got != "```\na  c\n```" {
+		t.Fatalf("同行选区应被缩进替换: %q", got)
 	}
-	if !tt.Focused("内容") || a.mdCaret != 6 || a.mdSelEnd != 6 {
-		t.Fatalf("焦点与光标应停在制表符后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
+	if !tt.Focused("内容") || a.mdCaret != 7 || a.mdSelEnd != 7 {
+		t.Fatalf("焦点与光标应停在缩进后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
 	}
 }
 
 // 跨行选区按 Tab / Shift+Tab：整行增减一级缩进，选区保留以便连续调整。
 func TestTabInCodeBlockIndentsSelectedLines(t *testing.T) {
 	a := newTestApp(t)
+	a.prefs.Appearance.CodeIndent = "space2"
 	tt := typeInto(t, a, "```\na\nb\nc\n```", func() { a.focusBlock(0, 4, 9) })
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.tabs[0].Text; got != "```\n\ta\n\tb\n\tc\n```" {
+	if got := a.tabs[0].Text; got != "```\n  a\n  b\n  c\n```" {
 		t.Fatalf("跨行选区应整行缩进: %q", got)
 	}
-	if !tt.Focused("内容") || a.mdCaret != 4 || a.mdSelEnd != 12 {
+	if !tt.Focused("内容") || a.mdCaret != 4 || a.mdSelEnd != 15 {
 		t.Fatalf("缩进后应保留选区: focused=%v caret=%d sel=%d", tt.Focused("内容"), a.mdCaret, a.mdSelEnd)
 	}
 	tt.Key(ui.Shift, ui.KeyTab)
@@ -280,9 +283,10 @@ func TestTabInCodeBlockIndentsSelectedLines(t *testing.T) {
 	}
 }
 
-// Shift+Tab 对行首空格同样生效，每行至多移除四个空格。
+// Shift+Tab 对行首空格同样生效，每行至多移除同档宽度的空格。
 func TestShiftTabInCodeBlockDedentsSpaces(t *testing.T) {
 	a := newTestApp(t)
+	a.prefs.Appearance.CodeIndent = "space4"
 	tt := typeInto(t, a, "```\n x\n   y\n```", func() { a.focusBlock(0, 4, 10) })
 	tt.Key(ui.Shift, ui.KeyTab)
 	tt.Frame()
@@ -315,16 +319,16 @@ func TestTabInFenceDraftStartsContentLine(t *testing.T) {
 	}
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.tabs[0].Text; got != "```\n\t" {
+	if got := a.tabs[0].Text; got != "```\n  " {
 		t.Fatalf("Tab 应在围栏后新开内容行落缩进: %q", got)
 	}
-	if a.fenceDraft || !tt.Focused("内容") || a.mdCaret != 5 {
-		t.Fatalf("Tab 后应退出草稿态并保持焦点在制表符后: draft=%v focused=%v caret=%d",
+	if a.fenceDraft || !tt.Focused("内容") || a.mdCaret != 6 {
+		t.Fatalf("Tab 后应退出草稿态并保持焦点在缩进后: draft=%v focused=%v caret=%d",
 			a.fenceDraft, tt.Focused("内容"), a.mdCaret)
 	}
 	tt.Type("x")
 	tt.Frame()
-	if a.tabs[0].Text != "```\n\tx" {
+	if a.tabs[0].Text != "```\n  x" {
 		t.Fatalf("后续键入应继续落在内容行: %q", a.tabs[0].Text)
 	}
 }
@@ -335,11 +339,11 @@ func TestTabIntoStrayFenceStartsContentLine(t *testing.T) {
 	tt := typeInto(t, a, "前文\n\n```", func() { a.focusBlock(2, 3, 3) })
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.tabs[0].Text; got != "前文\n\n```\n\t" {
+	if got := a.tabs[0].Text; got != "前文\n\n```\n  " {
 		t.Fatalf("Tab 应在孤立围栏后新开内容行: %q", got)
 	}
-	if !tt.Focused("内容") || a.mdCaret != 5 {
-		t.Fatalf("焦点应留在编辑器内制表符之后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
+	if !tt.Focused("内容") || a.mdCaret != 6 {
+		t.Fatalf("焦点应留在编辑器内缩进之后: focused=%v caret=%d", tt.Focused("内容"), a.mdCaret)
 	}
 }
 
@@ -352,5 +356,172 @@ func TestTabInCodeBlockUndoRestoresDoc(t *testing.T) {
 	a.undoLive(false)
 	if got := a.tabs[0].Text; got != "```\nabc\n```" {
 		t.Fatalf("撤销应还原缩进前的文档: %q", got)
+	}
+}
+
+// 外观页「代码块缩进」选空格档位后：Tab 插入对应宽度，跨行选区整行缩进，
+// Shift+Tab 反向移除至多同宽空格。
+func TestTabInCodeBlockHonorsIndentSetting(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Appearance.CodeIndent = "space4"
+	tt := typeInto(t, a, "```\nab\ncd\n```", func() { a.focusBlock(0, 4, 8) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n    ab\n    cd\n```" {
+		t.Fatalf("空格档位应整行插入四个空格: %q", got)
+	}
+	tt.Key(ui.Shift, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\nab\ncd\n```" {
+		t.Fatalf("Shift+Tab 应按同档位反向移除: %q", got)
+	}
+}
+
+// 光标处按 Tab 插入缩进单位；制表符档位混合内容仍可反向缩进。
+func TestTabInCodeBlockInsertsUnitAtCaret(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Appearance.CodeIndent = "space2"
+	tt := typeInto(t, a, "```\nabc\n```", func() { a.focusBlock(0, 4, 4) })
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n  abc\n```" {
+		t.Fatalf("Tab 应插入两个空格: %q", got)
+	}
+}
+
+// 代码块内回车：新行继承光标所在行的行首缩进（编辑器式续行）。
+func TestEnterInCodeBlockKeepsIndent(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\n  abc\n```", func() { a.focusBlock(0, 9, 9) })
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n  abc\n  \n```" {
+		t.Fatalf("回车应继承行首缩进: %q", got)
+	}
+	if a.mdCaret != 12 {
+		t.Fatalf("光标应停在缩进之后: caret=%d", a.mdCaret)
+	}
+	tt.Type("x")
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n  abc\n  x\n```" {
+		t.Fatalf("续行输入应落在缩进之后: %q", got)
+	}
+}
+
+// 光标停在行首缩进区间内时回车：新行只继承到光标为止的缩进，
+// 剩余文本整体下移。
+func TestEnterInCodeBlockTruncatesIndentAtCaret(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\n    abc\n```", func() { a.focusBlock(0, 5, 5) })
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n \n    abc\n```" {
+		t.Fatalf("缩进区间内回车只保留到光标为止: %q", got)
+	}
+	if a.mdCaret != 7 {
+		t.Fatalf("光标应停在新行继承的缩进之后: caret=%d", a.mdCaret)
+	}
+}
+
+// 回车前文本以开括号结尾：新行再多一级缩进。
+func TestEnterInCodeBlockIndentsAfterOpenBracket(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Appearance.CodeIndent = "space2"
+	tt := typeInto(t, a, "```\n  go func() {\n```", func() { a.focusBlock(0, 17, 17) })
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\n  go func() {\n    \n```" {
+		t.Fatalf("开括号后回车应再多一级缩进: %q", got)
+	}
+}
+
+// 代码块右下角显示当前语言，点击即可改写围栏 info 串。
+func TestCodeLangBadgeEditsFenceInfo(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "", func() { a.focusBlockEnd(0) }, "`", "`", "`")
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Type("x")
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```\nx\n```" {
+		t.Fatalf("前置条件：应得到闭合代码块: %q", got)
+	}
+	if a.codeLangText != "" {
+		t.Fatalf("无语言时徽标应为空: %q", a.codeLangText)
+	}
+	if err := tt.Click(locales.CodeLangLabel()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Type("go")
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```go\nx\n```" {
+		t.Fatalf("徽标提交应改写开栏 info 串: %q", got)
+	}
+	if a.mdBlocks()[0].info != "go" {
+		t.Fatalf("块 info 应为 go: %q", a.mdBlocks()[0].info)
+	}
+	if !tt.Focused("内容") {
+		t.Fatal("提交后焦点应回到代码内容")
+	}
+}
+
+// 徽标里不按 Enter、直接点回代码内容：失焦自动提交。
+func TestCodeLangBadgeCommitsOnBlur(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nx\n```", func() { a.focusBlock(0, 4, 4) })
+	if err := tt.Click(locales.CodeLangLabel()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Type("ts")
+	tt.Frame()
+	tt.Click("内容")
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```ts\nx\n```" {
+		t.Fatalf("失焦应自动提交语言草稿: %q", got)
+	}
+}
+
+// Esc 放弃语言编辑，文档保持不变。
+func TestCodeLangBadgeEscapeCancels(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```go\nx\n```", func() { a.focusBlock(0, 4, 4) })
+	if a.codeLangText != "go" {
+		t.Fatalf("徽标应显示当前语言: %q", a.codeLangText)
+	}
+	if err := tt.Click(locales.CodeLangLabel()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Type("py")
+	tt.Frame()
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if got := a.tabs[0].Text; got != "```go\nx\n```" {
+		t.Fatalf("Esc 应放弃编辑且不改写围栏: %q", got)
+	}
+	if !tt.Focused("内容") {
+		t.Fatal("Esc 后焦点应回到代码内容")
+	}
+}
+
+// 语言提交是独立撤销事务。
+func TestCodeLangCommitUndoRestoresFence(t *testing.T) {
+	a := newTestApp(t)
+	tt := typeInto(t, a, "```\nx\n```", func() { a.focusBlock(0, 4, 4) })
+	if err := tt.Click(locales.CodeLangLabel()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Type("go")
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	a.undoLive(false)
+	if got := a.tabs[0].Text; got != "```\nx\n```" {
+		t.Fatalf("撤销应还原围栏语言: %q", got)
 	}
 }

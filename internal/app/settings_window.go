@@ -25,9 +25,10 @@ const (
 // settingsUIState 设置窗口的临时输入状态（主线程）。控件绑定草稿，
 // synced 记录最近一次已应用偏好；提交时只写入相对 synced 发生变化的字段。
 type settingsUIState struct {
-	draft      preferences // 控件绑定的草稿
-	synced     preferences // 最近一次合并进草稿的已应用偏好
-	draftReady bool        // 尚未打开设置窗口时不维护草稿
+	fontPreparation fontPreparation
+	draft           preferences // 控件绑定的草稿
+	synced          preferences // 最近一次合并进草稿的已应用偏好
+	draftReady      bool        // 尚未打开设置窗口时不维护草稿
 
 	// Select 控件绑定显示文案；与 draft 同步。
 	appearanceModeSel string
@@ -38,6 +39,7 @@ type settingsUIState struct {
 	markdownThemeSel  string
 	colorThemeSel     string
 	codeThemeSel      string
+	codeIndentSel     string
 	tabAnimSpeedSel   string
 	tabDotShapeSel    string
 	tabShapeIdx       int
@@ -106,6 +108,7 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 	mergeString(&d.ColorTheme, before.ColorTheme, current.ColorTheme)
 	mergeString(&d.MarkdownTheme, before.MarkdownTheme, current.MarkdownTheme)
 	mergeString(&d.Language, before.Language, current.Language)
+	mergeString(&d.CodeIndent, before.CodeIndent, current.CodeIndent)
 	mergeString(&d.BodyFont, before.BodyFont, current.BodyFont)
 	mergeString(&d.LatinFont, before.LatinFont, current.LatinFont)
 	mergeString(&d.MonoFont, before.MonoFont, current.MonoFont)
@@ -137,13 +140,10 @@ func (ui *settingsUIState) syncDraftBindings() {
 	ui.markdownThemeSel = markdownThemeDisplay(p.Appearance.MarkdownTheme)
 	ui.colorThemeSel = colorThemeDisplayName(p.Appearance.ColorTheme)
 	ui.codeThemeSel = codeThemeDisplay(p.Appearance.CodeTheme)
-	ui.bodyFontSel = displayOf(
-		bodyFontKeys, bodyFontOptions, p.Appearance.BodyFont)
-	ui.latinFontSel = displayOf(
-		latinFontKeys, latinFontOptions, p.Appearance.LatinFont)
-	ui.monoFontSel = displayOf(
-		[]string{"jbm", "sfmono", "menlo"},
-		[]string{locales.FontJetBrainsDefault(), locales.FontSFMono(), locales.FontMenlo()}, p.Appearance.MonoFont)
+	ui.codeIndentSel = codeIndentDisplay(p.Appearance.CodeIndent)
+	ui.bodyFontSel = fontDisplayOf(0, p.Appearance.BodyFont)
+	ui.latinFontSel = fontDisplayOf(1, p.Appearance.LatinFont)
+	ui.monoFontSel = fontDisplayOf(2, p.Appearance.MonoFont)
 	if !ui.bodySizeDirty {
 		ui.bodySizeText = floatText(p.Appearance.BodySize)
 		ui.bodySizeErr = ""
@@ -199,7 +199,9 @@ func (a *app) openSettings(page string) {
 		Content:   ui.View(a.settingsView),
 	})
 	a.settingsWin = win
+	a.loadFontFamilies(win)
 	win.OnClosed(func() {
+		a.settingsUI.fontPreparation.stop()
 		a.settingsWin = nil
 		a.settingsUI = settingsUIState{}
 		if a.win != nil && a.winOpen {

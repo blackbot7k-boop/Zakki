@@ -1384,11 +1384,11 @@ func (msgs Messages) KeymapFixedTitle() string {
 	return Catalog.Format(msgs.locale, "keymapFixedTitle", nil)
 }
 
-// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌃1–9, new tab ⌘T, rename ⌘R, previous/…"
+// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌘1–9, headings ⌃1–6, new tab ⌘T, ren…"
 // in the language the app shows.
 func KeymapFixedHint() string { return In(i18n.Locale()).KeymapFixedHint() }
 
-// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌃1–9, new tab ⌘T, rename ⌘R, previous/…"
+// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌘1–9, headings ⌃1–6, new tab ⌘T, ren…"
 // in the language of msgs.
 func (msgs Messages) KeymapFixedHint() string {
 	return Catalog.Format(msgs.locale, "keymapFixedHint", nil)
@@ -2212,11 +2212,11 @@ func (msgs Messages) PreviewLabel() string {
 	return Catalog.Format(msgs.locale, "previewLabel", nil)
 }
 
-// CardCodeTheme says "Code colors"
+// CardCodeTheme says "Code"
 // in the language the app shows.
 func CardCodeTheme() string { return In(i18n.Locale()).CardCodeTheme() }
 
-// CardCodeTheme says "Code colors"
+// CardCodeTheme says "Code"
 // in the language of msgs.
 func (msgs Messages) CardCodeTheme() string {
 	return Catalog.Format(msgs.locale, "cardCodeTheme", nil)
@@ -2310,6 +2310,56 @@ func CodeThemeQoder() string { return In(i18n.Locale()).CodeThemeQoder() }
 // in the language of msgs.
 func (msgs Messages) CodeThemeQoder() string {
 	return Catalog.Format(msgs.locale, "codeThemeQoder", nil)
+}
+
+// CodeIndentLabel says "Code block indent"
+// in the language the app shows.
+func CodeIndentLabel() string { return In(i18n.Locale()).CodeIndentLabel() }
+
+// CodeIndentLabel says "Code block indent"
+// in the language of msgs.
+func (msgs Messages) CodeIndentLabel() string {
+	return Catalog.Format(msgs.locale, "codeIndentLabel", nil)
+}
+
+// CodeIndent2 says "2 spaces"
+// in the language the app shows.
+func CodeIndent2() string { return In(i18n.Locale()).CodeIndent2() }
+
+// CodeIndent2 says "2 spaces"
+// in the language of msgs.
+func (msgs Messages) CodeIndent2() string {
+	return Catalog.Format(msgs.locale, "codeIndent2", nil)
+}
+
+// CodeIndent4 says "4 spaces"
+// in the language the app shows.
+func CodeIndent4() string { return In(i18n.Locale()).CodeIndent4() }
+
+// CodeIndent4 says "4 spaces"
+// in the language of msgs.
+func (msgs Messages) CodeIndent4() string {
+	return Catalog.Format(msgs.locale, "codeIndent4", nil)
+}
+
+// CodeLangLabel says "Code language"
+// in the language the app shows.
+func CodeLangLabel() string { return In(i18n.Locale()).CodeLangLabel() }
+
+// CodeLangLabel says "Code language"
+// in the language of msgs.
+func (msgs Messages) CodeLangLabel() string {
+	return Catalog.Format(msgs.locale, "codeLangLabel", nil)
+}
+
+// CodeLangPlaceholder says "Language"
+// in the language the app shows.
+func CodeLangPlaceholder() string { return In(i18n.Locale()).CodeLangPlaceholder() }
+
+// CodeLangPlaceholder says "Language"
+// in the language of msgs.
+func (msgs Messages) CodeLangPlaceholder() string {
+	return Catalog.Format(msgs.locale, "codeLangPlaceholder", nil)
 }
 
 // PresetSketchRow says "Hand-drawn sketchbook"
@@ -3590,11 +3640,11 @@ func (msgs Messages) GitDetailOff() string {
 	return Catalog.Format(msgs.locale, "gitDetailOff", nil)
 }
 
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–9 switch tabs; ⌘T new tab, …"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌘1–9 switch tabs; ⌃1–6 set h…"
 // in the language the app shows.
 func WelcomeBodyTips() string { return In(i18n.Locale()).WelcomeBodyTips() }
 
-// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌃1–9 switch tabs; ⌘T new tab, …"
+// WelcomeBodyTips says "- [ ] Try checking me: other blocks re-type instantly; click any block to edit\n- ⌘1–9 switch tabs; ⌃1–6 set h…"
 // in the language of msgs.
 func (msgs Messages) WelcomeBodyTips() string {
 	return Catalog.Format(msgs.locale, "welcomeBodyTips", nil)
@@ -3888,4 +3938,384 @@ func BackupNotSet() string { return In(i18n.Locale()).BackupNotSet() }
 // in the language of msgs.
 func (msgs Messages) BackupNotSet() string {
 	return Catalog.Format(msgs.locale, "backupNotSet", nil)
+}
+
+// FontCacheUnavailable says "Font cache unavailable: {fonts}"
+// in the language the app shows.
+func FontCacheUnavailable(fonts string) string { return In(i18n.Locale()).FontCacheUnavailable(fonts) }
+
+// FontCacheUnavailable says "Font cache unavailable: {fonts}"
+// in the language of msgs.
+func (msgs Messages) FontCacheUnavailable(fonts string) string {
+	return Catalog.Format(msgs.locale, "fontCacheUnavailable", map[string]any{"fonts": fonts})
+}
+
+// FontUnavailable says "Font unavailable: {font}"
+// in the language the app shows.
+func FontUnavailable(font string) string { return In(i18n.Locale()).FontUnavailable(font) }
+
+// FontUnavailable says "Font unavailable: {font}"
+// in the language of msgs.
+func (msgs Messages) FontUnavailable(font string) string {
+	return Catalog.Format(msgs.locale, "fontUnavailable", map[string]any{"font": font})
+}
+
+// FontPrepareFailed says "Could not prepare fonts. Retry, or switch to system fonts."
+// in the language the app shows.
+func FontPrepareFailed() string { return In(i18n.Locale()).FontPrepareFailed() }
+
+// FontPrepareFailed says "Could not prepare fonts. Retry, or switch to system fonts."
+// in the language of msgs.
+func (msgs Messages) FontPrepareFailed() string {
+	return Catalog.Format(msgs.locale, "fontPrepareFailed", nil)
+}
+
+// FontDownloading says "Downloading"
+// in the language the app shows.
+func FontDownloading() string { return In(i18n.Locale()).FontDownloading() }
+
+// FontDownloading says "Downloading"
+// in the language of msgs.
+func (msgs Messages) FontDownloading() string {
+	return Catalog.Format(msgs.locale, "fontDownloading", nil)
+}
+
+// FontVerifying says "Verifying"
+// in the language the app shows.
+func FontVerifying() string { return In(i18n.Locale()).FontVerifying() }
+
+// FontVerifying says "Verifying"
+// in the language of msgs.
+func (msgs Messages) FontVerifying() string {
+	return Catalog.Format(msgs.locale, "fontVerifying", nil)
+}
+
+// FontRegistering says "Registering"
+// in the language the app shows.
+func FontRegistering() string { return In(i18n.Locale()).FontRegistering() }
+
+// FontRegistering says "Registering"
+// in the language of msgs.
+func (msgs Messages) FontRegistering() string {
+	return Catalog.Format(msgs.locale, "fontRegistering", nil)
+}
+
+// FontReady says "Ready"
+// in the language the app shows.
+func FontReady() string { return In(i18n.Locale()).FontReady() }
+
+// FontReady says "Ready"
+// in the language of msgs.
+func (msgs Messages) FontReady() string {
+	return Catalog.Format(msgs.locale, "fontReady", nil)
+}
+
+// FontFailed says "Failed"
+// in the language the app shows.
+func FontFailed() string { return In(i18n.Locale()).FontFailed() }
+
+// FontFailed says "Failed"
+// in the language of msgs.
+func (msgs Messages) FontFailed() string {
+	return Catalog.Format(msgs.locale, "fontFailed", nil)
+}
+
+// FontQueued says "Queued"
+// in the language the app shows.
+func FontQueued() string { return In(i18n.Locale()).FontQueued() }
+
+// FontQueued says "Queued"
+// in the language of msgs.
+func (msgs Messages) FontQueued() string {
+	return Catalog.Format(msgs.locale, "fontQueued", nil)
+}
+
+// FontDownloadProgress says "Download progress"
+// in the language the app shows.
+func FontDownloadProgress() string { return In(i18n.Locale()).FontDownloadProgress() }
+
+// FontDownloadProgress says "Download progress"
+// in the language of msgs.
+func (msgs Messages) FontDownloadProgress() string {
+	return Catalog.Format(msgs.locale, "fontDownloadProgress", nil)
+}
+
+// FontNeedsDownload says "Download required"
+// in the language the app shows.
+func FontNeedsDownload() string { return In(i18n.Locale()).FontNeedsDownload() }
+
+// FontNeedsDownload says "Download required"
+// in the language of msgs.
+func (msgs Messages) FontNeedsDownload() string {
+	return Catalog.Format(msgs.locale, "fontNeedsDownload", nil)
+}
+
+// FontInstalled says "Installed"
+// in the language the app shows.
+func FontInstalled() string { return In(i18n.Locale()).FontInstalled() }
+
+// FontInstalled says "Installed"
+// in the language of msgs.
+func (msgs Messages) FontInstalled() string {
+	return Catalog.Format(msgs.locale, "fontInstalled", nil)
+}
+
+// FontWenKai says "LXGW WenKai Lite"
+// in the language the app shows.
+func FontWenKai() string { return In(i18n.Locale()).FontWenKai() }
+
+// FontWenKai says "LXGW WenKai Lite"
+// in the language of msgs.
+func (msgs Messages) FontWenKai() string {
+	return Catalog.Format(msgs.locale, "fontWenKai", nil)
+}
+
+// FontThemeDefault says "Theme default"
+// in the language the app shows.
+func FontThemeDefault() string { return In(i18n.Locale()).FontThemeDefault() }
+
+// FontThemeDefault says "Theme default"
+// in the language of msgs.
+func (msgs Messages) FontThemeDefault() string {
+	return Catalog.Format(msgs.locale, "fontThemeDefault", nil)
+}
+
+// FontSystemDefault says "System default"
+// in the language the app shows.
+func FontSystemDefault() string { return In(i18n.Locale()).FontSystemDefault() }
+
+// FontSystemDefault says "System default"
+// in the language of msgs.
+func (msgs Messages) FontSystemDefault() string {
+	return Catalog.Format(msgs.locale, "fontSystemDefault", nil)
+}
+
+// FontSearch says "Search fonts"
+// in the language the app shows.
+func FontSearch() string { return In(i18n.Locale()).FontSearch() }
+
+// FontSearch says "Search fonts"
+// in the language of msgs.
+func (msgs Messages) FontSearch() string {
+	return Catalog.Format(msgs.locale, "fontSearch", nil)
+}
+
+// FontScanning says "Finding installed fonts…"
+// in the language the app shows.
+func FontScanning() string { return In(i18n.Locale()).FontScanning() }
+
+// FontScanning says "Finding installed fonts…"
+// in the language of msgs.
+func (msgs Messages) FontScanning() string {
+	return Catalog.Format(msgs.locale, "fontScanning", nil)
+}
+
+// FontPrepareTitle says "Preparing fonts"
+// in the language the app shows.
+func FontPrepareTitle() string { return In(i18n.Locale()).FontPrepareTitle() }
+
+// FontPrepareTitle says "Preparing fonts"
+// in the language of msgs.
+func (msgs Messages) FontPrepareTitle() string {
+	return Catalog.Format(msgs.locale, "fontPrepareTitle", nil)
+}
+
+// FontPreparing says "Preparing…"
+// in the language the app shows.
+func FontPreparing() string { return In(i18n.Locale()).FontPreparing() }
+
+// FontPreparing says "Preparing…"
+// in the language of msgs.
+func (msgs Messages) FontPreparing() string {
+	return Catalog.Format(msgs.locale, "fontPreparing", nil)
+}
+
+// FontEditChoices says "Edit choices"
+// in the language the app shows.
+func FontEditChoices() string { return In(i18n.Locale()).FontEditChoices() }
+
+// FontEditChoices says "Edit choices"
+// in the language of msgs.
+func (msgs Messages) FontEditChoices() string {
+	return Catalog.Format(msgs.locale, "fontEditChoices", nil)
+}
+
+// FontUseSystem says "Use system fonts"
+// in the language the app shows.
+func FontUseSystem() string { return In(i18n.Locale()).FontUseSystem() }
+
+// FontUseSystem says "Use system fonts"
+// in the language of msgs.
+func (msgs Messages) FontUseSystem() string {
+	return Catalog.Format(msgs.locale, "fontUseSystem", nil)
+}
+
+// FontRetry says "Retry"
+// in the language the app shows.
+func FontRetry() string { return In(i18n.Locale()).FontRetry() }
+
+// FontRetry says "Retry"
+// in the language of msgs.
+func (msgs Messages) FontRetry() string {
+	return Catalog.Format(msgs.locale, "fontRetry", nil)
+}
+
+// FontPrepareSelected says "Prepare selected fonts"
+// in the language the app shows.
+func FontPrepareSelected() string { return In(i18n.Locale()).FontPrepareSelected() }
+
+// FontPrepareSelected says "Prepare selected fonts"
+// in the language of msgs.
+func (msgs Messages) FontPrepareSelected() string {
+	return Catalog.Format(msgs.locale, "fontPrepareSelected", nil)
+}
+
+// FontCancel says "Cancel download"
+// in the language the app shows.
+func FontCancel() string { return In(i18n.Locale()).FontCancel() }
+
+// FontCancel says "Cancel download"
+// in the language of msgs.
+func (msgs Messages) FontCancel() string {
+	return Catalog.Format(msgs.locale, "fontCancel", nil)
+}
+
+// OnboardAppearanceTitle says "Appearance & fonts"
+// in the language the app shows.
+func OnboardAppearanceTitle() string { return In(i18n.Locale()).OnboardAppearanceTitle() }
+
+// OnboardAppearanceTitle says "Appearance & fonts"
+// in the language of msgs.
+func (msgs Messages) OnboardAppearanceTitle() string {
+	return Catalog.Format(msgs.locale, "onboardAppearanceTitle", nil)
+}
+
+// OnboardNotesTitle says "Notes & backups"
+// in the language the app shows.
+func OnboardNotesTitle() string { return In(i18n.Locale()).OnboardNotesTitle() }
+
+// OnboardNotesTitle says "Notes & backups"
+// in the language of msgs.
+func (msgs Messages) OnboardNotesTitle() string {
+	return Catalog.Format(msgs.locale, "onboardNotesTitle", nil)
+}
+
+// OnboardMode says "Appearance"
+// in the language the app shows.
+func OnboardMode() string { return In(i18n.Locale()).OnboardMode() }
+
+// OnboardMode says "Appearance"
+// in the language of msgs.
+func (msgs Messages) OnboardMode() string {
+	return Catalog.Format(msgs.locale, "onboardMode", nil)
+}
+
+// OnboardStyle says "Style"
+// in the language the app shows.
+func OnboardStyle() string { return In(i18n.Locale()).OnboardStyle() }
+
+// OnboardStyle says "Style"
+// in the language of msgs.
+func (msgs Messages) OnboardStyle() string {
+	return Catalog.Format(msgs.locale, "onboardStyle", nil)
+}
+
+// OnboardDefaultStyle says "Default"
+// in the language the app shows.
+func OnboardDefaultStyle() string { return In(i18n.Locale()).OnboardDefaultStyle() }
+
+// OnboardDefaultStyle says "Default"
+// in the language of msgs.
+func (msgs Messages) OnboardDefaultStyle() string {
+	return Catalog.Format(msgs.locale, "onboardDefaultStyle", nil)
+}
+
+// OnboardJournalStyle says "Journal"
+// in the language the app shows.
+func OnboardJournalStyle() string { return In(i18n.Locale()).OnboardJournalStyle() }
+
+// OnboardJournalStyle says "Journal"
+// in the language of msgs.
+func (msgs Messages) OnboardJournalStyle() string {
+	return Catalog.Format(msgs.locale, "onboardJournalStyle", nil)
+}
+
+// OnboardDownloadFonts says "Download fonts"
+// in the language the app shows.
+func OnboardDownloadFonts() string { return In(i18n.Locale()).OnboardDownloadFonts() }
+
+// OnboardDownloadFonts says "Download fonts"
+// in the language of msgs.
+func (msgs Messages) OnboardDownloadFonts() string {
+	return Catalog.Format(msgs.locale, "onboardDownloadFonts", nil)
+}
+
+// OnboardCompleteSetup says "Finish setup"
+// in the language the app shows.
+func OnboardCompleteSetup() string { return In(i18n.Locale()).OnboardCompleteSetup() }
+
+// OnboardCompleteSetup says "Finish setup"
+// in the language of msgs.
+func (msgs Messages) OnboardCompleteSetup() string {
+	return Catalog.Format(msgs.locale, "onboardCompleteSetup", nil)
+}
+
+// OnboardStartUsing says "Start writing"
+// in the language the app shows.
+func OnboardStartUsing() string { return In(i18n.Locale()).OnboardStartUsing() }
+
+// OnboardStartUsing says "Start writing"
+// in the language of msgs.
+func (msgs Messages) OnboardStartUsing() string {
+	return Catalog.Format(msgs.locale, "onboardStartUsing", nil)
+}
+
+// OnboardReady says "You’re all set"
+// in the language the app shows.
+func OnboardReady() string { return In(i18n.Locale()).OnboardReady() }
+
+// OnboardReady says "You’re all set"
+// in the language of msgs.
+func (msgs Messages) OnboardReady() string {
+	return Catalog.Format(msgs.locale, "onboardReady", nil)
+}
+
+// OnboardSaving says "Saving preferences…"
+// in the language the app shows.
+func OnboardSaving() string { return In(i18n.Locale()).OnboardSaving() }
+
+// OnboardSaving says "Saving preferences…"
+// in the language of msgs.
+func (msgs Messages) OnboardSaving() string {
+	return Catalog.Format(msgs.locale, "onboardSaving", nil)
+}
+
+// OnboardTabRange says "1–{max, number} tabs"
+// in the language the app shows.
+func OnboardTabRange(max int) string { return In(i18n.Locale()).OnboardTabRange(max) }
+
+// OnboardTabRange says "1–{max, number} tabs"
+// in the language of msgs.
+func (msgs Messages) OnboardTabRange(max int) string {
+	return Catalog.Format(msgs.locale, "onboardTabRange", map[string]any{"max": max})
+}
+
+// OnboardFewerTabs says "Fewer tabs"
+// in the language the app shows.
+func OnboardFewerTabs() string { return In(i18n.Locale()).OnboardFewerTabs() }
+
+// OnboardFewerTabs says "Fewer tabs"
+// in the language of msgs.
+func (msgs Messages) OnboardFewerTabs() string {
+	return Catalog.Format(msgs.locale, "onboardFewerTabs", nil)
+}
+
+// OnboardMoreTabs says "More tabs"
+// in the language the app shows.
+func OnboardMoreTabs() string { return In(i18n.Locale()).OnboardMoreTabs() }
+
+// OnboardMoreTabs says "More tabs"
+// in the language of msgs.
+func (msgs Messages) OnboardMoreTabs() string {
+	return Catalog.Format(msgs.locale, "onboardMoreTabs", nil)
 }

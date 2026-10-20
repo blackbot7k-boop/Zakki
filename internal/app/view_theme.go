@@ -16,6 +16,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/fonts"
+
 	"zakki/locales"
 )
 
@@ -389,9 +391,9 @@ func markdownLayoutNames() []string {
 const (
 	sonnetBodyFont = "JetBrains Mono, LXGW WenKai, 霞鹜文楷, LXGW WenKai Screen, Noto Serif SC, Georgia, serif"
 	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, monospace"
-	// 手写搭配：正文与标题同用内置的霞鹜文楷 Lite（注册名字见 font_hand.go，
-	// 标题靠字号/装饰区分）。栈里除注册名外只允许列 Apple 之外的名字作回退：
-	// 未安装家族的字体匹配在无头环境（CI）会阻塞在系统按需字体下载上。
+	// 手写搭配：正文与标题同用霞鹜文楷 Lite（不随包分发；缺失时经字体运行时
+	// 下载或本机注册，见 font_runtime.go）。栈里除注册名外只允许列 Apple 之外的
+	// 名字作回退：未安装家族的字体匹配在无头环境（CI）会阻塞在系统按需字体下载上。
 	// 不用 Noteworthy 等西文手写体：与中文字宽、笔画粗细不匹配，混排发乱。
 	handBodyFont    = "LXGW WenKai Lite, LXGW WenKai, 霞鹜文楷, serif"
 	handHeadingFont = handBodyFont
@@ -403,16 +405,17 @@ const (
 // ""（默认）、kai、sonnet（旧值别名）都是霞鹜文楷栈，与主题选择无关。
 // 栈里保留自带的西文字形，供 latinFont 为空（跟随中文字体）时使用。
 func cjkFontStack(key string) string {
+	if family := fonts.LocalFamily(key); family != "" {
+		return family + ", system-ui, sans-serif"
+	}
 	switch key {
-	case "pingfang":
+	case "system", "pingfang":
 		return "-apple-system, PingFang SC, Hiragino Sans GB, system-ui, sans-serif"
 	case "songti":
 		return "Songti SC, STSong, Georgia, Noto Serif SC, serif"
 	case "hand":
-		registerHandFont()
 		return handBodyFont
 	case "hannotate":
-		registerHandFont()
 		return hannotateFont
 	default:
 		return sonnetBodyFont
@@ -422,7 +425,12 @@ func cjkFontStack(key string) string {
 // latinFontStack 把西文字体键解析为字体栈；空串表示跟随中文字体。
 // 这些字体都不含中文字形，因此放在字体栈最前面只会接管西文。
 func latinFontStack(key string) string {
+	if family := fonts.LocalFamily(key); family != "" {
+		return family
+	}
 	switch key {
+	case "fira":
+		return "Fira Code"
 	case "jetbrains":
 		return "JetBrains Mono"
 	case "system":
@@ -454,7 +462,6 @@ func bodyFontStack(cjkKey, latinKey string) string {
 func headingFontStack(cjkKey, latinKey string) string {
 	cjk := cjkFontStack(cjkKey)
 	if cjkKey == "hand" {
-		registerHandFont()
 		cjk = handHeadingFont
 	}
 	return composeFontStack(latinFontStack(latinKey), cjk)
@@ -462,7 +469,14 @@ func headingFontStack(cjkKey, latinKey string) string {
 
 // monoFontStack 是用户代码字体键到字体栈的解析，解耦规则同 bodyFontStack。
 func monoFontStack(key string) string {
+	if family := fonts.LocalFamily(key); family != "" {
+		return family + ", monospace"
+	}
 	switch key {
+	case "system":
+		return "monospace"
+	case "fira":
+		return "Fira Code, monospace"
 	case "sfmono":
 		return "SF Mono, Menlo, monospace"
 	case "menlo":
@@ -533,9 +547,9 @@ func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 		codeBackground: pal.codeBackground, quoteBorder: pal.quoteBorder, rule: pal.rule,
 
 		// 字体与排版主题解耦：始终用用户选择的字体键（空 = 默认栈）。
-		bodyFont:    bodyFontStack(a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont),
-		headingFont: headingFontStack(a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont),
-		monoFont:    monoFontStack(a.prefs.Appearance.MonoFont),
+		bodyFont:    bodyFontStack(a.usableFontKey(a.prefs.Appearance.BodyFont), a.usableFontKey(a.prefs.Appearance.LatinFont)),
+		headingFont: headingFontStack(a.usableFontKey(a.prefs.Appearance.BodyFont), a.usableFontKey(a.prefs.Appearance.LatinFont)),
+		monoFont:    monoFontStack(a.usableFontKey(a.prefs.Appearance.MonoFont)),
 		bodySize:    layout.bodySize,
 		lineHeight:  layout.lineHeight,
 		blockGap:    layout.blockGap,

@@ -23,7 +23,7 @@
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`（内含生产 git runner 装配）。 |
 | `internal/app/backup_folder.go` | 备份文件夹（唯一备份地址）：`validateBackupDir`（拒绝应用数据目录及子目录 + 可写性探测）、`chooseBackupDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「备份文件夹」卡片的选/换/断开与首启向导共用。 |
-| `internal/app/onboarding.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：三步（语言/备份文件夹/初始标签数）草稿式确认，语言步骤即时 `App.SetLocale`；备份文件夹预填 `defaultMirrorDir()`（`~/Documents/Zakki 备份`，可注入），始终有值、可换，Git/云盘不在向导出现（档位默认 off，留在设置页）；`finishOnboarding` 写偏好后经 `commitFirstRunData` 落盘，失败留在向导；跳过/关窗等同接受默认——`applyDefaultMirrorDir` 落默认路径 + `persistFirstRunSnapshot` 写默认快照（关窗落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；`StateKey: "onboarding"` 独立窗口，主窗口等向导结束再创建。 |
+| `internal/app/onboarding.go` / `internal/app/onboarding_view.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：640×560 独立窗口（`StateKey: "onboarding-v2"`），两页草稿式确认——① 语言（English/简体中文，选择即时 `App.SetLocale` 并写偏好）、明暗、风格（默认/手账，手账只改颜色+排版主题，不强制字体）、中文字体、西文字体；② 初始标签数 1–9 与备份文件夹（预填 `defaultMirrorDir()` 即 `~/Documents/Zakki 备份`，可注入、可换，始终可见）。选择不触发下载；主按钮显示「完成设置」或「下载字体」，提交后冻结草稿，缺失字体经 `prepareFonts` 统一下载（总进度+单字体进度），完成后停在就绪页，点「开始使用」才写偏好与初始数据（`commitFirstRunData` 语义，失败留在向导）并进入主窗口；失败可重试、返回修改（作废旧下载批次）或改用系统字体。关窗等同接受默认（默认备份路径 + 默认快照，落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；主窗口等向导结束再创建。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
@@ -41,11 +41,11 @@
 | `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"`），五页导航与草稿绑定；变更经 `updatePreferences`；快捷键页录键与冲突检测，全局热键先注册新键再注销旧键。字段契约见 [configuration.md](configuration.md)。 |
 | `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。 |
 | `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）；标题装饰容器 `sketchHeadingFrame` 在预览态与编辑态共用。点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
-| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
+| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；创建主窗口时触发本机字体枚举（`loadFontFamilies`）；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
 | `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`。 |
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
-| `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（12），以及当前标签的访问与增删改。 |
+| `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（9，数字快捷键全覆盖），以及当前标签的访问与增删改。 |
 | `internal/app/tab_strip.go` | 标签栏液态动画与重命名几何；标记只有圆点与圆环。未命名时全部同大，当前标签只靠颜色区分；有名字时名字画在当前标签的色条里。圆环描边且不参与液态桥接。`TabMotionOff` 关闭补间（与系统 ReduceMotion 同路径）。 |
 | `internal/app/settings_tabs.go` | 设置窗口「标签与外观」页。 |
 | `internal/app/view.go` | 主窗口骨架：`view` 每帧构建顶栏、查找条、源码编辑区与底栏；顶栏左侧「关闭窗口」调用 `Window.Hide`，保留笔记、标签和原生渲染资源，避免每次唤起都重建 Metal 管线；Dock、托盘或全局热键可重新显示。菜单关闭（⌘W）仍销毁窗口，后续由 `showWindow` 重建；退出流程不被隐藏逻辑拦截。只有一个标签且不在重命名时隐藏标签区（`tabStripHidden`），并复位标签几何避免恢复多标签时残留补间。 |
@@ -68,7 +68,9 @@
 | `internal/app/tray_icon.go` / `internal/app/assets/tray.png` / `internal/app/assets/tray-black.png` | 托盘图标：内嵌「墨 Z」手写字母 PNG（`trayPNG`，36×36px，与应用图标配套，白墨/黑墨两版）；macOS 以模板自动适配菜单栏明暗，其他平台系统不管模板，按桌面明暗选墨色并随 `Theme.OnUpdated` 切换，避免图标隐入同色任务栏。`assets/tray.svg` 保留矢量源。 |
 | `internal/app/shortcut_fallback.go` | 窗口级快捷键兑底：每帧从统一键位表（命令绑定 + 固定键 + 用户覆盖）注册 `Context.Shortcut`，动作与菜单 Click 同一实现。macOS 菜单 accelerator 在系统层先消费、兑底不触发；Windows 原生 surface 不触发菜单 accelerator，兑底即实际触发路径。编辑角色六键由 ui 引擎内建处理不重复注册。 |
 | `internal/app/shortcut_text.go` | 静态快捷键文案的平台转换：locale 字符串以 macOS 符号书写，非 macOS 展示前经 `shortcutText` 转成 Ctrl/Alt/Shift（⌃ 即 mac 标题键映射为 Alt）；动态键位展示走 `keyBinding.displayNameForPlatform`。 |
-| `internal/app/font_hand.go` / `resources/LXGWWenKaiLite-Regular.ttf` | 内置手写体：霞鹜文楷 Lite（OFL 许可，许可见 `resources/OFL-LXGW-WenKai-Lite.txt`）。字体以单份资源随包分发（macOS 在 Contents/Resources，Windows 在 exe 旁），不 go:embed——嵌入 universal 二进制会每架构各带一份。`registerHandFont`（sync.Once 幂等）只调用一次 `ui.RegisterFont`（每次注册都会整份拷贝字体进 CoreText），由手写字体栈解析路径懒触发，手写主题用户在 WhenReady 开窗前预热；非手写用户不付这份内存。字体栈只允许引用已注册家族名或已知安全的回退名，否则无头环境的文本布局会阻塞在系统按需字体下载上（`TestHandFontCoversStacks` 兼守）。 |
+| `internal/app/font_runtime.go` / `internal/app/font_picker.go` | 字体运行时与选择控件：后台 `ui.FontFamilies()` 枚举本机字体并与远程目录去重（本机字体以 `local:<家族名>` 键入选项，代码字体只列等宽家族，向导下拉含搜索）；`prepareFonts` 是唯一准备入口——缺失的可下载字体按固定目录逐个 `fonts.Store.Ensure`（SHA256/字节校验、可取消、进度经存活窗口 `Window.Update` 回主线程）后 `ui.RegisterFont` 私有注册，完成后只回调 `settle(ok)`。字体应用私有注册，不写入操作系统字体库；本机字体卸载后保留偏好，渲染时回退并提示（`usableFontKey`）。老用户升级后首次开窗由 `preparePreferredFontInBackground` 静默补齐已有偏好引用的缺失字体，失败只记日志。向导与设置页共用选项与准备流程；失败重试、返回修改或换选会作废旧批次（generation 门禁）。 |
+| `internal/fonts` | 纯逻辑字体资源模块（无 MyGo 依赖）：固定远程目录（LXGW WenKai Lite / JetBrains Mono / Fira Code 5.2，均为官方 GitHub 固定 commit 的原始 TTF，OFL-1.1，见 `catalog.go`）；`Store.Ensure` 先验证缓存（`<应用数据>/fonts/<资源ID>.ttf`，长度+SHA256），命中不触网，缺失才下载：HTTP 200、严格等长、临时文件同目录随机名 0600、Sync+Rename 原子发布，失败/取消不留半截文件；`LocalKey`/`LocalFamily` 校验 `local:` 键防字体栈注入。Dank Mono 等商业字体不在目录，仅本机已装时可选。 |
+| `internal/app/testdata/LXGWWenKaiLite-Regular.ttf` | 手写字体栈的无头测试夹具（原 `resources/` 内置字体迁入），仅 `go test` 读取，不随包分发；`font_hand_test.go` 用它验证注册路径与字体栈安全回退。 |
 | `resources/icon.png` / `resources/icon.svg` | 「墨 Z」应用图标：米色纸上一笔手写 Z 加朱红句点（1024×1024 PNG 与 SVG 源文件），MyGo 构建时生成 macOS ICNS 与 Windows ICO。设计原型保留在 `docs/demo/app-icon/`，不参与构建。 |
 
 ## 线程模型（MyGo 硬约束，违反会在运行期出错或被 `go tool mygo vet` 拦下）
@@ -169,7 +171,7 @@
 |---|---|---|
 | `version` | int | 数据版本，当前 `currentDataVersion = 3`；0/1 视为固定 7 点格式；更高拒载不覆盖 |
 | `active` | int | 当前激活的标签下标（载入时按标签数 clamp） |
-| `tabs` | [{id,name,text,color}] | 动态标签（1–12 个）：稳定 ID、可选名称、markdown 纯文本、颜色（空/非法回退调色板）；v1 的 `dots` 字段仅为读取保留，新保存不写 |
+| `tabs` | [{id,name,text,color}] | 动态标签（1–9 个）：稳定 ID、可选名称、markdown 纯文本、颜色（空/非法回退调色板）；v1 的 `dots` 字段仅为读取保留，新保存不写 |
 | `settings.themeSource` | string | `system` \| `light` \| `dark`，空串按 `system` |
 | `settings.markdownTheme` | string | 空 / `sonnet` 为 Sonnet，`note` 为便签（版本 2 文件里的更名前旧 ID 随载入迁移到新 ID） |
 | `settings.bodyFont` / `settings.monoFont` | string | 正文 / 代码字体预设，空为主题默认 |
@@ -191,14 +193,14 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **7**（`prefs.CurrentVersion`）：版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **8**（`prefs.CurrentVersion`）：版本 8 仅扩展字体键（三个字体字段允许 `local:<真实家族名>`，`latinFont` / `monoFont` 另增 `fira`；不新增字段、不改默认、不触发下载）。版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
 版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）；
 版本 6 起备份只有一个文件夹：`backup.mirrorDir` 更名为 `backup.backupDir` 并成为唯一备份地址，
 `gitMode` 随 Git 自动化移除，旧键由 `Decode` 在严格解码前摘除后平移；
 版本 7 起 `appearance.codeIndent` 只有 `space2` / `space4` 两档（默认 2 空格），旧文件从未写过该键，升级时补默认。
-旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 7。旧版本程序读到版本 7 会按
+旧版本文件在 `Decode` 里升级，缺键保持升级前行为；写回后即为版本 8。旧版本程序读到版本 8 会按
 「版本超前」拒绝并保留原文件。
 退出流程（`shutdownForQuit`）在笔记数据最终保存后等待偏好最终保存（`shutdownPreferences`），
 失败返回 `finishQuit`，阻止退出或更新重启。

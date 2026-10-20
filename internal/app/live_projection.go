@@ -401,6 +401,7 @@ func (a *app) rememberLiveEdit(before liveSnapshot, kind editKind) {
 }
 func (a *app) undoLive(redo bool) {
 	a.tableTools = tableTools{}
+	a.cancelCodeLang() // 撤销重写文档，未提交的语言草稿作废
 	from, to := &a.liveUndo, &a.liveRedo
 	if redo {
 		from, to = to, from

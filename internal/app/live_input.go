@@ -52,135 +52,6 @@ func (a *app) recordKeyHint(ev ui.InputEvent) bool {
 	return false
 }
 
-// applyCodeTab 处理代码块内的 Tab / Shift+Tab：无选区在光标处插入制表符，
-// 同行选区按普通输入替换为制表符，跨行选区整行增减一级缩进（制表符或至多
-// 四个空格）并保留选区以便连续调整。退化围栏（未确认的单行围栏、零宽可编辑
-// 区）没有内容行，改为在围栏后新开内容行落缩进，避免写进围栏行的语言标识。
-// 按键已在输入层消费，焦点不会跳出编辑器。
-func (a *app) applyCodeTab(shift bool, p liveProjection, start, end int) {
-	if a.fenceDraft || codeBlockZeroWidth(p) {
-		if shift {
-			return
-		}
-		blocks := a.mdBlocks()
-		if a.mdActive < 0 || a.mdActive >= len(blocks) {
-			return
-		}
-		blk := blocks[a.mdActive]
-		draft := a.mdDraft + "\n\t"
-		docCaret := a.blockRuneOffset(a.mdActive) + utf8.RuneCountInString(draft)
-		newDoc := spliceDocLines(a.activeTab().Text, blk.start, blk.end, draft)
-		a.pendingEditKind = editCommand
-		a.mdDraft = draft
-		a.clearFenceDraft()
-		a.applyDocEditAt(newDoc, docCaret, true)
-		return
-	}
-	raw := a.mdDraft
-	lo, hi := start, end
-	if lo > hi {
-		lo, hi = hi, lo
-	}
-	lo, hi = clamp(lo, 0, utf8.RuneCountInString(raw)), clamp(hi, 0, utf8.RuneCountInString(raw))
-	if lo == hi && !shift {
-		// 无选区：光标处插入一个制表符。
-		b := runeToByte(raw, lo)
-		a.pendingEditKind = editCommand
-		a.mdDraft = raw[:b] + "\t" + raw[b:]
-		a.publishDraft(lo + 1)
-		return
-	}
-	first, firstStart := codeLineOf(raw, lo)
-	last, lastStart := codeLineOf(raw, hi)
-	if last > first && hi == lastStart {
-		// 选区止于行首时该行不计入。
-		last--
-	}
-	if first == last && hi > lo && !shift {
-		// 同行选区：与普通输入一致，把选区替换为制表符。
-		ls, le := runeToByte(raw, lo), runeToByte(raw, hi)
-		a.pendingEditKind = editCommand
-		a.mdDraft = raw[:ls] + "\t" + raw[le:]
-		a.publishDraft(lo + 1)
-		return
-	}
-	// 行级缩进：选区覆盖的每一行行首插入或移除一级缩进。
-	lines := strings.Split(raw, "\n")
-	added, lastDelta, firstDelta := 0, 0, 0
-	changed := false
-	for i := first; i <= last; i++ {
-		if !shift {
-			lines[i] = "\t" + lines[i]
-			if i < last {
-				added++
-			} else {
-				lastDelta = 1
-			}
-			changed = true
-			continue
-		}
-		k := 0
-		if strings.HasPrefix(lines[i], "\t") {
-			k = 1
-		} else {
-			for k < len(lines[i]) && k < 4 && lines[i][k] == ' ' {
-				k++
-			}
-		}
-		if i == first {
-			firstDelta = -k
-		}
-		if k == 0 {
-			continue
-		}
-		lines[i] = lines[i][k:]
-		if i < last {
-			added -= k
-		} else {
-			lastDelta = -k
-		}
-		changed = true
-	}
-	if !changed {
-		return
-	}
-	a.pendingEditKind = editCommand
-	a.mdDraft = strings.Join(lines, "\n")
-	// 选区端点随行首增减平移：终点若停在缩进区间内则收缩到行首。
-	caret := lastStart + added + max(0, hi-lastStart+lastDelta)
-	anchor := firstStart
-	if shift {
-		anchor = firstStart + max(0, lo-firstStart+firstDelta)
-	}
-	a.publishDraft(caret)
-	a.selSyncStart, a.selSyncEnd = anchor, caret
-}
-
-// codeBlockZeroWidth 报告代码块投影是否为行末零宽可编辑区：未确认的单行
-// 围栏没有内容行，Tab 需改落到围栏后的合成内容行（与键入重定向同规则）。
-func codeBlockZeroWidth(p liveProjection) bool {
-	if p.start != p.end || p.end <= 0 || p.end != utf8.RuneCountInString(p.raw) {
-		return false
-	}
-	i := strings.LastIndexByte(p.raw, '\n')
-	return isFenceOpeningLine(p.raw[i+1:])
-}
-
-// codeLineOf 返回块内 rune 偏移 off 所在的行号与该行行首的 rune 偏移。
-func codeLineOf(raw string, off int) (line, lineStart int) {
-	r, b := 0, 0
-	for b < len(raw) && r < off {
-		if raw[b] == '\n' {
-			line++
-			lineStart = r + 1
-		}
-		_, sz := utf8.DecodeRuneInString(raw[b:])
-		b += sz
-		r++
-	}
-	return line, lineStart
-}
-
 func (a *app) applyKeyHint(key ui.Key, start, end int) {
 	if key == ui.KeyTab {
 		backward := a.tableBackward
@@ -263,12 +134,9 @@ func (a *app) afterEnter(start, end int) {
 		return
 	}
 	if blk.kind == bkCode {
-		// 代码块内单换行。
+		// 代码块内单换行：编辑器式续行缩进。
 		if start == end {
-			raw := a.mdDraft
-			b := runeToByte(raw, start)
-			a.mdDraft = raw[:b] + "\n" + raw[b:]
-			a.publishDraft(start + 1)
+			a.applyCodeEnter(start)
 		}
 		return
 	}

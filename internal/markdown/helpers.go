@@ -108,3 +108,27 @@ func fenceInfo(s string) string {
 	}
 	return strings.TrimSpace(content[size:])
 }
+
+// setFenceInfo 重写开栏行的 info 串（语言提示），保留原缩进与围栏标记。
+// info 去首尾空白；反引号围栏剔除其中的反引号（CommonMark 限制），
+// 清洗后为空时只保留标记。非开栏行原样返回并报告 false。
+func setFenceInfo(line, info string) (string, bool) {
+	opening, ok := parseFenceOpeningLine(line)
+	if !ok {
+		return line, false
+	}
+	info = strings.TrimSpace(info)
+	if opening.char == '`' {
+		info = strings.ReplaceAll(info, "`", "")
+		info = strings.TrimSpace(info)
+	}
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+	prefix := line[:indent+opening.size]
+	if info == "" {
+		return prefix, true
+	}
+	return prefix + info, true
+}

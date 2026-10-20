@@ -90,5 +90,6 @@ make build-windows    # Windows x64 .exe
 
 ## 许可
 
-[MIT](LICENSE)。内嵌资源各自遵循其许可：霞鹜文楷 Lite 字体（OFL，见
-`resources/OFL-LXGW-WenKai-Lite.txt`）、Lucide 图标（ISC）。
+[MIT](LICENSE)。内嵌资源各自遵循其许可：Lucide 图标（ISC）。霞鹜文楷 Lite、JetBrains Mono
+与 Fira Code 字体（均为 OFL）不随安装包分发，应用内在首次选择时从各自官方 GitHub 仓库
+下载（见 `internal/fonts/catalog.go`），许可文本保留在 `resources/OFL-*.txt`。

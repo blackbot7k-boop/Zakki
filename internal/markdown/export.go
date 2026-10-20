@@ -145,6 +145,10 @@ func DocLineCount(doc string) int { return docLineCount(doc) }
 // FenceInfo 提取开栏行的 info 串（语言提示，如 "go"）。
 func FenceInfo(line string) string { return fenceInfo(line) }
 
+// SetFenceInfo 重写开栏行的 info 串（语言提示），保留原缩进与围栏标记；
+// 非开栏行原样返回并报告 false。
+func SetFenceInfo(line, info string) (string, bool) { return setFenceInfo(line, info) }
+
 func CaretLineCol(doc string, caret int) (int, int) { return caretLineCol(doc, caret) }
 
 func InlineMarkers(kind SpanKind) (open, close string) { return inlineMarkers(spanKind(kind)) }

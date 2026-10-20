@@ -97,6 +97,17 @@ type liveEditorState struct {
 	// 提交管线 hint：spliceDoc 刚拼好的新文档行切分，mdBlocks 直接复用免一次全文 Split。
 	spliceHintDoc   string
 	spliceHintLines []string
+	// codeLang* 活动代码块右下角语言徽标的编辑态（live_codeblock.go）：
+	// block 为正在改语言的块首行号（-1 无），text 是输入框绑定草稿，
+	// synced 是草稿已同步到的块首行号（-1 强制重同步），focus 是 FocusBind
+	// 的聚焦请求（块首行号+1，0 无），seenFocus 置位后才允许失焦提交
+	// （同 tabStrip 的 renameSeenFocus 惯例）。
+	codeLangBlock     int
+	codeLangText      string
+	codeLangSynced    int
+	codeLangFocus     int
+	codeLangHandle    ui.Handle
+	codeLangSeenFocus bool
 	// 全文派生量的缓存：键是文档串（与可选的查询串），每帧重建视图时避免全文扫描。
 	statsCacheDoc     string
 	statsCacheLines   int
@@ -164,6 +175,7 @@ type desktopRefs struct {
 
 // prefsRuntimeState 内存中的偏好及其一次性迁移结果。
 type prefsRuntimeState struct {
+	fonts          fontRuntimeState
 	prefs          preferences
 	prefsMigration migrationResult
 	// appliedLocale 已应用到 MyGo 的界面语言：与 prefs.Appearance.Language

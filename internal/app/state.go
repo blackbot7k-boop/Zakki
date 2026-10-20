@@ -72,6 +72,7 @@ func newAppAt(dir string) *app {
 	}
 	a.syncNextTabID()
 	a.resetSelectionSync()
+	a.resetCodeLang()
 	return a
 }
 
@@ -81,6 +82,12 @@ func newAppAt(dir string) *app {
 func (a *app) resetSelectionSync() {
 	a.selSyncStart, a.selSyncEnd = -1, -1
 	a.srcSelSyncStart, a.srcSelSyncEnd = -1, -1
+}
+
+// resetCodeLang 把语言徽标会话复位为「无」。codeLangBlock 用 -1 表示无会话；
+// 零值 0 是合法的块首行号，会误触提交，因此 newApp 显式初始化。
+func (a *app) resetCodeLang() {
+	a.codeLangBlock, a.codeLangSeenFocus, a.codeLangSynced, a.codeLangFocus = -1, false, -1, 0
 }
 
 // ---- 数据目录与文件 ----

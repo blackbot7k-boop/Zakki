@@ -30,11 +30,15 @@ func (a *app) view(c *ui.Context) {
 	if a.cfg.Source || a.mdActive < 0 || a.mdActive >= len(a.mdBlocks()) || a.mdBlocks()[a.mdActive].kind != bkTable {
 		a.tableTools = tableTools{}
 	}
-	// 重命名会话优先消费 Esc；表格浮层次之；文档级全选再次；其余时候先关链接浮层、
-	// 再关查找条，最后按设置隐藏窗口。
+	// 重命名会话优先消费 Esc；代码块语言徽标会话次之；表格浮层次之；
+	// 文档级全选再次；其余时候先关链接浮层、再关查找条，最后按设置隐藏窗口。
 	switch {
 	case a.renaming != 0 && c.Shortcut(0, ui.KeyEscape):
 		a.cancelRename()
+	case a.codeLangBlock >= 0 && c.Shortcut(0, ui.KeyEscape):
+		a.cancelCodeLang() // Esc 放弃语言编辑，焦点回到代码内容
+		a.liveFocus = 1
+		c.Invalidate()
 	case a.selDoc && c.Shortcut(0, ui.KeyEscape):
 		a.collapseDocSelection(false)
 	case !a.tableTools.open && c.Shortcut(0, ui.KeyEscape):
@@ -47,7 +51,7 @@ func (a *app) view(c *ui.Context) {
 			a.win.Hide()
 		}
 	}
-	// 窗口级快捷键兜底：与菜单同一键位表，见 shortcut_fallback.go。
+	// 窗口级快捷键兑底：与菜单同一键位表，见 shortcut_fallback.go。
 	a.handleWindowShortcuts(c)
 
 	ui.Column(c).Fill().Children(func() {

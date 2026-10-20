@@ -10,8 +10,9 @@ ARCH_RULES := \
 	codehl: \
 	atomicfile: \
 	legacyconfig: \
+	fonts: \
 	notes:atomicfile \
-	prefs:legacyconfig,atomicfile
+	prefs:legacyconfig,atomicfile,fonts
 
 .PHONY: fmt-check vet test race arch-check check build build-windows vendor
 
@@ -48,7 +49,7 @@ arch-check:
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
 	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
-		case " markdown codehl atomicfile legacyconfig notes prefs " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
+		case " markdown codehl atomicfile legacyconfig notes prefs fonts " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 
 check: fmt-check vet test race arch-check

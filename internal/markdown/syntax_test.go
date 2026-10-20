@@ -335,3 +335,31 @@ func TestToggleTaskLine(t *testing.T) {
 		})
 	}
 }
+
+// TestSetFenceInfo 重写开栏 info 串：保留缩进与标记，反引号围栏剔除
+// info 中的反引号，清空 info 只留标记；非开栏行原样返回。
+func TestSetFenceInfo(t *testing.T) {
+	cases := []struct {
+		name, line, info, want string
+		ok                     bool
+	}{
+		{"无语言写入语言", "```", "go", "```go", true},
+		{"替换既有语言", "```js", "typescript", "```typescript", true},
+		{"波浪线围栏", "~~~~", "py", "~~~~py", true},
+		{"保留缩进", "  ```", "go", "  ```go", true},
+		{"清空语言", "```go", "", "```", true},
+		{"反引号剔除", "```", "c`++", "```c++", true},
+		{"清洗后为空", "```go", "`", "```", true},
+		{"首尾空白去除", "```", " go ", "```go", true},
+		{"两个反引号不是开栏", "``", "go", "``", false},
+		{"正文行", "abc", "go", "abc", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := SetFenceInfo(tc.line, tc.info)
+			if ok != tc.ok || got != tc.want {
+				t.Errorf("SetFenceInfo(%q, %q) = (%q, %v)，要 (%q, %v)", tc.line, tc.info, got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}

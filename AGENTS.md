@@ -20,7 +20,7 @@ Zakki：基于 [MyGo](https://github.com/egoist/mygo) 原生 UI 的 macOS/Window
 
 ## 硬规则
 
-- 纯逻辑包（`markdown`/`codehl`/`notes`/`prefs`/`legacyconfig`/`atomicfile`）禁止 import `github.com/egoist/mygo` 及其子包，也禁止 import `internal/app`；internal 包之间只允许 [engineering-standard.md](docs/engineering-standard.md) 第 3 节列出的依赖。
+- 纯逻辑包（`markdown`/`codehl`/`notes`/`prefs`/`legacyconfig`/`atomicfile`/`fonts`）禁止 import `github.com/egoist/mygo` 及其子包，也禁止 import `internal/app`；internal 包之间只允许 [engineering-standard.md](docs/engineering-standard.md) 第 3 节列出的依赖。
 - 禁止往 `app` 顶层新增字段；新状态放进对应的领域子结构体或 Store。
 - 禁止把 `ui.Element`、`*ui.Context` 存入状态或传给后台；持久身份用 `ui.Handle`。
 - 后台 goroutine 只碰不可变快照，回主线程只用 `Window.Update`；锁只存在于 Store 类型内部。

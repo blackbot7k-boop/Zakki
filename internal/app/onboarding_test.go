@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -47,7 +45,7 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	}
 	a.onboarding.dirDraft = folder
 	a.onboarding.tabCount = 3
-	a.onboarding.step = onboardingLastStep
+	a.onboarding.phase = "ready" // 主按钮只在就绪页生效
 
 	a.finishOnboarding(true)
 
@@ -177,13 +175,12 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 	a.onboarding.dirDraft = folder
 
 	steps := map[int][]string{
-		1: {"选择语言", "English", "简体中文"},
-		2: {"备份文件夹", folder, "更换…"},
-		3: {"初始标签数量", "7 个"},
+		1: {"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "西文字体"},
+		2: {"笔记与备份", "初始标签数量", "备份文件夹", folder, "完成设置"},
 	}
 	for step, wants := range steps {
 		a.onboarding.step = step
-		tt := ui.NewTester(a.onboardingView, 560, 440)
+		tt := ui.NewTester(a.onboardingView, 640, 560)
 		tt.Frame()
 		for _, want := range wants {
 			if !tt.HasText(want) {
@@ -191,20 +188,34 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 			}
 		}
 	}
-	// 最后一步主按钮是完成，且不再显示跳过。
-	a.onboarding.step = onboardingLastStep
-	tt := ui.NewTester(a.onboardingView, 560, 440)
+	// 未扫描到已装字体且有可下载选择时，主按钮变为下载字体；
+	// 字体摘要不出现（选择与下载分离）。
+	a.onboarding.appearance.BodyFont = "hand"
+	tt := ui.NewTester(a.onboardingView, 640, 560)
 	tt.Frame()
-	if !tt.HasText("完成，进入 Zakki") {
-		t.Fatalf("最后一步应显示完成按钮: %v", tt.Texts())
+	if !tt.HasText("下载字体") || tt.HasText("本次字体选择") {
+		t.Fatalf("提交按钮或摘要不符合预期: %v", tt.Texts())
+	}
+	// 就绪页等待「开始使用」，不自动进入主界面。
+	a.onboarding.phase = "ready"
+	tt = ui.NewTester(a.onboardingView, 640, 560)
+	tt.Frame()
+	if !tt.HasText("开始使用") || !tt.HasText("准备完成") {
+		t.Fatalf("就绪页应显示开始使用: %v", tt.Texts())
+	}
+	// 直接调用 finishOnboarding(true) 必须先经过就绪页。
+	a.onboarding.phase = ""
+	a.finishOnboarding(true)
+	if a.onboarding.finished {
+		t.Fatal("未经就绪页不应结束向导")
 	}
 	// 语言按钮的可见文字必须是 Text 子元素：ButtonBase 的 Label 只是
 	// 可访问性标题，不设 Label 时 Texts 里的唯一一条就是可见文字。
 	a.onboarding.step = 1
-	tt = ui.NewTester(a.onboardingView, 560, 440)
+	tt = ui.NewTester(a.onboardingView, 640, 560)
 	tt.Frame()
-	for _, want := range mygo.App.Languages() {
-		if strings.Count(strings.Join(tt.Texts(), "\n"), i18n.Autonym(want)) < 1 {
+	for _, want := range []string{"English", "简体中文"} {
+		if strings.Count(strings.Join(tt.Texts(), "\n"), want) < 1 {
 			t.Fatalf("语言 %s 缺少可见 Text 子元素: %v", want, tt.Texts())
 		}
 	}
