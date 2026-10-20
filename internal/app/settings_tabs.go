@@ -151,7 +151,8 @@ func (a *app) tabRow(c *ui.Context, i int) {
 				ui.Text(c, locales.TabCurrent()).FontSize(11).TextColor(c.Theme().Accent)
 			}
 			if i < 9 {
-				ui.Text(c, shortcutText(fmt.Sprintf("⌃%d", i+1))).FontSize(11).TextColor(tMuted(c))
+				// 切标签是主修饰键+数字（mac ⌘N / Win Ctrl+N）；⌃ 是标题键，勿混用。
+				ui.Text(c, shortcutText(fmt.Sprintf("⌘%d", i+1))).FontSize(11).TextColor(tMuted(c))
 			}
 		})
 		ui.Row(c).Gap(8).Children(func() {
