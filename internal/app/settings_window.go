@@ -201,6 +201,9 @@ func (a *app) openSettings(page string) {
 	a.settingsWin = win
 	a.loadFontFamilies(win)
 	win.OnClosed(func() {
+		// 录制未结束时先恢复菜单与全局热键（必须在重置 settingsUI 之前，
+		// 否则 setKeymapRecording 误判为无变化而跳过恢复）。
+		a.setKeymapRecording("")
 		a.settingsUI.fontPreparation.stop()
 		a.settingsWin = nil
 		a.settingsUI = settingsUIState{}
@@ -242,7 +245,7 @@ func (a *app) settingsView(c *ui.Context) {
 			ui.SidebarItem(c, pageKeymap, iconKeyboard, locales.PageKeymap())
 		}).Width(200).FillHeight().Changed() {
 			a.settingsUI.syncDraftFromPrefs(a.prefs)
-			a.settingsUI.recording = ""
+			a.setKeymapRecording("")
 		}
 		ui.Column(c).Fill().Grow(1).Padding(28, 12, 28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
@@ -364,7 +367,7 @@ func (a *app) resetPageDefaults(page string) {
 		}
 	})
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
-	a.settingsUI.recording = ""
+	a.setKeymapRecording("")
 	a.syncGlobalHotkey()
 	a.refreshSettingsWindow()
 }

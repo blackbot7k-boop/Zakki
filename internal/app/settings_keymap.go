@@ -1,7 +1,8 @@
 package app
 
 // 快捷键页：名称搜索、按 Markdown/全局分组、按键录制、解除绑定、恢复单项、
-// 恢复全部。录键期间屏蔽应用命令，Esc 取消；冲突与非法组合显示原因。
+// 恢复全部。录键期间屏蔽应用命令，并临时摘除应用菜单与全局热键（两者都
+// 先于窗口按键被消费，见 setKeymapRecording），Esc 取消；冲突与非法组合显示原因。
 // 全局热键变更先注册新键，成功后再注销旧键；失败保留旧绑定并提示。
 
 import (
@@ -13,6 +14,31 @@ import (
 
 	"zakki/locales"
 )
+
+// setKeymapRecording 切换录键态，是进入/退出录制的唯一入口。录制期间临时
+// 摘除应用菜单并注销全局热键：macOS 菜单 accelerator 是应用级、全局热键是
+// OS 级，都先于窗口按键被消费——不摘除则录制框收不到已占用的组合键
+// （冲突提示无法显示），且菜单动作会带副作用执行（备份、建标签甚至退出）。
+// 退出录制时重建菜单并按偏好重新注册热键。
+func (a *app) setKeymapRecording(id string) {
+	if a.settingsUI.recording == id {
+		return
+	}
+	a.settingsUI.recording = id
+	if !a.ready {
+		return // 事件循环未启动（启动载入/测试）：只走状态，不触达原生 API
+	}
+	if id != "" {
+		mygo.App.SetMenu(nil)
+		if a.hotkeyAcc != "" {
+			mygo.GlobalShortcut.Unregister(a.hotkeyAcc)
+			a.hotkeyAcc = "" // 置空，退出时 syncGlobalHotkey 才会按偏好重新注册
+		}
+		return
+	}
+	a.buildMenu()
+	a.syncGlobalHotkey()
+}
 
 // syncGlobalHotkey 让全局热键与偏好一致：先尝试注册新键，成功后再注销
 // 旧键；相同规范化绑定不重复注册；失败保留旧绑定并提示。
@@ -130,7 +156,11 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 			}).Children(func() {
 			ui.Text(c, locales.KeymapRecording()).TextColor(c.Theme().Accent).Bold()
 		})
-		_ = box
+		if !box.Focused() {
+			// 焦点被抢走（点击其他控件或空白处）：取消录制并恢复菜单与
+			// 全局热键，避免录制态卡在失焦状态（Esc 已送达不了捕获框）。
+			a.setKeymapRecording("")
+		}
 		return
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
@@ -143,7 +173,7 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 		})
 		_ = badge
 		if ui.Button(c.Key("rec-"+def.id), locales.KeymapChange()).Clicked() {
-			a.settingsUI.recording = def.id
+			a.setKeymapRecording(def.id)
 			a.settingsUI.keyErr = ""
 		}
 		if acc != "" {
@@ -170,7 +200,7 @@ func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 		return true // 吞掉其他事件，屏蔽应用命令
 	}
 	if ev.Key == ui.KeyEscape {
-		a.settingsUI.recording = ""
+		a.setKeymapRecording("")
 		return true
 	}
 	if ev.Key == ui.KeyUnknown {
@@ -183,6 +213,6 @@ func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 	} else {
 		a.settingsUI.keyErr = ""
 	}
-	a.settingsUI.recording = ""
+	a.setKeymapRecording("")
 	return true
 }

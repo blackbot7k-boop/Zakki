@@ -73,8 +73,8 @@ func (a *app) setDocumentMenu(document bool) {
 // refreshEditMenuRouting 只切换编辑子菜单在系统角色与应用命令之间的路由，
 // 避免焦点变化时整栏重建。
 func (a *app) refreshEditMenuRouting() {
-	if !a.ready || a.menu == nil {
-		return
+	if !a.ready || a.menu == nil || a.settingsUI.recording != "" {
+		return // 录键期间菜单已摘除；退出录制时按当前路由重建
 	}
 	roles := map[string]mygo.MenuRole{
 		"undo": mygo.RoleUndo, "redo": mygo.RoleRedo,

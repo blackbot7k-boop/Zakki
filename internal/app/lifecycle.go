@@ -224,8 +224,12 @@ func (a *app) withWindow(fn func()) {
 
 // ---- 菜单 ----
 
-// buildMenu 组装 macOS 菜单栏（其他平台为窗口菜单）。
+// buildMenu 组装 macOS 菜单栏（其他平台为窗口菜单）。录键期间菜单被临时
+// 摘除（见 setKeymapRecording），跳过重建，退出录制时统一按当前状态重建。
 func (a *app) buildMenu() {
+	if a.settingsUI.recording != "" {
+		return
+	}
 	a.menu = a.createMenu()
 	mygo.App.SetMenu(a.menu)
 }
