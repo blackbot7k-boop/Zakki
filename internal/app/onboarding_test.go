@@ -174,17 +174,22 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 	}
 	a.onboarding.dirDraft = folder
 
-	steps := map[int][]string{
-		1: {"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "西文字体"},
-		2: {"笔记与备份", "初始标签数量", "备份文件夹", folder, "完成设置"},
+	// 用固定顺序的切片而非 map：map 迭代随机，步骤 1 若留在最后，
+	// 下面的「下载字体」断言会跑在步骤 1 界面上而随机失败。
+	steps := []struct {
+		step  int
+		wants []string
+	}{
+		{1, []string{"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "西文字体"}},
+		{2, []string{"笔记与备份", "初始标签数量", "备份文件夹", folder, "完成设置"}},
 	}
-	for step, wants := range steps {
-		a.onboarding.step = step
+	for _, s := range steps {
+		a.onboarding.step = s.step
 		tt := ui.NewTester(a.onboardingView, 640, 560)
 		tt.Frame()
-		for _, want := range wants {
+		for _, want := range s.wants {
 			if !tt.HasText(want) {
-				t.Fatalf("步骤 %d 缺少 %q: %v", step, want, tt.Texts())
+				t.Fatalf("步骤 %d 缺少 %q: %v", s.step, want, tt.Texts())
 			}
 		}
 	}
