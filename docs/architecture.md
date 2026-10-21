@@ -42,7 +42,7 @@
 | `internal/app/view_theme.go` | 双层主题与每点配色：`colorThemes`、`dotThemes`、`markdownLayouts`；`resolveStyle` 合并颜色 + 排版 + 用户覆盖，结果按（外观偏好、圆点、明暗、是否覆盖、本机字体列表身份）缓存最近 4 份（`fontRuntimeState.styles`），字体栈拼接与本机字体查找不再每帧重复；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。字体栈在 Apple 字体之后列 Windows 回退（微软雅黑、宋体、Segoe UI、Consolas），macOS 渲染不变。 |
 | `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）；标题装饰容器 `sketchHeadingFrame` 在预览态与编辑态共用。点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
 | `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；创建主窗口时触发本机字体枚举（`loadFontFamilies`）；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
-| `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`。 |
+| `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`；`docStats` 按文档串缓存，同一标签 32KB 以上的文档连续输入时每 250ms 至多重算一次，节流期沿用旧值并用 `time.AfterFunc` + `Window.Update` 预约一帧补算；切换标签立即重算。 |
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
 | `internal/app/tab_model.go` | 动态标签：`tab`、`DefaultTabCount`（7）、`MaxTabCount`（9，数字快捷键全覆盖），以及当前标签的访问与增删改。 |

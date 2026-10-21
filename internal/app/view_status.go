@@ -68,13 +68,36 @@ func (a *app) backupLabel() string {
 	}
 }
 
-// docStats 返回状态栏的行数/词数/字符数。状态栏每帧重建，
-// 按文档串缓存，避免对长文档的每帧三次全文扫描。
+// statsDebounce 长文档连续输入时底栏统计的最短重算间隔；停手后补一帧算准。
+const statsDebounce = 250 * time.Millisecond
+
+// statsDebounceBytes 以下的文档全文扫描只需微秒级，每次改动都即时重算。
+const statsDebounceBytes = 32 << 10
+
+// docStats 返回状态栏的行数/词数/字符数。状态栏每帧重建，按文档串缓存；
+// 同一标签的长文档在连续输入时按 statsDebounce 节流，期间沿用上次结果，
+// 并预约一次刷新，停手后数字仍会追上。切换标签总是立即重算。
 func (a *app) docStats(doc string) (lines, words, chars int) {
 	if a.statsCacheDoc == doc {
 		return a.statsCacheLines, a.statsCacheWords, a.statsCacheChars
 	}
+	now, tab := a.now(), a.activeTab().ID
+	if tab == a.statsCacheTab && len(doc) >= statsDebounceBytes && now.Sub(a.statsCacheAt) < statsDebounce {
+		a.armStatsRefresh(now)
+		return a.statsCacheLines, a.statsCacheWords, a.statsCacheChars
+	}
 	lines, words, chars = countLines(doc), countWords(doc), countChars(doc)
 	a.statsCacheDoc, a.statsCacheLines, a.statsCacheWords, a.statsCacheChars = doc, lines, words, chars
+	a.statsCacheTab, a.statsCacheAt = tab, now
 	return lines, words, chars
+}
+
+// armStatsRefresh 节流期内预约一次重建，每个节流窗口至多一个定时器。
+func (a *app) armStatsRefresh(now time.Time) {
+	if a.win == nil || now.Before(a.statsRefreshAt) {
+		return
+	}
+	a.statsRefreshAt = now.Add(statsDebounce)
+	win := a.win
+	time.AfterFunc(statsDebounce, func() { win.Update(func() {}) })
 }

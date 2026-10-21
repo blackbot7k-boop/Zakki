@@ -134,6 +134,9 @@ type liveEditorState struct {
 	statsCacheLines   int
 	statsCacheWords   int
 	statsCacheChars   int
+	statsCacheTab     uint64
+	statsCacheAt      time.Time
+	statsRefreshAt    time.Time // 已预约的统计刷新时刻（armStatsRefresh）
 	rangesCacheDoc    string
 	rangesCacheQuery  string
 	rangesCacheDark   bool
