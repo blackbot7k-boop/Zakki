@@ -6,7 +6,7 @@
 - 应用名与安装包：macOS 为 `Zakki.app` / DMG，Windows 为 `Zakki.exe` / Setup EXE。
   应用标识 `com.gomeen.zakki`，Go module 名 `zakki`；数据目录 macOS 为
   `~/Library/Application Support/Zakki/`，Windows 为 `%APPDATA%\Zakki\`，不改变 JSON 结构。
-  更早版本安装的旧数据目录会在新版首次启动时自动迁移到新目录（整体搬入并按新命名改名文件）。
+  应用按全新安装处理，不做旧数据目录迁移。
 - 更新器：MyGo v0.5.1 的 `plugins/updater/native`，全原生 UI，无 webview；应用菜单与托盘
   均提供「检查更新…」，默认只手动检查。用户可查看版本说明、下载安装、跳过或稍后重启。
 - 发布目标固定为 **darwin/universal**（Intel 与 Apple Silicon）和 **windows/amd64**（Windows 10/11 x64）。
@@ -148,7 +148,7 @@ https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.js
 - **Windows 首次安装**：下载 `Zakki Setup <version> amd64.exe`，按用户安装到默认目录。
   自定义目录也必须可写，不建议装入需要管理员权限的 Program Files。
   数据位于 `%APPDATA%\Zakki\`，不随应用更新替换；不要把数据目录选成程序安装目录（卸载器会删除安装目录）。
-- **更早版本用户**：先 ⌘S 备份，再 ⌘Q 完整退出（关窗和 Esc 不等于退出），手动安装一次 Zakki。
+- **更早版本用户**：先 ⌘S 保存，再 ⌘Q 完整退出（关窗和 Esc 不等于退出），手动安装一次 Zakki。
   移除旧应用包，不要同时启动两版写同一份数据；旧数据目录无需手动处理，新版首次启动会自动迁移。
 - **以后更新**：Zakki → 检查更新… → 查看说明 → 下载并安装 → 重启。
   更新替换应用包，不删除笔记、偏好和备份；重启经过退出最终保存，保存失败会取消退出并显示错误。
@@ -167,5 +167,5 @@ https://github.com/gomeen/Zakki/releases/latest/download/update-windows-amd64.js
 - [ ] Intel / Apple Silicon 安装可启动；对真实下载文件验证 Gatekeeper 行为，不以本机无隔离标记的包代替。
 - [ ] Windows 10/11 x64 按用户安装、启动、中文输入法、托盘、快捷键与退出通过实机验收，确认 SmartScreen 提示；不能仅凭交叉编译宣布已验证。
 - [ ] 旧版检查更新可下载安装并重启；两个平台的清单均包含从上一 Latest 版本出发的 delta，附件存在且大小一致。
-- [ ] 更新前后笔记/偏好/备份保留；保存失败不静默重启。
+- [ ] 更新前后笔记与偏好保留；保存失败不静默重启。
 - [ ] 公开 Release 并设为 Latest 后，清单和归档均可匿名下载。
