@@ -159,6 +159,8 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 		} else {
 			a.tabStrip(c, dark)
 		}
+		// 置顶固定在最右；spacer 不参与命中，中段仍可拖动窗口。
+		ui.Box(c).Grow(1).PassThrough()
 		a.iconPin(c, t, dark)
 	})
 }
@@ -364,6 +366,10 @@ const chromeHit float32 = 24
 func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink, hover ui.Color, bold bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).
 		Size(chromeHit, chromeHit).Radius(6).Cursor(ui.CursorPointer)
+	if bold {
+		// 选中态常亮淡底：不依赖悬停也能看清开关状态。
+		btn.Background(chromeHover(ink))
+	}
 	if btn.Hovered() {
 		btn.Background(hover)
 	}
@@ -401,7 +407,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		Label(locales.EditorContent()).
 		Fill().Grow(1).
 		Padding(14, 20).
-		FontSize(md.bodySize).Font(md.monoFont).LineHeight(md.lineHeight).
+		FontSize(md.bodySize).Font(md.bodyFont).LineHeight(md.lineHeight).
 		FocusRing(false).
 		Background(a.paperBackground(md.background, dark, c.Vibrancy())).
 		AutoFocus().
@@ -546,7 +552,7 @@ func (a *app) restoreSourceSession() {
 	}
 }
 
-// toggleSourceMode 切换源码/实时预览（编辑会话状态，随笔记持久化）。
+// toggleSourceMode 切换源码/实时预览；纯视图状态，不写笔记文件。
 func (a *app) toggleSourceMode() {
 	if a.cfg.Source {
 		a.saveSourceSession()
@@ -562,7 +568,6 @@ func (a *app) toggleSourceMode() {
 		a.resyncLive(-1)
 	}
 	a.syncMenus()
-	a.scheduleSave()
 }
 
 // onEdited 文本变化后统一入口。

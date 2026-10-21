@@ -127,7 +127,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 			raw:        `{"version":1,"active":3,"dots":` + fullDots + `,"settings":{"themeSource":"dark","alwaysOnTop":true,"hideOnEscape":true,"source":true}}`,
 			wantTexts:  seven,
 			wantActive: 3,
-			wantCfg:    settings{ThemeSource: "dark", AlwaysOnTop: true, HideOnEscape: true, Source: true},
+			wantCfg:    settings{ThemeSource: "dark", AlwaysOnTop: true, HideOnEscape: true}, // source 只属于本次会话
 		},
 		{
 			name:       "缺 settings 用默认值",
@@ -176,7 +176,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 			raw:        `{"version":1,"active":0,"dots":` + fullDots + `,"settings":{"preview":true}}`,
 			wantTexts:  seven,
 			wantActive: 0,
-			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true, Source: true},
+			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true}, // source 只属于本次会话
 		},
 		{
 			name:       "显式 hideOnEscape:false 保留",
@@ -247,6 +247,28 @@ func TestPersistenceLoadFields(t *testing.T) {
 
 // ---- 3. v1 → v2 迁移与 v2 修复 ----
 
+// TestToggleSourceDoesNotTouchFile 源码/预览切换是纯视图状态：不产生待写快照。
+func TestToggleSourceDoesNotTouchFile(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	if a.notes.Unsaved() {
+		t.Fatal("保存后不应有待写快照")
+	}
+	a.toggleSourceMode()
+	a.toggleSourceMode()
+	if a.notes.Unsaved() {
+		t.Fatal("切换源码不应产生待写快照")
+	}
+	a.shutdownPreferences()
+	raw := string(persistReadRaw(t, a.notes.DataPath()))
+	if !strings.Contains(raw, `"text": "欢迎`) && !strings.Contains(raw, "text") {
+		t.Fatalf("文件应保持原样: %s", raw[:80])
+	}
+}
+
 func TestPersistenceMigrateSavedFile(t *testing.T) {
 	// 纯迁移表在 internal/notes. 这里只保留经 load/save 落到 app 的路径。
 	t.Run("load 旧文件后保存升到 version 2 且只写 tabs", func(t *testing.T) {
@@ -263,9 +285,9 @@ func TestPersistenceMigrateSavedFile(t *testing.T) {
 		if a.active != 6 {
 			t.Fatalf("active = %d, want 6", a.active)
 		}
-		if !a.cfg.Source || a.cfg.ThemeSource != "system" {
-			t.Fatalf("cfg = %+v, want Source=true 且 themeSource=system", a.cfg)
-		}
+		if a.cfg.ThemeSource != "system" {
+			t.Fatalf("cfg = %+v, want themeSource=system", a.cfg)
+		} // source 是会话状态，不再随文件持久化
 		if err := a.saveNow(); err != nil {
 			t.Fatalf("saveNow 报错: %v", err)
 		}

@@ -37,7 +37,6 @@ func (a *app) snapshotFile() savedFile {
 			LineHeight:    a.cfg.LineHeight,
 			AlwaysOnTop:   a.cfg.AlwaysOnTop,
 			HideOnEscape:  a.cfg.HideOnEscape,
-			Source:        a.cfg.Source,
 			TabTitleWidth: a.cfg.TabTitleWidth,
 			TabAnimSpeed:  a.cfg.TabAnimSpeed,
 			MonoDots:      a.cfg.MonoDots,
@@ -135,7 +134,6 @@ func (a *app) applySavedFile(f savedFile) {
 	a.cfg.BodySize, a.cfg.LineHeight = f.Settings.BodySize, f.Settings.LineHeight
 	a.cfg.AlwaysOnTop = f.Settings.AlwaysOnTop
 	a.cfg.HideOnEscape = f.Settings.HideOnEscape
-	a.cfg.Source = f.Settings.Source
 	a.cfg.TabTitleWidth, a.cfg.TabAnimSpeed = f.Settings.TabTitleWidth, f.Settings.TabAnimSpeed
 	a.cfg.MonoDots, a.cfg.GlassStrength = f.Settings.MonoDots, f.Settings.GlassStrength
 	a.cfg.TabMotionOff = f.Settings.TabMotionOff
