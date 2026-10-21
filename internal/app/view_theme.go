@@ -209,6 +209,7 @@ func colorThemeByID(id string) (colorThemeDef, bool) {
 // colorThemeNames 返回全部颜色主题的展示名（顺序即选择卡片顺序）。
 func colorThemeNames() []string {
 	names := make([]string, 0, len(colorThemes)+1)
+	names = append(names, colorThemeDisplayName(colorThemeClassic))
 	for _, t := range colorThemes {
 		names = append(names, colorThemeDisplayName(t.id))
 	}
@@ -390,7 +391,7 @@ func markdownLayoutNames() []string {
 
 const (
 	sonnetBodyFont = "JetBrains Mono, LXGW WenKai, 霞鹜文楷, LXGW WenKai Screen, Noto Serif SC, Georgia, serif"
-	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, monospace"
+	sonnetMonoFont = "JetBrains Mono, SF Mono, Menlo, Consolas, monospace"
 	// 手写搭配：正文与标题同用霞鹜文楷 Lite（不随包分发；缺失时经字体运行时
 	// 下载或本机注册，见 font_runtime.go）。栈里除注册名外只允许列 Apple 之外的
 	// 名字作回退：未安装家族的字体匹配在无头环境（CI）会阻塞在系统按需字体下载上。
@@ -404,15 +405,16 @@ const (
 // cjkFontStack 把中文字体键解析为字体栈。字体与排版主题解耦：
 // ""（默认）、kai、sonnet（旧值别名）都是霞鹜文楷栈，与主题选择无关。
 // 栈里保留自带的西文字形，供 latinFont 为空（跟随中文字体）时使用。
+// Windows 回退（微软雅黑、宋体）排在 Apple 字体之后，macOS 渲染不受影响。
 func cjkFontStack(key string) string {
 	if family := fonts.LocalFamily(key); family != "" {
 		return family + ", system-ui, sans-serif"
 	}
 	switch key {
 	case "system", "pingfang":
-		return "-apple-system, PingFang SC, Hiragino Sans GB, system-ui, sans-serif"
+		return "-apple-system, PingFang SC, Hiragino Sans GB, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif"
 	case "songti":
-		return "Songti SC, STSong, Georgia, Noto Serif SC, serif"
+		return "Songti SC, STSong, Georgia, Noto Serif SC, SimSun, serif"
 	case "hand":
 		return handBodyFont
 	case "hannotate":
@@ -434,7 +436,7 @@ func latinFontStack(key string) string {
 	case "jetbrains":
 		return "JetBrains Mono"
 	case "system":
-		return "-apple-system, SF Pro Text, Helvetica Neue, Arial, sans-serif"
+		return "-apple-system, SF Pro Text, Helvetica Neue, Segoe UI, Arial, sans-serif"
 	case "noteworthy":
 		return "Noteworthy"
 	case "bradley":
@@ -535,9 +537,51 @@ func colorPaletteFor(themeID string, dot int, dark bool) colorPalette {
 	return classicNeutralPalette(dark)
 }
 
+// styleCacheKey 是 resolveStyle 的全部输入：外观偏好、调用参数，以及本机字体
+// 列表的身份（usableFontKey 依赖它；枚举完成时整片替换，不原地改）。
+type styleCacheKey struct {
+	appearance     appearancePrefs
+	dot            int
+	dark, override bool
+	families       *ui.FontFamily
+	familyCount    int
+}
+
+type styleCacheEntry struct {
+	key   styleCacheKey
+	style resolvedStyle
+}
+
+// styleCache 是解析结果的小缓存：一帧里外框与每个可见块都要样式，
+// 选了本机字体时每次解析还要扫描系统字体列表。条目很少（明暗 × 场景）。
+type styleCache struct {
+	entries [4]styleCacheEntry
+	used    int
+	next    int
+}
+
 // resolveStyle 合并三层：颜色主题 + Markdown 排版 + 用户排版覆盖。
 // override 为 false 时忽略用户字体/字号/行高覆盖（预览卡片用）。
 func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
+	key := styleCacheKey{appearance: a.prefs.Appearance, dot: dot, dark: dark, override: override,
+		familyCount: len(a.fonts.families)}
+	if len(a.fonts.families) > 0 {
+		key.families = &a.fonts.families[0]
+	}
+	cache := &a.fonts.styles
+	for i := range cache.used {
+		if cache.entries[i].key == key {
+			return cache.entries[i].style
+		}
+	}
+	s := a.computeStyle(dot, dark, override)
+	cache.entries[cache.next] = styleCacheEntry{key: key, style: s}
+	cache.next = (cache.next + 1) % len(cache.entries)
+	cache.used = min(cache.used+1, len(cache.entries))
+	return s
+}
+
+func (a *app) computeStyle(dot int, dark bool, override bool) resolvedStyle {
 	pal := colorPaletteFor(a.prefs.Appearance.ColorTheme, dot, dark)
 	layout := markdownLayoutByID(a.prefs.Appearance.MarkdownTheme)
 	s := resolvedStyle{

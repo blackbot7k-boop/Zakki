@@ -42,6 +42,43 @@ func TestColorThemeContrast(t *testing.T) {
 }
 
 // TestDotPaletteContrast Tot 主窗口随点配色：正文对七点底色 ≥ 4.5。
+// 样式缓存必须随外观偏好与本机字体列表失效，结果与直接解析一致。
+func TestResolveStyleCacheInvalidates(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Appearance.MonoFont = "local:Mono Local"
+	if got := a.resolveStyle(-1, false, true); got.monoFont != a.computeStyle(-1, false, true).monoFont || !strings.HasPrefix(got.monoFont, "monospace") {
+		t.Fatalf("字体未枚举时应回退系统等宽: %q", got.monoFont)
+	}
+	a.fonts.families = []ui.FontFamily{{Name: "Mono Local"}}
+	if got := a.resolveStyle(-1, false, true).monoFont; !strings.HasPrefix(got, "Mono Local") {
+		t.Fatalf("字体列表替换后缓存应失效: %q", got)
+	}
+	a.prefs.Appearance.BodySize = 21
+	if got := a.resolveStyle(-1, false, true).bodySize; got != 21 {
+		t.Fatalf("外观偏好变化后缓存应失效: %v", got)
+	}
+	if light, dark := a.resolveStyle(-1, false, true), a.resolveStyle(-1, true, true); light.background == dark.background {
+		t.Fatal("明暗两套样式应分别缓存")
+	}
+}
+
+// 颜色主题下拉必须能选回默认的经典主题，且显示名与 ID 双向一致。
+func TestColorThemeOptionsIncludeClassic(t *testing.T) {
+	names := colorThemeNames()
+	if len(names) != len(colorThemes)+1 || names[0] != colorThemeDisplayName(colorThemeClassic) {
+		t.Fatalf("下拉选项首项应为经典主题: %v", names)
+	}
+	ids := []string{colorThemeClassic}
+	for _, def := range colorThemes {
+		ids = append(ids, def.id)
+	}
+	for i, name := range names {
+		if got := colorThemeIDOfDisplay(name); got != ids[i] {
+			t.Errorf("显示名 %q 应映射回 %q，得到 %q", name, ids[i], got)
+		}
+	}
+}
+
 func TestDotPaletteContrast(t *testing.T) {
 	for i := 0; i < DotCount; i++ {
 		for _, dark := range []bool{false, true} {

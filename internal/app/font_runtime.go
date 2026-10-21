@@ -23,6 +23,8 @@ type fontRuntimeState struct {
 	pickers  [3]fontPickerState
 	// background 静默补齐已有偏好引用、但本机缺失的可下载字体（老用户升级路径）。
 	background fontPreparation
+	// styles 缓存解析后的样式；键里含字体列表身份，列表替换后自动失效。
+	styles styleCache
 }
 
 type fontPickerState struct{ query string }
