@@ -281,7 +281,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 - `keymap.overrides` 缺项用默认绑定；显式空串表示解除绑定；值为规范化 accelerator。
 - `storage.dataFile` 是唯一笔记文件的绝对路径；空串 = 使用应用数据目录 `zakki.json`。
   路径必须绝对且合法；保存间隔 100–60000ms。`git.autoPush` 依赖 `git.autoCommit`。
-- 版本 12 起 `backup` 整节与 `advanced.autosaveDelayMs` 移除：带这些旧键的文件按未知字段
-  拒绝（不静默迁移）。`advanced` 只剩主窗口初始宽高。
+- 版本 12 起 `backup` 整节与 `advanced.autosaveDelayMs` 移除：任何不超过当前版本的文件
+  读取时都会静默摘除这些旧键（不迁移语义，含开发期写出的版本 12 带旧键文件），
+  写回即为干净的结构；真正超前的版本仍拒绝。`advanced` 只剩主窗口初始宽高。
 - 版本 3 起 `backup` 记录外部备份目录；版本 6 起收敛为单一 `backupDir`——这些备份语义
   已随版本 12 移除，历史细节不再维护。

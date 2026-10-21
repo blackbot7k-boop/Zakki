@@ -85,8 +85,9 @@ func TestPrefsOldBackupFieldsStripped(t *testing.T) {
 	if strings.Contains(string(prefsReadRaw(t, a.preferencesPath())), "backup") {
 		t.Fatal("写回应已去掉 backup 键")
 	}
-	if _, err := decodePreferences([]byte(`{"version":12,"backup":{}}`)); err == nil {
-		t.Fatal("版本 12 文件的 backup 仍应拒绝")
+	// 开发期可能写出的「版本 12 带旧键」文件同样摘除，不拦启动。
+	if _, err := decodePreferences([]byte(`{"version":12,"backup":{},"advanced":{"autosaveDelayMs":800}}`)); err != nil {
+		t.Fatalf("版本 12 带旧键应摘除: %v", err)
 	}
 }
 

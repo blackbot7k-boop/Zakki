@@ -58,7 +58,8 @@ func stripLegacyStorageKeys(value any) bool {
 	if !ok {
 		return false
 	}
-	if ver, _ := m["version"].(float64); ver >= 12 {
+	// 开发期间可能有构建写出版本 12 却带旧键的文件；只放过真正超前的版本。
+	if ver, _ := m["version"].(float64); ver > float64(CurrentVersion) {
 		return false
 	}
 	stripped := false
