@@ -348,9 +348,22 @@ func muteTabInk(ink ui.Color, dark bool) ui.Color {
 	return ink.Mix(base, 0.58)
 }
 
-func paintBody(p *ui.Painter, body tabBody, cy float32) {
+// activeDotInk 当前标记的着色：浅色调色板（黄、浅粉等高亮度色）在浅色顶栏上
+// 对比不足，向黑色收敛最多 18% 提高对比；深色与深色主题原样。
+func activeDotInk(color ui.Color, dark bool) ui.Color {
+	if dark {
+		return color
+	}
+	lum := 0.2126*float64(color.R) + 0.7152*float64(color.G) + 0.0722*float64(color.B)
+	if lum <= 168 {
+		return color
+	}
+	return color.Mix(ui.RGB(0, 0, 0), 0.18)
+}
+
+func paintBody(p *ui.Painter, body tabBody, ink ui.Color, cy float32) {
 	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
-	p.FillPath(&path, body.color)
+	p.FillPath(&path, ink)
 }
 
 func paintBodyTitle(p *ui.Painter, body tabBody, cy float32, title string, textW, alpha float32) {
@@ -381,7 +394,7 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		if shape != tabDotShapeRing {
 			for _, s := range slots {
 				if bridge, ok := liquidBridge(body, r.X+s.cx, cy); ok {
-					p.FillPath(&bridge, body.color)
+					p.FillPath(&bridge, activeDotInk(body.color, dark))
 				}
 			}
 		}
@@ -395,7 +408,7 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 	// 有名字时恢复色条：标题写在当前标签上，字色按底色取对比色。
 	// 没名字时仍是同大圆点或圆环，只靠颜色区分当前标签。
 	if bodyShowsTitle(body) || a.renaming != 0 {
-		paintBody(p, body, cy)
+		paintBody(p, body, body.color, cy)
 		if a.renaming != 0 {
 			return
 		}
@@ -409,10 +422,10 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		return
 	}
 	if shape == tabDotShapeRing {
-		paintTabDot(p, body.cx, cy, body.color, shape)
+		paintTabDot(p, body.cx, cy, activeDotInk(body.color, dark), shape)
 		return
 	}
-	paintBody(p, body, cy)
+	paintBody(p, body, activeDotInk(body.color, dark), cy)
 }
 
 func fitTabTitle(s string, limit float32, measure func(string) float32) (string, float32) {

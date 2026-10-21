@@ -157,7 +157,7 @@ func TestCLiquidBridgeNarrowsAndSeparates(t *testing.T) {
 					p.FillPath(&path, body.color)
 				}
 				paintSolidDot(p, dotX, 30, ui.Hex("#0f75e9"))
-				paintBody(p, body, 30)
+				paintBody(p, body, body.color, 30)
 			})
 		}, 150, 60)
 	}
