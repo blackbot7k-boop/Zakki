@@ -27,9 +27,10 @@ var (
 	iconCloseWindow = lucide(`<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`)
 	// iconPin 窗口置顶（Lucide pin）
 	iconPin = lucide(`<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/>`)
-	// iconPinFilled / iconEyeFilled 与线性版同轮廓的实心版本：选中态换用。
-	iconPinFilled = iconSolid(`<path d="M9.3 2h5.4c.8 0 1.4.6 1.4 1.4v6.1l2.7 2.7c.4.4.7 1 .7 1.6 0 1.2-1 2.2-2.2 2.2H13.7v5a1.7 1.7 0 0 1-3.4 0v-5H6.7c-1.2 0-2.2-1-2.2-2.2 0-.6.2-1.2.7-1.6l2.7-2.7V3.4C7.9 2.6 8.5 2 9.3 2z"/>`)
-	iconEyeFilled = iconSolid(`<path fill-rule="evenodd" d="M12 5.25c-4.9 0-9 3-10.6 6.3a1 1 0 0 0 0 .9C3 15.75 7.1 18.75 12 18.75s9-3 10.6-6.3a1 1 0 0 0 0-.9C21 8.25 16.9 5.25 12 5.25zm0 9.25a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/><circle cx="12" cy="12" r="1.4"/>`)
+	// iconPinFilled / iconEyeFilled 与线性版同一 Lucide 轮廓的实心版本：
+	// 图钉 = 原闭合轮廓填充 + 实心针杆；眼睛 = 原杏仁形挖出 iris 圆孔。
+	iconPinFilled = iconSolid(`<path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/><path d="M10.75 16.5h2.5V21a1.25 1.25 0 0 1-2.5 0z"/>`)
+	iconEyeFilled = iconSolid(`<path fill-rule="evenodd" d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>`)
 	// iconPreview markdown 预览（Lucide eye）
 	iconPreview = lucide(`<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>`)
 	// 查找条：上一个 / 下一个 / 关闭（Lucide chevron-up、chevron-down、x）
