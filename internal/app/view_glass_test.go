@@ -14,8 +14,8 @@ func TestGlassContentBackground(t *testing.T) {
 		dark bool
 		want ui.Color
 	}{
-		{"light", false, ui.RGBA(255, 255, 255, 0.40)},
-		{"dark", true, ui.RGBA(24, 24, 24, 0.46)},
+		{"light", false, ui.RGBA(255, 255, 255, 0.58)},
+		{"dark", true, ui.RGBA(24, 24, 24, 0.62)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, base := range []ui.Color{ui.RGB(250, 240, 230), ui.RGB(35, 40, 50)} {

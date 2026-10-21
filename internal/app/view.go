@@ -94,9 +94,9 @@ func contentBackground(base ui.Color, dark, vibrancy bool) ui.Color {
 		return base
 	}
 	if dark {
-		return ui.RGBA(24, 24, 24, 0.46)
+		return ui.RGBA(24, 24, 24, 0.62)
 	}
-	return ui.RGBA(255, 255, 255, 0.40)
+	return ui.RGBA(255, 255, 255, 0.58)
 }
 
 // chromeColor 顶栏/底栏/查找条的中性半透明层：窗口有系统材质（Vibrancy）
