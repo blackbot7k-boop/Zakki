@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 func tabPixel(tt *ui.Tester, x, y float32) color.NRGBA {
@@ -320,5 +322,90 @@ func TestTabMotionOffSkipsMorph(t *testing.T) {
 	tt.Frame()
 	if a.morph.active {
 		t.Fatal("关闭动效后不应有补间状态（推进时间后）")
+	}
+}
+
+// TestTabContextMenuDeleteAndRename 标签右键菜单：删除与重命名都落在被
+// 右键的那个标签（按稳定 ID 重定位）；重命名先切到该标签再进入重命名态，
+// 与双击标签同路径。空标签删除不走确认弹窗，测试保持同步。
+func TestTabContextMenuDeleteAndRename(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	for i := range a.tabs {
+		a.tabs[i].Text = ""
+	}
+	tt := ui.NewTester(a.view, 400, 540)
+	tt.Frame()
+
+	if err := tt.RightClick("标签 2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	menu := strings.Join(tt.Menu(), ",")
+	for _, want := range []string{"重命名标签", "删除标签"} {
+		if !strings.Contains(menu, want) {
+			t.Fatalf("右键菜单缺 %q: %q", want, menu)
+		}
+	}
+	wantID := a.tabs[1].ID
+	if err := tt.ChooseMenuItem("删除标签"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.tabIndexByID(wantID) >= 0 || len(a.tabs) != 6 {
+		t.Fatalf("应删除右键的标签: len=%d", len(a.tabs))
+	}
+
+	// 删除后原第 3 个标签顶到第 2 位：右键它重命名，应切换过去再进重命名态。
+	if err := tt.RightClick("标签 2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.ChooseMenuItem("重命名标签"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.active != 1 || a.renaming != a.tabs[1].ID {
+		t.Fatalf("应切换到被右键的标签并进入重命名: active=%d renaming=%d", a.active, a.renaming)
+	}
+	a.cancelRename()
+}
+
+// TestSettingsTabListDragReorder 设置页标签列表拖拽排序：按住行左空白
+// （避开按钮）竖拖一行，Reorder 回调按 List 语义重排并落盘。
+func TestSettingsTabListDragReorder(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.settingsPage = pageTabs
+	before := []uint64{a.tabs[0].ID, a.tabs[1].ID, a.tabs[2].ID}
+	tt := ui.NewTester(a.settingsView, 760, 600)
+	tt.Frame()
+
+	src, ok := tt.Find(locales.TabColorOf(a.tabs[0].Color))
+	if !ok {
+		t.Fatal("找不到第 1 行色块")
+	}
+	dst, ok := tt.Find(locales.TabColorOf(a.tabs[2].Color))
+	if !ok {
+		t.Fatal("找不到第 3 行色块")
+	}
+	mx := src.X - 4 // 行左 padding 空白，按在按钮上不会触发行拖拽
+	tt.Press(mx, src.Y+src.H/2)
+	for i := 1; i <= 6; i++ {
+		y := src.Y + src.H/2 + (dst.Y+dst.H/2-(src.Y+src.H/2))*float32(i)/6
+		tt.Move(mx, y)
+		tt.Frame()
+	}
+	tt.Release(mx, dst.Y+dst.H/2)
+	tt.Frame()
+
+	after := []uint64{a.tabs[0].ID, a.tabs[1].ID, a.tabs[2].ID}
+	// 拖到第 3 行中心释放，落在第 3 行之后（List 按指针相对行中心的
+	// 上下半区决定插到行前还是行后）。
+	if after[2] != before[0] {
+		t.Fatalf("拖拽未生效: before=%v after=%v", before, after)
+	}
+	if a.active != 2 {
+		t.Fatalf("当前选中应跟随被拖的标签: active=%d", a.active)
 	}
 }

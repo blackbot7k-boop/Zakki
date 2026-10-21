@@ -218,7 +218,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 			ta.Bold()
 		}
 	}
-	ranges := p.textRangesInBlock(a.query, t, md, blk, a.prefs.Appearance.CodeTheme)
+	ranges := p.textRangesInBlock(a.highlightQuery(), t, md, blk, a.prefs.Appearance.CodeTheme)
 	if a.selDoc {
 		for i := range ranges {
 			ranges[i].Background = ui.Color{}
@@ -422,13 +422,13 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk 
 		font := headingLiveFont(md, blk.level)
 		if md.sketch {
 			sketchHeadingFrame(c, md, blk, proj.text).Children(func() {
-				h := proj.content(c, t, md).TextColor(t.Text)
+				h := proj.searchContent(c, t, md, a.highlightQuery()).TextColor(t.Text)
 				styleHeading(h, blk.level, md)
 				a.bindPreviewClick(h, i, proj, font, hits)
 			})
 			return
 		}
-		h := proj.content(c, t, md).TextColor(t.Text).Grow(1)
+		h := proj.searchContent(c, t, md, a.highlightQuery()).TextColor(t.Text).Grow(1)
 		styleHeading(h, blk.level, md)
 		a.bindPreviewClick(h, i, proj, font, hits)
 	case bkRule:
@@ -436,28 +436,45 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk 
 	case bkQuote:
 		proj := a.previewProjection(blk)
 		quoteBar(c, md, uint32(blk.start))
-		quote := ui.RichText(c).Grow(1).TextColor(t.TextMuted)
-		quote.Children(func() {
-			renderInline(c, t, md, blk.text, blk.spans)
-		})
+		var quote ui.Element
+		if a.searchHitsBlock(blk, proj) {
+			quote = proj.searchContent(c, t, md, a.highlightQuery()).Grow(1).TextColor(t.TextMuted)
+		} else {
+			quote = ui.RichText(c).Grow(1).TextColor(t.TextMuted)
+			quote.Children(func() {
+				renderInline(c, t, md, blk.text, blk.spans)
+			})
+		}
 		a.bindPreviewClick(quote, i, proj, bodyLiveFont(md), hits)
 	case bkCode:
 		a.renderCodePreview(c, t, md, i, blk, hits)
 	case bkList:
 		proj := a.previewProjection(blk)
 		listMarker(c, md, blk)
-		text := inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
+		var text ui.Element
+		if a.searchHitsBlock(blk, proj) {
+			text = proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
+		} else {
+			text = inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
+		}
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	case bkTask:
 		proj := a.previewProjection(blk)
 		a.taskCheckbox(c, blk, md)
-		text := proj.content(c, t, md).Grow(1)
+		text := proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	default:
 		proj := a.previewProjection(blk)
-		text := proj.content(c, t, md).Grow(1)
+		text := proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	}
+}
+
+// searchHitsBlock 报告单行引用/列表块是否含查找命中。这两类块平时按切块时
+// 预计算的行内片段渲染；多行块的投影会保留续行标记，只在单行时改走投影。
+func (a *app) searchHitsBlock(blk liveBlock, proj liveProjection) bool {
+	q := a.highlightQuery()
+	return q != "" && !strings.Contains(blk.raw, "\n") && len(findMatches(proj.text, q)) > 0
 }
 
 // renderCodePreview 把代码块的每一行铺满卡片宽度。点在短行右侧空白时，

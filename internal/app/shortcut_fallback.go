@@ -64,6 +64,12 @@ func (a *app) runFixedShortcut(key string) {
 		a.toggleSourceMode()
 	case "keepOnTop":
 		a.setAlwaysOnTop(!a.cfg.AlwaysOnTop)
+	case "zoomIn":
+		a.zoomBodySize(1)
+	case "zoomOut":
+		a.zoomBodySize(-1)
+	case "zoomReset":
+		a.zoomBodySize(0)
 	case "tab1", "tab2", "tab3", "tab4", "tab5", "tab6", "tab7", "tab8", "tab9":
 		if n := int(key[len(key)-1] - '1'); n < len(a.tabs) {
 			a.switchTab(n)
@@ -72,6 +78,8 @@ func (a *app) runFixedShortcut(key string) {
 		a.addTab()
 	case "renameTab":
 		a.beginRename(a.active)
+	case "deleteTab":
+		a.confirmDeleteTab(a.active)
 	case "prevTab":
 		a.cycleTab(-1)
 	case "nextTab":

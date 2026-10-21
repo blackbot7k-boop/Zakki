@@ -210,6 +210,19 @@ func TestPlatformAcceleratorsAndWindowsHeadingDefaults(t *testing.T) {
 	if winTab.mods != ui.Ctrl || winTab.displayNameForPlatform("windows") != "Ctrl+1" {
 		t.Fatalf("Windows 标签固定键 = %+v %q, want Ctrl+1", winTab, winTab.displayNameForPlatform("windows"))
 	}
+	// 删除标签固定键：macOS ⌘⇧D，Windows Ctrl+Shift+D；不用 ⌘W（关窗）
+	// 与 ⌥⌘D（macOS 系统 Dock 键）。
+	delMac, delErr := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("deleteTab", "darwin"), "darwin")
+	if delErr != nil || delMac.mods != ui.Super|ui.Shift || delMac.key != ui.KeyD {
+		t.Fatalf("macOS 删除标签固定键 = %+v err=%v", delMac, delErr)
+	}
+	delWin, delErr := parseAcceleratorForPlatform(fixedBindingByKeyForPlatform("deleteTab", "windows"), "windows")
+	if delErr != nil || delWin.mods != ui.Ctrl|ui.Shift || delWin.key != ui.KeyD {
+		t.Fatalf("Windows 删除标签固定键 = %+v err=%v", delWin, delErr)
+	}
+	if got := fixedBindingName("deleteTab"); got == "" || got == "deleteTab" {
+		t.Fatalf("删除标签固定键应有显示名: %q", got)
+	}
 	macH1, _ := parseAcceleratorForPlatform(a.commandBindingForPlatform(cmdH1, "darwin"), "darwin")
 	if name := a.findBindingConflictForPlatform(cmdH1, macH1, "darwin"); name != "" {
 		t.Fatalf("macOS 标题键不应有冲突: %q", name)

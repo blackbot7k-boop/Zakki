@@ -75,6 +75,37 @@ func (a *app) menuTitle(i int) string {
 	return locales.TabN(fmt.Sprint(i + 1))
 }
 
+// tabTooltipPreviewRunes 悬停提示里正文首行的截断长度。
+const tabTooltipPreviewRunes = 40
+
+// tabTooltip 顶栏圆点的悬停提示：标签名 + 切换快捷键，第二行是正文首个
+// 非空行（去掉行首 Markdown 标记），让未命名的圆点也能认出内容。
+func (a *app) tabTooltip(i int) string {
+	tip := a.menuTitle(i)
+	if b, ok := parsedFixedBinding(fmt.Sprintf("tab%d", i+1)); ok {
+		tip += "  " + b.displayName()
+	}
+	rest := a.tabs[i].Text
+	for rest != "" {
+		var line string
+		line, rest, _ = strings.Cut(rest, "\n")
+		line = strings.TrimSpace(strings.TrimLeft(line, "#>-*+ \t"))
+		if line == "" {
+			continue
+		}
+		n := 0
+		for at := range line {
+			if n == tabTooltipPreviewRunes {
+				line = line[:at] + "…"
+				break
+			}
+			n++
+		}
+		return tip + "\n" + line
+	}
+	return tip
+}
+
 // validTabColor 校验标签颜色：#rgb/#rrggbb 形式（ui.Hex 只接受这些
 // 且非法会 panic，所以存盘前必须先校验）。
 func validTabColor(s string) bool {

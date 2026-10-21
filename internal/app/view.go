@@ -1,7 +1,9 @@
 package app
 
 // 主界面：液态标签栏与 Typora 式编辑器。
-//   顶栏 38pt，中性材质，可拖动窗口：⊗ 关闭窗口 · 圆点居中（有名字时当前是色条）· 置顶
+//   顶栏 38pt（Windows 隐藏标题栏模式 32，与系统按钮带同高对齐），中性材质，
+//           可拖动窗口：⊗ 关闭窗口 · 圆点居中（有名字时当前是色条）· 置顶；
+//           右侧按 c.TitleBar() 避让 Windows 原生最小化/最大化/关闭
 //   查找条（搜索图标打开）：搜索框 + 命中计数，Enter 跳到下一个
 //   内容区：Typora 式所见即所得编辑（焦点块保留排版；⌘⇧P 切源码模式），
 //           背景为统一中性材质
@@ -78,6 +80,7 @@ func (a *app) view(c *ui.Context) {
 		a.runEditCommand(command)
 		c.Invalidate()
 	}
+	a.runTabMenuPending(c)
 	// SetTheme repaints the root, so clear it only after the final theme change.
 	if c.Vibrancy() {
 		c.Root().Background(ui.Transparent)
@@ -110,20 +113,45 @@ func (a *app) chromeColor(base ui.Color, dark, vibrancy bool) ui.Color {
 	return base.Mix(bg, 1-a.glassStrength())
 }
 
-// ---- 顶栏（38 DIP）----
+// ---- 顶栏（38 DIP；Windows 隐藏标题栏模式与系统按钮带同高）----
+
+// headerPadX 顶栏左右内边距；tabChromeWidth 是顶栏两侧固定元素的宽：
+// 左右内边距 + 关闭与置顶按钮（各 chromeHit），标签区可用宽度要扣掉它们。
+// 内边距加按钮内留白（(chromeHit-16)/2）仍是 14，图形位置与此前一致。
+const (
+	headerPadX     float32 = 14 - (chromeHit-16)/2
+	tabChromeWidth float32 = 2*headerPadX + 2*chromeHit
+)
+
+// headerHeight 顶栏高度：无系统按钮带（mac Frameless，TitleBar 为零值）
+// 保持 38；Windows 隐藏标题栏模式降到按钮带同高（32），顶栏内容与
+// 按钮 glyph 垂直同轴居中，不会比系统按钮偏下 3px。
+func headerHeight(bar ui.TitleBar) float32 {
+	if bar.Height > 0 {
+		return max(bar.Height, 28)
+	}
+	return tabTrackHeight
+}
 
 func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	bg := a.chromeColor(headerBackground(dark), dark, c.Vibrancy())
-	ui.Row(c).Height(tabTrackHeight).Background(bg).PaddingX(14).
+	// 系统窗口按钮占位（Windows 在右上，mac 为零值）：右侧内边距加上按钮带宽，
+	// 图钉与圆点永远排在按钮左侧；左侧取较大值，兼容日后带左侧按钮的平台。
+	bar := c.TitleBar()
+	padL, padR := headerPadX, headerPadX
+	if bar.Height > 0 {
+		padL, padR = max(headerPadX, bar.Left), headerPadX+bar.Right
+	}
+	ui.Row(c).Height(headerHeight(bar)).Background(bg).Padding(0, padR, 0, padL).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		DragWindow().AlignItems(ui.Center).Children(func() {
-		ui.Icon(c.Key("close-window"), iconCloseWindow).Size(16, 16).Label(locales.CloseWindow()).
-			TextColor(t.TextMuted).Cursor(ui.CursorPointer).OnClick(func() {
-			if a.win != nil {
-				// 便签常驻：复用窗口与渲染资源，菜单关闭和退出仍真正关窗。
-				a.win.Hide()
-			}
-		})
+		chromeIcon(c, "close-window", iconCloseWindow, locales.CloseWindow(), t.TextMuted, chromeHover(t.TextMuted), false).
+			OnClick(func() {
+				if a.win != nil {
+					// 便签常驻：复用窗口与渲染资源，菜单关闭和退出仍真正关窗。
+					a.win.Hide()
+				}
+			})
 		// 只有一个标签（且不在重命名）时不渲染标签区：顶栏只剩关闭与置顶。
 		if a.tabStripHidden() {
 			a.resetTabStripLayout()
@@ -154,7 +182,12 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 		return w
 	}
 	windowW, _ := c.Size()
-	available := max(1, windowW-60)
+	// 与 header 同源的系统按钮带避让：无按钮带时 Left/Right 为零，
+	// 高度也保持 38，与直调 tabStrip 的测试和历史几何完全一致。
+	bar := c.TitleBar()
+	h := headerHeight(bar)
+	available := max(1, windowW-tabChromeWidth-bar.Left-bar.Right)
+	slotTop := (h - 28) / 2
 	name := a.displayTitle(a.active)
 	titleW := float32(0)
 	if name != "" || a.renaming != 0 {
@@ -215,19 +248,21 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 	if a.morph.active {
 		c.AnimationFrame()
 	}
-	ui.ScrollHorizontal(c.Key("tab-viewport")).Width(available).Height(tabTrackHeight).
+	ui.ScrollHorizontal(c.Key("tab-viewport")).Width(available).Height(h).
 		TrackScroll(&a.tabScroll).Children(func() {
-		strip := ui.Box(c.Key("tab-strip")).Width(contentW).Height(tabTrackHeight)
+		strip := ui.Box(c.Key("tab-strip")).Width(contentW).Height(h)
 		strip.Draw(func(p *ui.Painter, r ui.Rect) { a.paintTabStrip(p, r, dark) })
 		strip.Children(func() {
 			for i := range a.tabs {
-				a.tabSlot(c, i, slots[i], changed)
+				a.tabSlot(c, i, slots[i], changed, slotTop)
 			}
 		})
 	})
 }
 
-func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
+// tabSlot 顶栏内一枚标签的命中区与内容；slotTop 是槽位按钮顶部，随顶栏高度变化
+// （28 是槽位按钮高，圆点/胶囊始终垂直居中于顶栏，与系统按钮 glyph 同轴）。
+func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool, slotTop float32) {
 	tb := a.tabs[i]
 	selected := i == a.active
 	renaming := a.renaming == tb.ID
@@ -246,7 +281,7 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 		radius = pillHeight / 2
 	}
 	btn := ui.ButtonBase(c.Key(fmt.Sprintf("tab-%d", tb.ID))).Label(a.menuTitle(i)).
-		Absolute().Left(slot.cx-hitW/2).Top((tabTrackHeight-28)/2).
+		Absolute().Left(slot.cx-hitW/2).Top(slotTop).
 		Size(hitW, 28).Radius(radius).Cursor(ui.CursorPointer).FocusRing(true)
 	if selected && reveal {
 		btn.ScrollIntoView()
@@ -264,7 +299,9 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool) {
 		})
 		return
 	}
+	btn.Tooltip(a.tabTooltip(i))
 	btn.OnClick(func() { a.switchTab(i) })
+	btn.ContextMenu(a.tabContextMenu(i))
 	if selected && btn.DoubleClicked() {
 		a.beginRename(i)
 	}
@@ -281,13 +318,11 @@ func (a *app) tabInk(i int, dark bool) ui.Color {
 // iconPin 置顶开关：激活时用强调色并加粗。
 func (a *app) iconPin(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
-	g := ui.Icon(c.Key("pin-top"), iconPin).Size(16, 16).Label(locales.PinTop()).Cursor(ui.CursorPointer)
+	ink := t.TextMuted
 	if a.cfg.AlwaysOnTop {
-		g.Bold().TextColor(style.accent)
-	} else {
-		g.TextColor(t.TextMuted)
+		ink = style.accent
 	}
-	if g.Clicked() {
+	if chromeIcon(c, "pin-top", iconPin, locales.PinTop(), ink, chromeHover(t.TextMuted), a.cfg.AlwaysOnTop).Clicked() {
 		a.withWindow(func() {
 			a.setAlwaysOnTop(!a.cfg.AlwaysOnTop)
 		})
@@ -313,6 +348,14 @@ func (a *app) findStep(dir int) {
 	a.jumpPending = true
 }
 
+// highlightQuery 当前要标记命中的查询：查找条关闭后正文不再保留命中标记。
+func (a *app) highlightQuery() string {
+	if !a.findOpen {
+		return ""
+	}
+	return a.query
+}
+
 // findOpenOrStep 菜单「查找下一个/上一个」入口：查找条未开时先打开，否则跳匹配。
 func (a *app) findOpenOrStep(dir int) {
 	if !a.findOpen {
@@ -324,13 +367,22 @@ func (a *app) findOpenOrStep(dir int) {
 
 func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(44).Background(a.chromeColor(headerBackground(dark), dark, c.Vibrancy())).
-		Padding(0, 14).Gap(8).AlignItems(ui.Center).
+		Padding(0, headerPadX, 0, 14).Gap(4).AlignItems(ui.Center).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
 		in := ui.TextInputBase(c.Key("find-query"), &a.query).
 			Label(locales.FixedFind()).Placeholder(locales.FixedFind()).Grow(1).
 			MinWidth(120).Height(30).PaddingX(10).Radius(6).
 			Background(t.Background).Border(1, t.Border).
-			FocusBind(&a.findFocus, 1)
+			FocusBind(&a.findFocus, 1).
+			HandleInput(func(ev ui.InputEvent) bool {
+				// Shift+Enter 跳到上一个命中；普通 Enter 走 Submitted。
+				if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEnter && ev.Mods&ui.Shift != 0 && !a.findComposing {
+					a.findStep(-1)
+					return true
+				}
+				return false
+			})
+		a.findComposing = in.Composing()
 		if in.Changed() {
 			a.matchIdx = 0
 			// 输入查询本身不强制定位：预览态不该因为打关键词就把命中行变成源码。
@@ -341,9 +393,6 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			a.findStep(1)
 		}
 		matches := a.docMatches(a.activeTab().Text, a.query)
-		if ui.Button(c.Key("find-prev"), "‹").Label(locales.FindPrev()).Clicked() {
-			a.findStep(-1)
-		}
 		count := locales.FindNoResults()
 		if a.query != "" && len(matches) > 0 {
 			a.matchIdx = clamp(a.matchIdx, 0, len(matches)-1)
@@ -352,14 +401,41 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			count = "0/0"
 		}
 		ui.Text(c, count).FontSize(12).TextColor(t.TextMuted)
-		if ui.Button(c.Key("find-next"), "›").Label(locales.FindNext()).Clicked() {
+		ink, hover := t.TextMuted, chromeHover(t.TextMuted)
+		if chromeIcon(c, "find-prev", iconChevronUp, locales.FindPrev(), ink, hover, false).Clicked() {
+			a.findStep(-1)
+		}
+		if chromeIcon(c, "find-next", iconChevronDown, locales.FindNext(), ink, hover, false).Clicked() {
 			a.findStep(1)
 		}
-		if ui.Button(c.Key("find-close"), locales.CommonDone()).Clicked() {
+		if chromeIcon(c, "find-close", iconX, locales.FindClose(), ink, hover, false).Clicked() {
 			a.findOpen = false
 		}
 	})
 }
+
+// chromeHit 是顶栏、底栏与查找条图标按钮的点击区边长；图形仍是 16。
+const chromeHit float32 = 24
+
+// chromeIcon 外框图标按钮：16pt 图形居中于 chromeHit 点击区，悬停铺浅底，
+// 名称同时作无障碍标签与悬停提示。
+func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink, hover ui.Color, bold bool) ui.Element {
+	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).
+		Size(chromeHit, chromeHit).Radius(6).Cursor(ui.CursorPointer)
+	if btn.Hovered() {
+		btn.Background(hover)
+	}
+	btn.Children(func() {
+		g := ui.Icon(c, svg).Size(16, 16).TextColor(ink)
+		if bold {
+			g.Bold()
+		}
+	})
+	return btn
+}
+
+// chromeHover 图标悬停底色：取图标墨色的淡色，深浅主题与标签色下都可见。
+func chromeHover(ink ui.Color) ui.Color { return withAlpha(ink, 0.14) }
 
 // ---- 编辑器（源码模式） ----
 
@@ -395,7 +471,7 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		}).
 		HandleInput(func(ev ui.InputEvent) bool { return a.recordSourceKey(ev) })
 
-	ta.TextRanges(a.sourceRanges(*text, a.query, t, accent)...)
+	ta.TextRanges(a.sourceRanges(*text, a.highlightQuery(), t, accent)...)
 	wasComposing := a.srcComposing
 	a.srcComposing = ta.Composing()
 	if !wasComposing && a.srcComposing {
@@ -452,31 +528,35 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
 	bg := a.chromeColor(style.status, dark, c.Vibrancy())
 	fg := a.tabAccent(a.active, dark)
+	// 窄窗口里文字单行截断（悬停看全文），图标固定不被挤出。
 	ui.Row(c).Height(36).Background(bg).
-		Padding(0, 14).Gap(8).AlignItems(ui.Center).Children(func() {
+		Padding(0, headerPadX, 0, 14).Gap(8).AlignItems(ui.Center).Children(func() {
 		// 标签色小标识：不随标签换底色，只留这一点颜色。
-		ui.Box(c).Width(8).Height(8).Radius(999).Background(a.tabColor(a.active))
+		ui.Box(c).Width(8).Height(8).Radius(999).Background(a.tabColor(a.active)).Shrink(0)
 		lines, words, chars := a.docStats(a.activeTab().Text)
-		ui.Text(c, locales.StatsLinesWordsChars(lines, words, chars)).
-			FontSize(12).TextColor(fg)
-		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55))
-		ui.Text(c, a.backupLabel()).FontSize(12).TextColor(fg)
-		// 保存/载入异常要在界面上可见（完整内容在日志里）。
+		stats := locales.StatsLinesWordsChars(lines, words, chars)
+		ui.Text(c, stats).FontSize(12).TextColor(fg).SingleLine().MinWidth(0).Tooltip(stats)
+		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55)).Shrink(0)
+		backup := a.backupLabel()
+		ui.Text(c, backup).FontSize(12).TextColor(fg).SingleLine().MinWidth(0).Tooltip(backup)
+		// 保存/载入异常要在界面上可见（完整内容在日志里）；它比统计更重要，最后才截断。
 		if warn := a.statusWarn(); warn != "" {
-			ui.Text(c, warn).FontSize(12).TextColor(fg).Bold()
+			ui.Text(c, warn).FontSize(12).TextColor(fg).Bold().SingleLine().MinWidth(0).Shrink(0.2).Tooltip(warn)
 		}
 		ui.Box(c).Grow(1)
 
-		// 源码模式开关（Lucide eye）：默认实时预览，打开后全文源码 + 语法高亮。
-		a.iconStatusToggle(c, "sb-source", iconPreview, locales.StatusSource(), a.cfg.Source, t, dark, func() {
-			a.toggleSourceMode()
-		})
-		// 搜索开关（Lucide search）
-		a.iconStatusToggle(c, "sb-find", iconSearch, locales.StatusSearch(), a.findOpen, t, dark, func() {
-			a.findOpen = !a.findOpen
-			if a.findOpen {
-				a.query, a.matchIdx, a.findFocus = "", 0, 1
-			}
+		ui.Row(c).Shrink(0).AlignItems(ui.Center).Children(func() {
+			// 源码模式开关（Lucide eye）：默认实时预览，打开后全文源码 + 语法高亮。
+			a.iconStatusToggle(c, "sb-source", iconPreview, locales.StatusSource(), a.cfg.Source, t, dark, func() {
+				a.toggleSourceMode()
+			})
+			// 搜索开关（Lucide search）
+			a.iconStatusToggle(c, "sb-find", iconSearch, locales.StatusSearch(), a.findOpen, t, dark, func() {
+				a.findOpen = !a.findOpen
+				if a.findOpen {
+					a.query, a.matchIdx, a.findFocus = "", 0, 1
+				}
+			})
 		})
 	})
 }
@@ -485,13 +565,11 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 func (a *app) iconStatusToggle(c *ui.Context, key string, svg *ui.SVG, label string, on bool, t *ui.Theme, dark bool, fn func()) {
 	style := a.resolveStyle(-1, dark, true)
 	fg := style.accent
-	ix := ui.Icon(c.Key(key), svg).Size(16, 16).Label(label).Cursor(ui.CursorPointer)
-	if on {
-		ix.Bold().TextColor(fg)
-	} else {
-		ix.TextColor(fg.Mix(style.status, 0.30))
+	ink := fg
+	if !on {
+		ink = fg.Mix(style.status, 0.30)
 	}
-	if ix.Clicked() {
+	if chromeIcon(c, key, svg, label, ink, chromeHover(fg), on).Clicked() {
 		fn()
 	}
 }

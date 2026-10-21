@@ -1,6 +1,7 @@
 package app
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/egoist/mygo"
@@ -98,8 +99,11 @@ func TestGlassNativeWindowOptions(t *testing.T) {
 		if !opts.Transparent || opts.Vibrancy != mygo.VibrancyContent {
 			t.Fatalf("remember=%v: glass requires a transparent native window with content material: %+v", remember, opts)
 		}
-		if !opts.Frameless {
-			t.Fatal("native glass window must retain custom chrome")
+		// 平台形态：windows 用隐藏标题栏保留系统按钮（见
+		// TestWindowOptionsKeepNativeButtonsOnWindows），其余平台自绘顶栏。
+		wantFrameless := runtime.GOOS != "windows"
+		if opts.Frameless != wantFrameless {
+			t.Fatalf("remember=%v: frameless = %v, want %v", remember, opts.Frameless, wantFrameless)
 		}
 	}
 }

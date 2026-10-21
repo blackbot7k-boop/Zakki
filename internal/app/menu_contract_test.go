@@ -8,7 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// 菜单契约：应用菜单只提供一个设置入口；设置窗口内部提供常规、外观、标签与外观、
+// 菜单契约：应用菜单只提供一个设置入口；设置窗口内部提供常规、外观、标签、
 // 备份与数据和快捷键导航；不再有打开配置文件入口；
 // Markdown 命令收纳为「段落/格式」两个顶层菜单并展示当前绑定。
 
@@ -361,6 +361,10 @@ func TestSettingsViewRendersPages(t *testing.T) {
 			if !tt.HasText("Sonnet（Typora）") {
 				t.Fatalf("外观页缺少排版主题下拉: %v", tt.Texts())
 			}
+			// 顶栏外观自「标签与外观」页迁入：形状/标题宽/动画速度/玻璃强度。
+			if !tt.HasText("标签形状") || !tt.HasText("标签标题最大宽度") || !tt.HasText("毛玻璃回退强度") {
+				t.Fatalf("外观页缺少顶栏设置: %v", tt.Texts())
+			}
 		case pageBackup:
 			if !tt.HasText("打开文件夹") || !tt.HasText("显示数据位置") {
 				t.Fatalf("备份页缺少操作: %v", tt.Texts())
@@ -455,6 +459,39 @@ func TestSettingsNumberFieldRejectsInvalid(t *testing.T) {
 	a.commitFloatField("bodySize")
 	if a.prefs.Appearance.BodySize != 0 {
 		t.Fatal("清空 = 跟随主题")
+	}
+}
+
+// TestZoomBodySizeShortcuts ⌘= / ⌘- 在当前生效字号上步进并停在 10–40 边界，
+// ⌘0 复位为跟随排版主题；设置页字号输入同步显示。
+func TestZoomBodySizeShortcuts(t *testing.T) {
+	a := newTestApp(t)
+	a.settingsUI.syncDraftFromPrefs(a.prefs)
+	base := markdownLayoutByID(a.prefs.Appearance.MarkdownTheme).bodySize
+	a.runFixedShortcut("zoomIn")
+	if a.prefs.Appearance.BodySize != base+1 || a.settingsUI.bodySizeText != floatText(base+1) {
+		t.Fatalf("放大应从主题字号 %v 步进: prefs=%v text=%q", base, a.prefs.Appearance.BodySize, a.settingsUI.bodySizeText)
+	}
+	a.runFixedShortcut("zoomOut")
+	a.runFixedShortcut("zoomOut")
+	if a.prefs.Appearance.BodySize != base-1 {
+		t.Fatalf("缩小后字号 = %v, want %v", a.prefs.Appearance.BodySize, base-1)
+	}
+	for range 50 {
+		a.runFixedShortcut("zoomOut")
+	}
+	if a.prefs.Appearance.BodySize != 10 {
+		t.Fatalf("缩小应停在下限 10: %v", a.prefs.Appearance.BodySize)
+	}
+	for range 50 {
+		a.runFixedShortcut("zoomIn")
+	}
+	if a.prefs.Appearance.BodySize != 40 {
+		t.Fatalf("放大应停在上限 40: %v", a.prefs.Appearance.BodySize)
+	}
+	a.runFixedShortcut("zoomReset")
+	if a.prefs.Appearance.BodySize != 0 || a.settingsUI.bodySizeText != "" {
+		t.Fatalf("复位应跟随主题: prefs=%v text=%q", a.prefs.Appearance.BodySize, a.settingsUI.bodySizeText)
 	}
 }
 

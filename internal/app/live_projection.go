@@ -272,6 +272,32 @@ func (p liveProjection) content(c *ui.Context, t *ui.Theme, md resolvedStyle) ui
 	return ui.RichText(c, spans...)
 }
 
+// searchContent 是带查找命中标记的非焦点块内容：命中与焦点块编辑区同样
+// 只改颜色与字重；没有命中时与 content 完全一致。
+func (p liveProjection) searchContent(c *ui.Context, t *ui.Theme, md resolvedStyle, query string) ui.Element {
+	if query == "" || p.text == "" || len(findMatches(p.text, query)) == 0 {
+		return p.content(c, t, md)
+	}
+	rs := []rune(p.text)
+	var spans []ui.Span
+	prev := 0
+	for _, r := range p.textRanges(query, t, md) {
+		if r.Start > prev {
+			spans = append(spans, ui.Span{Text: string(rs[prev:r.Start])})
+		}
+		spans = append(spans, ui.Span{
+			Text: string(rs[r.Start:r.End]), Color: r.Color, Background: r.Background,
+			Weight: r.Weight, Font: r.Font, Italic: r.Italic,
+			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor,
+		})
+		prev = r.End
+	}
+	if prev < len(rs) {
+		spans = append(spans, ui.Span{Text: string(rs[prev:])})
+	}
+	return ui.RichText(c, spans...)
+}
+
 func (p liveProjection) textRanges(query string, t *ui.Theme, md resolvedStyle) []ui.TextRange {
 	accent := md.accent
 	// 搜索只覆盖颜色与字重，保留字体、斜体、装饰和底色。

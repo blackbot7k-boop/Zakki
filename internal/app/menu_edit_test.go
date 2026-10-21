@@ -228,7 +228,7 @@ func TestEditMenuKeepsAuxiliaryInputHistory(t *testing.T) {
 			} else {
 				a.findOpen = true
 				tt.Frame()
-				done, ok := tt.Find("完成")
+				done, ok := tt.Find("关闭查找")
 				if !ok {
 					t.Fatal("找不到搜索条")
 				}

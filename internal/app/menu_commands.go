@@ -442,11 +442,17 @@ func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
 		{"Shift+CmdOrCtrl+G", "findPrev"},
 		{"Shift+CmdOrCtrl+P", "sourceMode"},
 		{"Alt+CmdOrCtrl+T", "keepOnTop"},
+		{"CmdOrCtrl+=", "zoomIn"},
+		{"CmdOrCtrl+-", "zoomOut"},
+		{"CmdOrCtrl+0", "zoomReset"},
 		{"CmdOrCtrl+1", "tab1"}, {"CmdOrCtrl+2", "tab2"}, {"CmdOrCtrl+3", "tab3"},
 		{"CmdOrCtrl+4", "tab4"}, {"CmdOrCtrl+5", "tab5"}, {"CmdOrCtrl+6", "tab6"},
 		{"CmdOrCtrl+7", "tab7"}, {"CmdOrCtrl+8", "tab8"}, {"CmdOrCtrl+9", "tab9"},
 		{"CmdOrCtrl+T", "newTab"},
 		{"CmdOrCtrl+R", "renameTab"},
+		// 删除标签不用 ⌘W（已是关闭窗口）也不用 ⌥⌘D（macOS 系统占给 Dock
+		// 自动隐藏，系统层先消费）；⌘⇧ 与 ⌘⇧C（复制标签全文）同级。
+		{"Shift+CmdOrCtrl+D", "deleteTab"},
 		{"Alt+CmdOrCtrl+Left", "prevTab"},
 		{"Alt+CmdOrCtrl+Right", "nextTab"},
 		{"CmdOrCtrl+S", "backupNow"},
@@ -497,10 +503,18 @@ func fixedBindingName(key string) string {
 		return locales.FixedSourceMode()
 	case "keepOnTop":
 		return locales.FixedKeepOnTop()
+	case "zoomIn":
+		return locales.MenuZoomIn()
+	case "zoomOut":
+		return locales.MenuZoomOut()
+	case "zoomReset":
+		return locales.MenuZoomReset()
 	case "newTab":
 		return locales.FixedNewTab()
 	case "renameTab":
 		return locales.FixedRenameTab()
+	case "deleteTab":
+		return locales.FixedDeleteTab()
 	case "prevTab":
 		return locales.FixedPrevTab()
 	case "nextTab":
@@ -540,6 +554,20 @@ func fixedBindingName(key string) string {
 		}
 	}
 	return key
+}
+
+// parsedFixedBinding 按固定键 catalog 键取当前平台解析后的绑定；
+// 右键菜单项展示快捷键用。
+func parsedFixedBinding(key string) (keyBinding, bool) {
+	acc := fixedBindingByKey(key)
+	if acc == "" {
+		return keyBinding{}, false
+	}
+	b, err := parseAccelerator(acc)
+	if err != nil {
+		return keyBinding{}, false
+	}
+	return b, true
 }
 
 // ---- 绑定解析与冲突校验 ----

@@ -185,7 +185,7 @@ func (a *app) windowOptions() mygo.WindowOptions {
 	if a.prefs.Window.RememberBounds {
 		stateKey = "main"
 	}
-	return mygo.WindowOptions{
+	opts := mygo.WindowOptions{
 		Title:       locales.WindowTitle(appName),
 		Width:       a.prefs.Advanced.WindowWidth,
 		Height:      a.prefs.Advanced.WindowHeight,
@@ -198,6 +198,14 @@ func (a *app) windowOptions() mygo.WindowOptions {
 		AlwaysOnTop: a.cfg.AlwaysOnTop,
 		Content:     ui.View(a.view),
 	}
+	// Windows 用隐藏标题栏模式：页面仍占满整窗，右上保留原生最小化/最大化/关闭
+	// （MyGo 自绘 Win11 风格按钮，占 c.TitleBar().Right 宽），顶栏负责避让；
+	// mac 保持 Frameless，TitleBar() 为零值，行为不变。
+	if runtime.GOOS == "windows" {
+		opts.Frameless = false
+		opts.TitleBarStyle = mygo.TitleBarHidden
+	}
+	return opts
 }
 
 // runOnMain 只通过仍存活的主窗口投递；关闭竞态由主线程二次校验后丢弃。
@@ -335,6 +343,16 @@ func (a *app) createMenu() *mygo.Menu {
 		a.miPreview,
 		a.miTop,
 		mygo.Separator(),
+		{Label: locales.MenuZoomIn(), Accelerator: "CmdOrCtrl+=", Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.withWindow(func() { a.zoomBodySize(1) })
+		}},
+		{Label: locales.MenuZoomOut(), Accelerator: "CmdOrCtrl+-", Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.withWindow(func() { a.zoomBodySize(-1) })
+		}},
+		{Label: locales.MenuZoomReset(), Accelerator: "CmdOrCtrl+0", Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.withWindow(func() { a.zoomBodySize(0) })
+		}},
+		mygo.Separator(),
 		{Label: locales.MenuPrevTab(), Accelerator: "Alt+CmdOrCtrl+Left", Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.withWindow(func() { a.cycleTab(-1) })
 		}},
@@ -379,6 +397,9 @@ func (a *app) createMenu() *mygo.Menu {
 			}},
 			{Label: locales.MenuRenameTab(), Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) {
 				a.withWindow(func() { a.beginRename(a.active) })
+			}},
+			{Label: locales.MenuDeleteTab(), Accelerator: "Shift+CmdOrCtrl+D", Click: func(*mygo.MenuItem, *mygo.Window) {
+				a.withWindow(func() { a.confirmDeleteTab(a.active) })
 			}},
 			mygo.Separator(),
 			// 立即备份必须绕过节流：保存当前数据并无条件写一份备份。

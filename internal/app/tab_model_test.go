@@ -962,3 +962,30 @@ func TestBeginRenameCommitsPrevious(t *testing.T) {
 		t.Fatalf("切换前应提交上一个草稿: %q", a.tabs[0].Name)
 	}
 }
+
+// TestTabTooltipShowsShortcutAndPreview 圆点悬停提示：名称 + 切换快捷键，
+// 第二行取正文首个非空行并去掉行首 Markdown 标记，过长截断。
+func TestTabTooltipShowsShortcutAndPreview(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	key := func(i int) string {
+		b, ok := parsedFixedBinding(fmt.Sprintf("tab%d", i+1))
+		if !ok {
+			t.Fatalf("tab%d 缺少固定绑定", i+1)
+		}
+		return b.displayName()
+	}
+	a.tabs[0].Name, a.tabs[0].Text = "", "\n  \n## 购物清单\n- 牛奶"
+	if got, want := a.tabTooltip(0), locales.TabN("1")+"  "+key(0)+"\n购物清单"; got != want {
+		t.Fatalf("未命名标签提示 = %q, want %q", got, want)
+	}
+	a.tabs[1].Name, a.tabs[1].Text = "工作", ""
+	if got, want := a.tabTooltip(1), "工作  "+key(1); got != want {
+		t.Fatalf("空标签提示 = %q, want %q", got, want)
+	}
+	a.tabs[2].Name, a.tabs[2].Text = "", strings.Repeat("字", tabTooltipPreviewRunes+5)
+	want := locales.TabN("3") + "  " + key(2) + "\n" + strings.Repeat("字", tabTooltipPreviewRunes) + "…"
+	if got := a.tabTooltip(2); got != want {
+		t.Fatalf("长首行应截断: %q", got)
+	}
+}

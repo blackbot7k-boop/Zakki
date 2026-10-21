@@ -34,7 +34,11 @@ type tabStripState struct {
 	// renameSeenFocus 重命名输入框曾真正持有焦点；置位后才允许失焦提交，
 	// 避免自动聚焦落定前的首帧误判为失焦。
 	renameSeenFocus bool
-	animNow         func() time.Time
+	// 右键菜单待执行动作（存稳定标签 ID；0 = 无）。Chosen 在选中后的下一帧
+	// 报告，这里记下目标、帧末执行，避免构建期改标签集合。
+	menuRenamePending uint64
+	menuDeletePending uint64
+	animNow           func() time.Time
 }
 
 // findState 查找条与匹配跳转。
@@ -44,6 +48,8 @@ type findState struct {
 	matchIdx    int
 	jumpPending bool
 	findFocus   int
+	// findComposing 查找框上一帧是否在输入法组合中：组合中的 Enter 归输入法。
+	findComposing bool
 }
 
 // liveEditorState Typora 式实时预览编辑（live_edit.go / live_blocks.go）。

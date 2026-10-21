@@ -139,4 +139,20 @@ func TestRunFixedShortcutDispatch(t *testing.T) {
 	if a.active != 0 || a.renaming != 0 {
 		t.Fatal("appSwitcher 占位键不应有任何动作")
 	}
+
+	// deleteTab：空标签直接删、删的是当前标签；只剩一个时拒绝。
+	for i := range a.tabs {
+		a.tabs[i].Text = "" // 清空避免走到确认弹窗路径
+	}
+	a.tabs = a.tabs[:2]
+	a.active = 1
+	before = len(a.tabs)
+	a.runFixedShortcut("deleteTab")
+	if len(a.tabs) != before-1 || a.active != 0 {
+		t.Fatalf("deleteTab 兜底应删除当前空标签: len=%d active=%d", len(a.tabs), a.active)
+	}
+	a.runFixedShortcut("deleteTab")
+	if len(a.tabs) != 1 {
+		t.Fatalf("只剩一个标签时 deleteTab 应拒绝: len=%d", len(a.tabs))
+	}
 }
