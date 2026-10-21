@@ -101,7 +101,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 9 {
+	if got.Version != CurrentVersion || CurrentVersion != 10 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -332,5 +332,56 @@ func TestPreferencesMigrateCodeIndent(t *testing.T) {
 	}
 	if _, err := Decode([]byte(`{"version":7,"appearance":{"codeIndent":"space3"}}`), testAccel); err == nil {
 		t.Fatal("非法 codeIndent 必须拒绝")
+	}
+}
+
+// TestPreferencesMigrateSketchStyle 版本 10：手绘 + 手账整套组合迁为手账风格，
+// 颜色与排版回到标准默认（切回标准时用）；半套组合迁为标准风格，手绘/手账那一项
+// 回到默认，另一项原样保留；其余字段不动。
+func TestPreferencesMigrateSketchStyle(t *testing.T) {
+	cases := []struct {
+		name, color, layout      string
+		wantStyle, wantC, wantMD string
+	}{
+		{"整套", "sketch", "sketch", StyleSketch, "classic", "sonnet"},
+		{"只有颜色", "sketch", "book", StyleStandard, "classic", "book"},
+		{"只有排版", "paper", "sketch", StyleStandard, "paper", "sonnet"},
+		{"都不是", "paper", "book", StyleStandard, "paper", "book"},
+	}
+	for _, tc := range cases {
+		raw := `{"version":9,"appearance":{"colorTheme":"` + tc.color + `","markdownTheme":"` + tc.layout + `","bodyFont":"hand"},"backup":{"keep":7}}`
+		got, err := Decode([]byte(raw), testAccel)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		ap := got.Appearance
+		if got.Version != CurrentVersion || ap.Style != tc.wantStyle || ap.ColorTheme != tc.wantC || ap.MarkdownTheme != tc.wantMD {
+			t.Fatalf("%s: 迁移结果 %+v", tc.name, ap)
+		}
+		if ap.BodyFont != "hand" || got.Backup.Keep != 7 {
+			t.Fatalf("%s: 迁移不得改动其余偏好: %+v", tc.name, got)
+		}
+		wantEffC, wantEffMD := tc.wantC, tc.wantMD
+		if tc.wantStyle == StyleSketch {
+			wantEffC, wantEffMD = "sketch", "sketch"
+		}
+		if ap.EffectiveColorTheme() != wantEffC || ap.EffectiveMarkdownTheme() != wantEffMD {
+			t.Fatalf("%s: 生效主题 %q / %q", tc.name, ap.EffectiveColorTheme(), ap.EffectiveMarkdownTheme())
+		}
+	}
+	// 版本 10 起手绘/手账只能经风格表达：直接写进颜色或排版必须拒绝。
+	for _, raw := range []string{
+		`{"version":10,"appearance":{"colorTheme":"sketch"}}`,
+		`{"version":10,"appearance":{"markdownTheme":"sketch"}}`,
+		`{"version":10,"appearance":{"style":"journal"}}`,
+	} {
+		if _, err := Decode([]byte(raw), testAccel); err == nil {
+			t.Fatalf("应拒绝: %s", raw)
+		}
+	}
+	// 缺 style 键按标准风格。
+	got, err := Decode([]byte(`{"version":10,"appearance":{"colorTheme":"paper"}}`), testAccel)
+	if err != nil || got.Appearance.Style != StyleStandard {
+		t.Fatalf("缺 style 应为标准风格: %+v %v", got.Appearance, err)
 	}
 }

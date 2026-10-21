@@ -251,11 +251,6 @@
   "codeIndent4": "4 空格",
   "codeLangLabel": "代码语言",
   "codeLangPlaceholder": "语言",
-  "presetSketchRow": "手绘手账",
-  "presetSketchHint": "点阵纸、手写字体、铅笔线框、荧光笔标题与马克笔引用",
-  "applyOnce": "一键套用",
-  "applied": "已套用",
-  "applySketchTheme": "套用手绘整套主题",
   "appearanceLabel": "界面外观",
   "modeFollowSystem": "跟随系统",
   "modeLight": "浅色",
@@ -452,8 +447,6 @@
   "onboardNotesTitle": "笔记与备份",
   "onboardMode": "明暗",
   "onboardStyle": "风格",
-  "onboardDefaultStyle": "默认",
-  "onboardJournalStyle": "手账",
   "onboardDownloadFonts": "下载字体",
   "onboardCompleteSetup": "完成设置",
   "onboardStartUsing": "开始使用",
@@ -461,5 +454,11 @@
   "onboardSaving": "正在保存设置…",
   "onboardTabRange": "1–{max, number} 个",
   "onboardFewerTabs": "减少标签",
-  "onboardMoreTabs": "增加标签"
+  "onboardMoreTabs": "增加标签",
+  "styleLabel": "风格",
+  "styleHint": "手账：点阵纸、铅笔线框、荧光笔标题与马克笔引用",
+  "styleStandard": "标准",
+  "styleSketch": "手账",
+  "styleLocked": "由手账风格决定",
+  "useHandFont": "改用手写字体"
 }

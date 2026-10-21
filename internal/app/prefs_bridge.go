@@ -21,6 +21,9 @@ const (
 	prefsIssueNone         = prefs.IssueNone
 	prefsIssueLegacyBroken = prefs.IssueLegacyBroken
 	prefsIssuePrefsBroken  = prefs.IssuePrefsBroken
+
+	styleStandard = prefs.StyleStandard
+	styleSketch   = prefs.StyleSketch
 )
 
 func defaultPreferences() preferences {

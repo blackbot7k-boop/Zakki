@@ -16,7 +16,7 @@ func (a *app) onboardingView(c *ui.Context) {
 	if ob.appearance.AppearanceMode == "dark" {
 		dark = true
 	}
-	pal := colorPaletteFor(ob.appearance.ColorTheme, -1, dark)
+	pal := colorPaletteFor(ob.appearance.EffectiveColorTheme(), -1, dark)
 	t := *c.Theme()
 	t.Background, t.Text, t.TextMuted = pal.background, pal.text, pal.textMuted
 	t.Surface, t.Border, t.Accent = pal.surface, pal.border, pal.accent
@@ -104,11 +104,8 @@ func (a *app) obAppearance(c *ui.Context) {
 			})
 		})
 		obRow(c, locales.OnboardStyle(), func() {
-			ui.Segmented(c.Key("ob-style"), &ob.styleIndex, locales.OnboardDefaultStyle(), locales.OnboardJournalStyle()).FillWidth().Label(locales.OnboardStyle()).OnChange(func() {
-				ob.appearance.ColorTheme, ob.appearance.MarkdownTheme = "classic", "sonnet"
-				if ob.styleIndex == 1 {
-					ob.appearance.ColorTheme, ob.appearance.MarkdownTheme = "sketch", "sketch"
-				}
+			ui.Segmented(c.Key("ob-style"), &ob.styleIndex, locales.StyleStandard(), locales.StyleSketch()).FillWidth().Label(locales.OnboardStyle()).OnChange(func() {
+				ob.appearance.Style = []string{styleStandard, styleSketch}[ob.styleIndex]
 			})
 		})
 		obRow(c, locales.FontChinese(), func() { a.fontPicker(c.Key("ob-cjk"), &ob.appearance.BodyFont, 0, locales.FontChinese(), 244) })

@@ -29,7 +29,15 @@ import (
 // 版本 9 起备份文件夹支持 Git 自动化：backup.gitAutoPush（开关，默认关）与
 // backup.gitPushMinutes（自动推送最小间隔，默认 10，1–1440）。旧文件从未写过
 // 这两个键，迁移时统一补默认；无破坏性变更。
-const CurrentVersion = 9
+// 版本 10 新增 appearance.style（"standard" / "sketch"）：手账是整体风格，
+// colorTheme / markdownTheme 不再取 "sketch"，只记标准风格下的选择，切回标准时原样恢复。
+const CurrentVersion = 10
+
+// 整体风格：手账风格下颜色与排版由风格决定，colorTheme / markdownTheme 保留不动。
+const (
+	StyleStandard = "standard"
+	StyleSketch   = "sketch"
+)
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -49,8 +57,11 @@ type Preferences struct {
 
 type Appearance struct {
 	AppearanceMode string `json:"appearanceMode"`
-	ColorTheme     string `json:"colorTheme"`
-	MarkdownTheme  string `json:"markdownTheme"`
+	// Style 是整体风格；手账风格下实际生效的颜色与排版见 EffectiveColorTheme /
+	// EffectiveMarkdownTheme。
+	Style         string `json:"style"`
+	ColorTheme    string `json:"colorTheme"`
+	MarkdownTheme string `json:"markdownTheme"`
 	// Language 是界面语言；空串 = 跟随系统（MyGo 按用户系统语言挑目录语言）。
 	Language string `json:"language,omitempty"`
 	// CodeTheme 是代码块着色方案；空串 = 跟随文本（不上色）。不能加 omitempty：
@@ -108,6 +119,7 @@ func Default(backupIntervalMinutes int) Preferences {
 		Version: CurrentVersion,
 		Appearance: Appearance{
 			AppearanceMode: "system",
+			Style:          StyleStandard,
 			ColorTheme:     "classic",
 			MarkdownTheme:  "sonnet",
 			CodeTheme:      "soft",
@@ -143,8 +155,9 @@ func (p Preferences) Validate(v AccelValidator) error {
 	}{
 		{"appearance.appearanceMode", p.Appearance.AppearanceMode, []string{"system", "light", "dark"}},
 		{"appearance.language", p.Appearance.Language, []string{"", "en", "zh-Hans"}},
-		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "sketch", "claude", "qoder"}},
-		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact", "sketch"}},
+		{"appearance.style", p.Appearance.Style, []string{StyleStandard, StyleSketch}},
+		{"appearance.colorTheme", p.Appearance.ColorTheme, []string{"classic", "paper", "warmSand", "mistTeal", "graphite", "claude", "qoder"}},
+		{"appearance.markdownTheme", p.Appearance.MarkdownTheme, []string{"sonnet", "note", "clear", "book", "compact"}},
 		{"appearance.codeTheme", p.Appearance.CodeTheme, []string{"", "soft", "vivid", "claude", "qoder"}},
 		{"appearance.codeIndent", p.Appearance.CodeIndent, []string{"space2", "space4"}},
 		{"appearance.bodyFont", p.Appearance.BodyFont, []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"}},
@@ -257,6 +270,9 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Appearance.MarkdownTheme == "" {
 		p.Appearance.MarkdownTheme = def.Appearance.MarkdownTheme
 	}
+	if p.Appearance.Style == "" {
+		p.Appearance.Style = def.Appearance.Style
+	}
 	// codeTheme 不做空串补默认：空串是显式「跟随文本」，默认柔和由版本 5 迁移承担。
 	// codeIndent 只认 2 / 4 空格两档：版本 7 早期内部构建写过的 tab / space8
 	// 档位（未发布）归为 4 空格，缺键或空串补默认，非法取值仍由 Validate 拒绝。
@@ -302,6 +318,8 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // 版本 8 仅扩展字体键取值，保留字体值与此前迁移行为。
 // 版本 9 的 Git 键由默认值补齐（gitAutoPush 关、间隔 10 分钟）：自动推送会把
 // 笔记送到远端，只能由用户在设置页显式开启，迁移不替用户打开。
+// 版本 10 把颜色「手绘」+ 排版「手账」的整套组合迁为手账风格，颜色与排版回到
+// 标准默认；只有一项是手绘/手账的半套组合迁为标准风格，那一项回到默认。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -323,8 +341,37 @@ func migrate(p Preferences) Preferences {
 		// 版本 6 及更早的写入方从未写过 codeIndent 键，升级时补默认 2 空格。
 		p.Appearance.CodeIndent = "space2"
 	}
+	if p.Version < 10 {
+		def := Default(5).Appearance
+		p.Appearance.Style = StyleStandard
+		if p.Appearance.ColorTheme == StyleSketch && p.Appearance.MarkdownTheme == StyleSketch {
+			p.Appearance.Style = StyleSketch
+		}
+		if p.Appearance.ColorTheme == StyleSketch {
+			p.Appearance.ColorTheme = def.ColorTheme
+		}
+		if p.Appearance.MarkdownTheme == StyleSketch {
+			p.Appearance.MarkdownTheme = def.MarkdownTheme
+		}
+	}
 	p.Version = CurrentVersion
 	return p
+}
+
+// EffectiveColorTheme 实际生效的颜色主题：手账风格固定为手绘点阵纸。
+func (a Appearance) EffectiveColorTheme() string {
+	if a.Style == StyleSketch {
+		return "sketch"
+	}
+	return a.ColorTheme
+}
+
+// EffectiveMarkdownTheme 实际生效的排版主题：手账风格固定为手账排版。
+func (a Appearance) EffectiveMarkdownTheme() string {
+	if a.Style == StyleSketch {
+		return "sketch"
+	}
+	return a.MarkdownTheme
 }
 
 // legacyThemeTot 是主题 ID 更名前旧文件里的写法；仅用于识别旧值并映射新 ID。

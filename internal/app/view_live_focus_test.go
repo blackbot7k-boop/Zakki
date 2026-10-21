@@ -235,8 +235,12 @@ func newFocusAppearanceApp(t *testing.T, layout, font, doc string) *app {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	a.winOpen = true
-	a.prefs.Appearance.ColorTheme = layout
-	a.prefs.Appearance.MarkdownTheme = layout
+	if layout == styleSketch {
+		a.prefs.Appearance.Style = styleSketch
+	} else {
+		a.prefs.Appearance.ColorTheme = layout
+		a.prefs.Appearance.MarkdownTheme = layout
+	}
 	a.prefs.Appearance.BodyFont = font
 	a.tabs[0].Text = doc
 	a.resyncLive(-1)

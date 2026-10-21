@@ -62,7 +62,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	tt := ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
 	for _, want := range []string{
-		"界面外观", "颜色主题", "手绘手账",
+		"界面外观", "风格", "颜色主题",
 		"排版主题", "中文字体", "英文字体", "代码字体",
 		"主题", "排版", "语法配色", "恢复本页默认值",
 	} {

@@ -34,8 +34,7 @@ func TestSketchFocusPreservesDecorations(t *testing.T) {
 					a := newTestApp(t)
 					t.Cleanup(a.shutdown)
 					a.winOpen = true
-					a.prefs.Appearance.ColorTheme = "sketch"
-					a.prefs.Appearance.MarkdownTheme = "sketch"
+					a.prefs.Appearance.Style = styleSketch
 					a.prefs.Appearance.BodyFont = font
 					a.tabs[0].Text = tc.doc
 					a.resyncLive(-1)
@@ -86,8 +85,7 @@ func TestSketchDecoratedInputSelectionAndIME(t *testing.T) {
 		t.Run(text, func(t *testing.T) {
 			a := newTestApp(t)
 			t.Cleanup(a.shutdown)
-			a.prefs.Appearance.ColorTheme = "sketch"
-			a.prefs.Appearance.MarkdownTheme = "sketch"
+			a.prefs.Appearance.Style = styleSketch
 			a.prefs.Appearance.BodyFont = "hand"
 			a.tabs[0].Text = text
 			a.resyncLive(-1)
@@ -138,8 +136,7 @@ func TestSketchInputBackgroundGeometry(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/line-height=%.2f", tc.name, lineHeight), func(t *testing.T) {
 				a := newTestApp(t)
 				t.Cleanup(a.shutdown)
-				a.prefs.Appearance.ColorTheme = "sketch"
-				a.prefs.Appearance.MarkdownTheme = "sketch"
+				a.prefs.Appearance.Style = styleSketch
 				a.prefs.Appearance.BodyFont = "hand"
 				a.prefs.Appearance.LineHeight = lineHeight
 				a.tabs[0].Text = tc.text

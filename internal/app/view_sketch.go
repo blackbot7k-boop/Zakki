@@ -148,7 +148,7 @@ func ruleLine(c *ui.Context, md resolvedStyle, seed uint32) {
 }
 
 // paperTheme 当前颜色主题是否为不透明纸张（手绘）：此时不透出窗口毛玻璃。
-func (a *app) paperTheme() bool { return a.prefs.Appearance.ColorTheme == "sketch" }
+func (a *app) paperTheme() bool { return a.prefs.Appearance.EffectiveColorTheme() == "sketch" }
 
 // paperBackground 内容区背景：纸张主题保持不透明底色，其余沿用毛玻璃规则。
 func (a *app) paperBackground(base ui.Color, dark, vibrancy bool) ui.Color {

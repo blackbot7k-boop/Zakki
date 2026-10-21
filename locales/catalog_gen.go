@@ -2598,56 +2598,6 @@ func (msgs Messages) CodeLangPlaceholder() string {
 	return Catalog.Format(msgs.locale, "codeLangPlaceholder", nil)
 }
 
-// PresetSketchRow says "Hand-drawn sketchbook"
-// in the language the app shows.
-func PresetSketchRow() string { return In(i18n.Locale()).PresetSketchRow() }
-
-// PresetSketchRow says "Hand-drawn sketchbook"
-// in the language of msgs.
-func (msgs Messages) PresetSketchRow() string {
-	return Catalog.Format(msgs.locale, "presetSketchRow", nil)
-}
-
-// PresetSketchHint says "Dot-grid paper, handwriting, pencil frames, highlighter headings and marker quotes"
-// in the language the app shows.
-func PresetSketchHint() string { return In(i18n.Locale()).PresetSketchHint() }
-
-// PresetSketchHint says "Dot-grid paper, handwriting, pencil frames, highlighter headings and marker quotes"
-// in the language of msgs.
-func (msgs Messages) PresetSketchHint() string {
-	return Catalog.Format(msgs.locale, "presetSketchHint", nil)
-}
-
-// ApplyOnce says "Apply"
-// in the language the app shows.
-func ApplyOnce() string { return In(i18n.Locale()).ApplyOnce() }
-
-// ApplyOnce says "Apply"
-// in the language of msgs.
-func (msgs Messages) ApplyOnce() string {
-	return Catalog.Format(msgs.locale, "applyOnce", nil)
-}
-
-// Applied says "Applied"
-// in the language the app shows.
-func Applied() string { return In(i18n.Locale()).Applied() }
-
-// Applied says "Applied"
-// in the language of msgs.
-func (msgs Messages) Applied() string {
-	return Catalog.Format(msgs.locale, "applied", nil)
-}
-
-// ApplySketchTheme says "Apply the sketchbook theme"
-// in the language the app shows.
-func ApplySketchTheme() string { return In(i18n.Locale()).ApplySketchTheme() }
-
-// ApplySketchTheme says "Apply the sketchbook theme"
-// in the language of msgs.
-func (msgs Messages) ApplySketchTheme() string {
-	return Catalog.Format(msgs.locale, "applySketchTheme", nil)
-}
-
 // AppearanceLabel says "Appearance"
 // in the language the app shows.
 func AppearanceLabel() string { return In(i18n.Locale()).AppearanceLabel() }
@@ -4624,26 +4574,6 @@ func (msgs Messages) OnboardStyle() string {
 	return Catalog.Format(msgs.locale, "onboardStyle", nil)
 }
 
-// OnboardDefaultStyle says "Default"
-// in the language the app shows.
-func OnboardDefaultStyle() string { return In(i18n.Locale()).OnboardDefaultStyle() }
-
-// OnboardDefaultStyle says "Default"
-// in the language of msgs.
-func (msgs Messages) OnboardDefaultStyle() string {
-	return Catalog.Format(msgs.locale, "onboardDefaultStyle", nil)
-}
-
-// OnboardJournalStyle says "Journal"
-// in the language the app shows.
-func OnboardJournalStyle() string { return In(i18n.Locale()).OnboardJournalStyle() }
-
-// OnboardJournalStyle says "Journal"
-// in the language of msgs.
-func (msgs Messages) OnboardJournalStyle() string {
-	return Catalog.Format(msgs.locale, "onboardJournalStyle", nil)
-}
-
 // OnboardDownloadFonts says "Download fonts"
 // in the language the app shows.
 func OnboardDownloadFonts() string { return In(i18n.Locale()).OnboardDownloadFonts() }
@@ -4722,4 +4652,64 @@ func OnboardMoreTabs() string { return In(i18n.Locale()).OnboardMoreTabs() }
 // in the language of msgs.
 func (msgs Messages) OnboardMoreTabs() string {
 	return Catalog.Format(msgs.locale, "onboardMoreTabs", nil)
+}
+
+// StyleLabel says "Style"
+// in the language the app shows.
+func StyleLabel() string { return In(i18n.Locale()).StyleLabel() }
+
+// StyleLabel says "Style"
+// in the language of msgs.
+func (msgs Messages) StyleLabel() string {
+	return Catalog.Format(msgs.locale, "styleLabel", nil)
+}
+
+// StyleHint says "Sketchbook: dotted paper, pencil frames, highlighter headings and marker quotes"
+// in the language the app shows.
+func StyleHint() string { return In(i18n.Locale()).StyleHint() }
+
+// StyleHint says "Sketchbook: dotted paper, pencil frames, highlighter headings and marker quotes"
+// in the language of msgs.
+func (msgs Messages) StyleHint() string {
+	return Catalog.Format(msgs.locale, "styleHint", nil)
+}
+
+// StyleStandard says "Standard"
+// in the language the app shows.
+func StyleStandard() string { return In(i18n.Locale()).StyleStandard() }
+
+// StyleStandard says "Standard"
+// in the language of msgs.
+func (msgs Messages) StyleStandard() string {
+	return Catalog.Format(msgs.locale, "styleStandard", nil)
+}
+
+// StyleSketch says "Sketchbook"
+// in the language the app shows.
+func StyleSketch() string { return In(i18n.Locale()).StyleSketch() }
+
+// StyleSketch says "Sketchbook"
+// in the language of msgs.
+func (msgs Messages) StyleSketch() string {
+	return Catalog.Format(msgs.locale, "styleSketch", nil)
+}
+
+// StyleLocked says "Set by the Sketchbook style"
+// in the language the app shows.
+func StyleLocked() string { return In(i18n.Locale()).StyleLocked() }
+
+// StyleLocked says "Set by the Sketchbook style"
+// in the language of msgs.
+func (msgs Messages) StyleLocked() string {
+	return Catalog.Format(msgs.locale, "styleLocked", nil)
+}
+
+// UseHandFont says "Use Handwriting Font"
+// in the language the app shows.
+func UseHandFont() string { return In(i18n.Locale()).UseHandFont() }
+
+// UseHandFont says "Use Handwriting Font"
+// in the language of msgs.
+func (msgs Messages) UseHandFont() string {
+	return Catalog.Format(msgs.locale, "useHandFont", nil)
 }

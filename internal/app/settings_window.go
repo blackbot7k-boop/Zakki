@@ -43,6 +43,7 @@ type settingsUIState struct {
 	tabAnimSpeedSel   string
 	tabDotShapeSel    string
 	tabShapeIdx       int
+	styleIdx          int
 
 	// 标签页：拖拽排序的 List 状态、行内重命名会话与每行取色器草稿。
 	// tabWellColors 是取色器绑定值；tabWellSeeded 记录上次播种基线：
@@ -126,6 +127,7 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 
 	d, before, current := &ui.draft.Appearance, old.Appearance, next.Appearance
 	mergeString(&d.AppearanceMode, before.AppearanceMode, current.AppearanceMode)
+	mergeString(&d.Style, before.Style, current.Style)
 	mergeString(&d.ColorTheme, before.ColorTheme, current.ColorTheme)
 	mergeString(&d.MarkdownTheme, before.MarkdownTheme, current.MarkdownTheme)
 	mergeString(&d.Language, before.Language, current.Language)
@@ -296,6 +298,9 @@ func (ui *settingsUIState) applyAppearanceDraft(p *preferences) {
 	draft, before := ui.draft.Appearance, ui.synced.Appearance
 	if draft.AppearanceMode != before.AppearanceMode {
 		p.Appearance.AppearanceMode = draft.AppearanceMode
+	}
+	if draft.Style != before.Style {
+		p.Appearance.Style = draft.Style
 	}
 	if draft.ColorTheme != before.ColorTheme {
 		p.Appearance.ColorTheme = draft.ColorTheme
@@ -488,7 +493,7 @@ func (a *app) zoomBodySize(dir int) {
 		}
 		cur := p.Appearance.BodySize
 		if cur <= 0 {
-			cur = markdownLayoutByID(p.Appearance.MarkdownTheme).bodySize
+			cur = markdownLayoutByID(p.Appearance.EffectiveMarkdownTheme()).bodySize
 		}
 		p.Appearance.BodySize = min(max(cur+float32(dir), 10), 40)
 	})

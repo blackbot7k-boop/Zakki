@@ -56,7 +56,7 @@ func (a *app) initOnboarding() {
 	case "dark":
 		a.onboarding.modeIndex = 2
 	}
-	if ap.MarkdownTheme == "sketch" {
+	if ap.Style == styleSketch {
 		a.onboarding.styleIndex = 1
 	}
 }
@@ -143,6 +143,9 @@ func (a *app) finishOnboarding(configured bool) {
 		// 字体键保持空串语义（默认栈 / 跟随中文字体）。
 		if ap.AppearanceMode == "" {
 			ap.AppearanceMode = "system"
+		}
+		if ap.Style == "" {
+			ap.Style = styleStandard
 		}
 		if ap.ColorTheme == "" {
 			ap.ColorTheme = "classic"

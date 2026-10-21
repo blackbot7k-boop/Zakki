@@ -72,8 +72,7 @@ func TestMyGoTextBackgroundRanges(t *testing.T) {
 func TestSketchCompositionMovesBackground(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
-	a.prefs.Appearance.ColorTheme = "sketch"
-	a.prefs.Appearance.MarkdownTheme = "sketch"
+	a.prefs.Appearance.Style = styleSketch
 	a.tabs[0].Text = "abc **marked** end"
 	a.resyncLive(-1)
 	a.focusBlock(0, 0, 0)

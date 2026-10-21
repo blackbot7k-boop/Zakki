@@ -260,3 +260,29 @@ func TestOnboardingTabCountInput(t *testing.T) {
 		t.Fatalf("非法输入应回写规范化文本: %q", a.onboarding.tabCountText)
 	}
 }
+
+// 向导选手账风格：完成后写入风格，颜色与排版保持标准默认（切回标准时用），
+// 偏好通过版本 10 校验。
+func TestOnboardingSketchStyle(t *testing.T) {
+	a := newTestApp(t)
+	a.initOnboarding()
+	folder := filepath.Join(filepath.Dir(a.notes.DataFile), "wizard-style")
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.onboarding.dirDraft = folder
+	tt := ui.NewTester(a.onboardingView, 640, 560)
+	tt.Frame()
+	if err := tt.Click("手账"); err != nil {
+		t.Fatal(err)
+	}
+	if a.onboarding.appearance.Style != styleSketch {
+		t.Fatalf("选手账应写入风格草稿: %+v", a.onboarding.appearance)
+	}
+	a.onboarding.phase = "ready"
+	a.finishOnboarding(true)
+	ap := a.prefs.Appearance
+	if ap.Style != styleSketch || ap.ColorTheme != "classic" || ap.MarkdownTheme != "sonnet" {
+		t.Fatalf("向导应只写风格、颜色与排版保持标准默认: %+v", ap)
+	}
+}

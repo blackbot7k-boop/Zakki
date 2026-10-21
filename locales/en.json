@@ -251,11 +251,6 @@
   "codeIndent4": "4 spaces",
   "codeLangLabel": "Code language",
   "codeLangPlaceholder": "Language",
-  "presetSketchRow": "Hand-drawn sketchbook",
-  "presetSketchHint": "Dot-grid paper, handwriting, pencil frames, highlighter headings and marker quotes",
-  "applyOnce": "Apply",
-  "applied": "Applied",
-  "applySketchTheme": "Apply the sketchbook theme",
   "appearanceLabel": "Appearance",
   "modeFollowSystem": "Follow System",
   "modeLight": "Light",
@@ -505,8 +500,6 @@
   "onboardNotesTitle": "Notes & backups",
   "onboardMode": "Appearance",
   "onboardStyle": "Style",
-  "onboardDefaultStyle": "Default",
-  "onboardJournalStyle": "Journal",
   "onboardDownloadFonts": "Download fonts",
   "onboardCompleteSetup": "Finish setup",
   "onboardStartUsing": "Start writing",
@@ -514,5 +507,11 @@
   "onboardSaving": "Saving preferences…",
   "onboardTabRange": "1–{max, number} tabs",
   "onboardFewerTabs": "Fewer tabs",
-  "onboardMoreTabs": "More tabs"
+  "onboardMoreTabs": "More tabs",
+  "styleLabel": "Style",
+  "styleHint": "Sketchbook: dotted paper, pencil frames, highlighter headings and marker quotes",
+  "styleStandard": "Standard",
+  "styleSketch": "Sketchbook",
+  "styleLocked": "Set by the Sketchbook style",
+  "useHandFont": "Use Handwriting Font"
 }

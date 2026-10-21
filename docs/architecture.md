@@ -23,13 +23,13 @@
 | `internal/app/config_bridge.go` | 旧配置类型别名，以及 `decodeConfig` / `defaultFileConfig`。 |
 | `internal/app/notes_bridge.go` | 笔记磁盘类型别名、`migrateSavedFile` 与 `newNotesStore`。 |
 | `internal/app/backup_folder.go` | 备份文件夹（唯一备份地址）：`validateBackupDir`（拒绝应用数据目录及子目录 + 可写性探测）、`chooseBackupDirAsync`（后台 goroutine 弹 `mygo.Dialog.Open{Directory: true}`，经窗口 `Update` 回主线程）；设置页「备份文件夹」卡片（settings_backup.go 渲染）的选/换/断开与首启向导共用。 |
-| `internal/app/onboarding.go` / `internal/app/onboarding_view.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：640×560 独立窗口（`StateKey: "onboarding-v2"`），两页草稿式确认——① 语言（English/简体中文，选择即时 `App.SetLocale` 并写偏好）、明暗、风格（默认/手账，手账只改颜色+排版主题，不强制字体）、中文字体、英文字体（预选 JetBrains Mono）；② 初始标签数 1–9 与备份文件夹（预填 `defaultMirrorDir()` 即 `~/Documents/Zakki 备份`，可注入、可换，始终可见）。选择不触发下载；主按钮显示「完成设置」或「下载字体」，提交后冻结草稿，缺失字体经 `prepareFonts` 统一下载（总进度+单字体进度），完成后停在就绪页，点「开始使用」才写偏好与初始数据（`commitFirstRunData` 语义，失败留在向导）并进入主窗口；失败可重试、返回修改（作废旧下载批次）或改用系统字体。关窗等同接受默认（默认备份路径 + 默认快照，落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；主窗口等向导结束再创建。 |
+| `internal/app/onboarding.go` / `internal/app/onboarding_view.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：640×560 独立窗口（`StateKey: "onboarding-v2"`），两页草稿式确认——① 语言（English/简体中文，选择即时 `App.SetLocale` 并写偏好）、明暗、风格（标准/手账，写 `appearance.style`，不强制字体）、中文字体、英文字体（预选 JetBrains Mono）；② 初始标签数 1–9 与备份文件夹（预填 `defaultMirrorDir()` 即 `~/Documents/Zakki 备份`，可注入、可换，始终可见）。选择不触发下载；主按钮显示「完成设置」或「下载字体」，提交后冻结草稿，缺失字体经 `prepareFonts` 统一下载（总进度+单字体进度），完成后停在就绪页，点「开始使用」才写偏好与初始数据（`commitFirstRunData` 语义，失败留在向导）并进入主窗口；失败可重试、返回修改（作废旧下载批次）或改用系统字体。关窗等同接受默认（默认备份路径 + 默认快照，落盘失败只提示）；欢迎文案随标签数生成（`welcomeTextFor`）；主窗口等向导结束再创建。 |
 | `internal/legacyconfig` | 旧 config.toml/json 严格解码（仅供迁移）。 |
 | `internal/atomicfile` | tmp+rename 原子写（笔记与偏好共用）。 |
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护/Git 自动化）；`store.go` 负责载入与备份直写单一目的地，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责最近备份时间的后台恢复，`git_backup.go` 负责备份文件夹的 Git 自动提交与推送（探测、提交路径规范、推送节流，runner 可注入）。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，默认关，旧文件迁移不替用户开启）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，默认关，旧文件迁移不替用户开启）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。版本 10：`appearance.style`（标准 / 手账）；手账下生效的颜色与排版由 `Appearance.EffectiveColorTheme` / `EffectiveMarkdownTheme` 给出，渲染一律读这两个方法，`colorTheme` / `markdownTheme` 只记标准风格下的选择。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），用每 rune 一位的占用位图判交，保留搜索优先与重叠候选整段拒绝；代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
@@ -213,7 +213,7 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **8**（`prefs.CurrentVersion`）：版本 8 仅扩展字体键（三个字体字段允许 `local:<真实家族名>`，`latinFont` / `monoFont` 另增 `fira`；不新增字段、不改默认、不触发下载）。版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **10**（`prefs.CurrentVersion`）：版本 10 新增整体风格 `appearance.style`（手绘 + 手账整套迁为手账风格，见 configuration.md）；版本 9 补 Git 自动化默认。版本 8 仅扩展字体键（三个字体字段允许 `local:<真实家族名>`，`latinFont` / `monoFont` 另增 `fira`；不新增字段、不改默认、不触发下载）。版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
 版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）；

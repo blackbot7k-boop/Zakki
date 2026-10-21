@@ -196,7 +196,7 @@ func (a *app) updatePreferences(mutate func(p *preferences)) error {
 func (a *app) applyPreferencesToRuntime() {
 	p := a.prefs
 	a.cfg.ThemeSource = p.Appearance.AppearanceMode
-	a.cfg.MarkdownTheme = p.Appearance.MarkdownTheme
+	a.cfg.MarkdownTheme = p.Appearance.EffectiveMarkdownTheme()
 	a.cfg.BodyFont, a.cfg.MonoFont = p.Appearance.BodyFont, p.Appearance.MonoFont
 	a.cfg.BodySize, a.cfg.LineHeight = p.Appearance.BodySize, p.Appearance.LineHeight
 	a.cfg.AlwaysOnTop = p.Window.AlwaysOnTop

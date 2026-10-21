@@ -206,12 +206,14 @@ func colorThemeByID(id string) (colorThemeDef, bool) {
 	return colorThemeDef{}, false
 }
 
-// colorThemeNames 返回全部颜色主题的展示名（顺序即选择卡片顺序）。
+// colorThemeNames 返回可选颜色主题的展示名；手绘只经手账风格生效，不在列表里。
 func colorThemeNames() []string {
 	names := make([]string, 0, len(colorThemes)+1)
 	names = append(names, colorThemeDisplayName(colorThemeClassic))
 	for _, t := range colorThemes {
-		names = append(names, colorThemeDisplayName(t.id))
+		if t.id != styleSketch {
+			names = append(names, colorThemeDisplayName(t.id))
+		}
 	}
 	return names
 }
@@ -582,8 +584,8 @@ func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 }
 
 func (a *app) computeStyle(dot int, dark bool, override bool) resolvedStyle {
-	pal := colorPaletteFor(a.prefs.Appearance.ColorTheme, dot, dark)
-	layout := markdownLayoutByID(a.prefs.Appearance.MarkdownTheme)
+	pal := colorPaletteFor(a.prefs.Appearance.EffectiveColorTheme(), dot, dark)
+	layout := markdownLayoutByID(a.prefs.Appearance.EffectiveMarkdownTheme())
 	s := resolvedStyle{
 		background: pal.background, header: pal.header, status: pal.status,
 		surface: pal.surface, border: pal.border, text: pal.text, textMuted: pal.textMuted,

@@ -65,12 +65,15 @@ func TestResolveStyleCacheInvalidates(t *testing.T) {
 // 颜色主题下拉必须能选回默认的经典主题，且显示名与 ID 双向一致。
 func TestColorThemeOptionsIncludeClassic(t *testing.T) {
 	names := colorThemeNames()
-	if len(names) != len(colorThemes)+1 || names[0] != colorThemeDisplayName(colorThemeClassic) {
+	// 手绘只经手账风格生效，不在颜色下拉里。
+	if len(names) != len(colorThemes) || names[0] != colorThemeDisplayName(colorThemeClassic) {
 		t.Fatalf("下拉选项首项应为经典主题: %v", names)
 	}
 	ids := []string{colorThemeClassic}
 	for _, def := range colorThemes {
-		ids = append(ids, def.id)
+		if def.id != styleSketch {
+			ids = append(ids, def.id)
+		}
 	}
 	for i, name := range names {
 		if got := colorThemeIDOfDisplay(name); got != ids[i] {
@@ -216,10 +219,9 @@ func TestSourceModeStyleUsesMonoFont(t *testing.T) {
 func TestSketchThemeSet(t *testing.T) {
 	a := newTestApp(t)
 	if err := a.updatePreferences(func(p *preferences) {
-		p.Appearance.ColorTheme = "sketch"
-		p.Appearance.MarkdownTheme = "sketch"
+		p.Appearance.Style = styleSketch
 	}); err != nil {
-		t.Fatalf("手绘整套主题应通过偏好校验: %v", err)
+		t.Fatalf("手账风格应通过偏好校验: %v", err)
 	}
 	s := a.resolveStyle(2, false, true)
 	def, ok := colorThemeByID("sketch")
@@ -230,26 +232,50 @@ func TestSketchThemeSet(t *testing.T) {
 		t.Fatalf("手账排版参数: %+v", s)
 	}
 	// 其他排版保持原装饰尺寸。
+	a.prefs.Appearance.Style = styleStandard
 	a.prefs.Appearance.MarkdownTheme = "sonnet"
 	if d := a.resolveStyle(-1, false, true); d.quoteBar != 3 || d.codeRadius != 8 || d.codeBorder != 0 {
 		t.Fatalf("默认装饰尺寸被改变: %+v", d)
 	}
 }
 
-func TestSketchPresetButton(t *testing.T) {
+// TestSketchStyleSwitch 风格切到手账：颜色与排版由风格接管、标准选择原样保留；
+// 「改用手写字体」补上手写搭配；切回标准恢复原颜色与排版，字体不跟着改。
+func TestSketchStyleSwitch(t *testing.T) {
 	a := newTestApp(t)
+	a.fonts.families = families("LXGW WenKai Lite")
+	a.prefs.Appearance.ColorTheme, a.prefs.Appearance.MarkdownTheme = "paper", "book"
 	a.settingsPage = pageAppearance
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
-	if err := tt.Click("套用手绘整套主题"); err != nil {
+	if err := tt.Click("手账"); err != nil {
 		t.Fatal(err)
 	}
-	if a.prefs.Appearance.ColorTheme != "sketch" || a.prefs.Appearance.MarkdownTheme != "sketch" || a.prefs.Appearance.BodyFont != "hand" {
-		t.Fatalf("一键套用应同时设置颜色、排版与手写字体: %+v", a.prefs.Appearance)
+	ap := a.prefs.Appearance
+	if ap.Style != styleSketch || ap.ColorTheme != "paper" || ap.MarkdownTheme != "book" {
+		t.Fatalf("切到手账只改风格，标准选择保留: %+v", ap)
+	}
+	tt.Frame()
+	if !tt.HasText("由手账风格决定") {
+		t.Fatalf("手账下颜色与排版应显示由风格决定: %v", tt.Texts())
+	}
+	if err := tt.Click("改用手写字体"); err != nil {
+		t.Fatal(err)
+	}
+	if a.prefs.Appearance.BodyFont != "hand" || a.prefs.Appearance.LatinFont != "" {
+		t.Fatalf("改用手写字体应设中文手写、英文跟随中文: %+v", a.prefs.Appearance)
 	}
 	if s := a.resolveStyle(-1, false, true); !s.sketch || s.bodyFont != handBodyFont || s.headingFont != handHeadingFont {
 		t.Fatalf("手账排版应启用手绘装饰与手写字体搭配: %+v", s)
+	}
+	tt.Frame()
+	if err := tt.Click("标准"); err != nil {
+		t.Fatal(err)
+	}
+	ap = a.prefs.Appearance
+	if ap.Style != styleStandard || ap.ColorTheme != "paper" || ap.MarkdownTheme != "book" || ap.BodyFont != "hand" {
+		t.Fatalf("切回标准应恢复原颜色与排版、保留字体: %+v", ap)
 	}
 }
 
@@ -258,8 +284,7 @@ func TestSketchPresetButton(t *testing.T) {
 func TestSketchLiveRenders(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.prefs.Appearance.ColorTheme = "sketch"
-	a.prefs.Appearance.MarkdownTheme = "sketch"
+	a.prefs.Appearance.Style = styleSketch
 	a.prefs.Appearance.BodyFont = "hand"
 	a.tabs[0].Text = "# 今日手账\n\n> 引用一句\n\n```\ncode\n```\n\n---\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n- [ ] 待办"
 	a.resyncLive(-1)
@@ -286,8 +311,8 @@ func TestJitterDeterministic(t *testing.T) {
 	}
 }
 
-// TestSketchColorDropdownAppliesColorOnly 颜色主题下拉选手绘：只改颜色主题，
-// 不联动排版与字体（整套切换走「手绘手账」预设行）。
+// TestSketchColorDropdownAppliesColorOnly 颜色主题下拉不再有手绘（整套切换走
+// 「风格」）；选其他颜色只改颜色主题，不联动风格、排版与字体。
 func TestSketchColorDropdownAppliesColorOnly(t *testing.T) {
 	a := newTestApp(t)
 	a.settingsPage = pageAppearance
@@ -297,15 +322,19 @@ func TestSketchColorDropdownAppliesColorOnly(t *testing.T) {
 	if err := tt.Click("经典"); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.Click("手绘"); err != nil {
+	tt.Frame()
+	if tt.HasText("手绘") {
+		t.Fatalf("颜色下拉不应再有手绘: %v", tt.Texts())
+	}
+	if err := tt.Click("纸白"); err != nil {
 		t.Fatal(err)
 	}
 	ap := a.prefs.Appearance
-	if ap.ColorTheme != "sketch" {
-		t.Fatalf("下拉选手绘应生效: %+v", ap)
+	if ap.ColorTheme != "paper" {
+		t.Fatalf("下拉选纸白应生效: %+v", ap)
 	}
-	if ap.MarkdownTheme != "sonnet" || ap.BodyFont != "" {
-		t.Fatalf("颜色主题不应联动排版与字体: %+v", ap)
+	if ap.Style != styleStandard || ap.MarkdownTheme != "sonnet" || ap.BodyFont != "" {
+		t.Fatalf("颜色主题不应联动风格、排版与字体: %+v", ap)
 	}
 }
 
@@ -314,8 +343,7 @@ func TestSketchColorDropdownAppliesColorOnly(t *testing.T) {
 func TestSketchPaperFillsViewport(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.prefs.Appearance.ColorTheme = "sketch"
-	a.prefs.Appearance.MarkdownTheme = "sketch"
+	a.prefs.Appearance.Style = styleSketch
 	a.tabs[0].Text = "一行"
 	a.resyncLive(-1)
 	a.mdActive = -1
@@ -350,8 +378,7 @@ func TestSketchPaperFillsViewport(t *testing.T) {
 func TestSketchPaperScrollsWithContent(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.prefs.Appearance.ColorTheme = "sketch"
-	a.prefs.Appearance.MarkdownTheme = "sketch"
+	a.prefs.Appearance.Style = styleSketch
 	var b strings.Builder
 	for i := 0; i < 80; i++ {
 		fmt.Fprintf(&b, "第 %d 段\n\n", i)

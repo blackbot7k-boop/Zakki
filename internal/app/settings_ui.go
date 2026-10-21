@@ -147,8 +147,8 @@ func (a *app) appearanceControls(c *ui.Context) {
 	ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
 		settingsSectionTitle(c, locales.CardTheme())
 		a.appearanceModeSelect(c)
+		a.styleRow(c)
 		a.colorThemeSelect(c)
-		a.presetSketchRow(c)
 		sectionDivider(c)
 		settingsSectionTitle(c, locales.CardTypography())
 		a.markdownThemeSelect(c)
@@ -166,25 +166,42 @@ func (a *app) appearanceControls(c *ui.Context) {
 	})
 }
 
-// presetSketchRow 手绘手账一键预设：同时套用手绘颜色主题、排版与手写字体。
-func (a *app) presetSketchRow(c *ui.Context) {
-	settingsRow(c, locales.PresetSketchRow(), locales.PresetSketchHint(), func() {
-		ap := a.settingsUI.draft.Appearance
-		applied := ap.ColorTheme == "sketch" && ap.MarkdownTheme == "sketch" && ap.BodyFont == "hand" && ap.LatinFont == ""
-		label := locales.ApplyOnce()
-		if applied {
-			label = locales.Applied()
-		}
-		if ui.Button(c.Key("preset-sketch"), label).Label(locales.ApplySketchTheme()).Clicked() && !applied {
-			a.settingsUI.draft.Appearance.ColorTheme = "sketch"
-			a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
-			a.settingsUI.draft.Appearance.BodyFont = "hand"
-			a.settingsUI.draft.Appearance.LatinFont = ""
-			a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-			a.settingsUI.bodyFontKey = "hand"
-			a.settingsUI.latinFontKey = ""
+// styleRow 整体风格：标准 / 手账。只切风格，颜色与排版的标准选择原样保留，
+// 切回标准即恢复；字体不跟着换，手账下未用手写搭配时给一键改用（中文手写、
+// 英文跟随中文，英文字母也是手写体）。
+func (a *app) styleRow(c *ui.Context) {
+	ap := &a.settingsUI.draft.Appearance
+	a.settingsUI.styleIdx = 0
+	if ap.Style == styleSketch {
+		a.settingsUI.styleIdx = 1
+	}
+	settingsRow(c, locales.StyleLabel(), locales.StyleHint(), func() {
+		if ui.Segmented(c.Key("style"), &a.settingsUI.styleIdx, locales.StyleStandard(), locales.StyleSketch()).Width(200).
+			Label(locales.StyleLabel()).Changed() {
+			ap.Style = []string{styleStandard, styleSketch}[a.settingsUI.styleIdx]
 			a.pushAppearance()
 		}
+	})
+	if ap.Style == styleSketch && (ap.BodyFont != "hand" || ap.LatinFont != "") {
+		ui.Row(c).FillWidth().Padding(0, 0, 10, 0).Children(func() {
+			ui.Box(c).Grow(1)
+			if ui.Button(c.Key("style-hand-font"), locales.UseHandFont()).Clicked() {
+				a.applySettingsFont("latinFont", "")
+				a.applySettingsFont("bodyFont", "hand")
+			}
+		})
+	}
+}
+
+// lockedSelect 手账风格下由风格决定的下拉：只显示生效值，不可选。
+func lockedSelect(c *ui.Context, label, value string) {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
+		ui.Column(c).Grow(1).Gap(0).Children(func() {
+			ui.Text(c, label)
+			ui.Text(c, locales.StyleLocked()).FontSize(11).TextColor(tMuted(c))
+		})
+		shown := value
+		boundedSelect(c, &shown, []string{value}).Width(200).Disabled(true).Label(label)
 	})
 }
 
@@ -201,6 +218,10 @@ func (a *app) appearanceModeSelect(c *ui.Context) {
 
 // colorThemeSelect 颜色主题下拉，左侧迷你样随当前明暗预览所选主题。
 func (a *app) colorThemeSelect(c *ui.Context) {
+	if a.settingsUI.draft.Appearance.Style == styleSketch {
+		lockedSelect(c, locales.ColorThemeLabel(), colorThemeDisplayName("sketch"))
+		return
+	}
 	options := colorThemeNames()
 	pal := colorPaletteFor(a.settingsUI.draft.Appearance.ColorTheme, -1, themeIsDark(c.Theme()))
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
@@ -255,6 +276,9 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 	}
 	cards := []card{{id: colorThemeClassic, name: locales.ThemeClassic(), pal: classicNeutralPalette(dark)}}
 	for _, def := range colorThemes {
+		if def.id == styleSketch {
+			continue
+		}
 		pal := def.light
 		if dark {
 			pal = def.dark
@@ -281,15 +305,6 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 			})
 			if btn.Clicked() {
 				a.settingsUI.draft.Appearance.ColorTheme = cd.id
-				if cd.id == "sketch" {
-					// 手绘是整套风格：颜色、手账排版与手写字体一起切换，之后仍可单独调整。
-					a.settingsUI.draft.Appearance.MarkdownTheme = "sketch"
-					a.settingsUI.draft.Appearance.BodyFont = "hand"
-					a.settingsUI.draft.Appearance.LatinFont = ""
-					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-					a.settingsUI.bodyFontKey = "hand"
-					a.settingsUI.latinFontKey = ""
-				}
 				a.pushAppearance()
 			}
 		}
@@ -318,9 +333,16 @@ func cardBorder(c *ui.Context, selected bool) ui.Color {
 // markdownThemeSelect 排版主题下拉：字体已解耦，排版只管间距字号；
 // 下方一行说明随选中项变化。
 func (a *app) markdownThemeSelect(c *ui.Context) {
+	if a.settingsUI.draft.Appearance.Style == styleSketch {
+		lockedSelect(c, locales.LayoutThemeLabel(), markdownLayoutDisplayName("sketch"))
+		ui.Text(c, markdownLayoutNote("sketch")).FontSize(11).TextColor(tMuted(c)).Padding(2, 0, 6, 0)
+		return
+	}
 	options := make([]string, 0, len(markdownLayouts))
 	for _, l := range markdownLayouts {
-		options = append(options, markdownLayoutDisplayName(l.id))
+		if l.id != styleSketch {
+			options = append(options, markdownLayoutDisplayName(l.id))
+		}
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
@@ -520,7 +542,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 
 // floatOverrideRow 数字覆盖输入行；占位符显示当前排版主题的默认值。
 func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
-	layout := markdownLayoutByID(a.settingsUI.draft.Appearance.MarkdownTheme)
+	layout := markdownLayoutByID(a.settingsUI.draft.Appearance.EffectiveMarkdownTheme())
 	placeholder := floatText(layout.bodySize)
 	if field == "lineHeight" {
 		placeholder = floatText(layout.lineHeight)
