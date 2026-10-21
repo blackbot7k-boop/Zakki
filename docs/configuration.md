@@ -212,6 +212,7 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 
 - `tabs` 是动态标签列表；`name` 空 = 未命名（顶栏只显示圆点）；
   `color` 空/非法时按槽位回退内置 12 色调色板。
+- 源码/预览切换是会话状态，不写入文件；旧字段 `source` / `preview` 仅读取，不再写出。
 - `settings` 里的标签栏外观项（0/缺键 = 跟随默认）：`tabTitleWidth` 80–220、
   `tabAnimSpeed` 0.5–2、`monoDots` 关闭彩色圆点、`glassStrength` 0.2–0.9、
   `tabMotionOff` 关闭顶栏动效（缺键 false = 开启）、`tabDotShape` 标签形状 ID

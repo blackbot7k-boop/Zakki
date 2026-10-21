@@ -162,7 +162,7 @@
 | `settings.bodySize` / `settings.lineHeight` | float32 | 正文字号 / 行高，0 为主题默认 |
 | `settings.alwaysOnTop` | bool | 窗口置顶 |
 | `settings.hideOnEscape` | bool | 按 Esc 隐藏窗口，**缺键默认 true**（见上） |
-| `settings.source` | bool | 源码模式（false = Typora 式实时预览） |
+| `settings.source` | bool | 旧字段仅读取；源码/预览切换是会话状态，新保存不再写入 |
 | `settings.preview` | bool | 旧版字段，仅读取时并入 `source`，不再写出新值 |
 
 ## 偏好生命周期
