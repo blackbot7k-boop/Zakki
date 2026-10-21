@@ -58,10 +58,6 @@ func stripLegacyStorageKeys(value any) bool {
 	if !ok {
 		return false
 	}
-	// 开发期间可能有构建写出版本 12 却带旧键的文件；只放过真正超前的版本。
-	if ver, _ := m["version"].(float64); ver > float64(CurrentVersion) {
-		return false
-	}
 	stripped := false
 	if _, has := m["backup"]; has {
 		delete(m, "backup")
@@ -78,16 +74,13 @@ func stripLegacyStorageKeys(value any) bool {
 
 // stripLegacyWindowKeys 从已解码的偏好映射里摘除版本 11 移除的像素尺寸键，
 // 返回其值（缺键为 0）与是否摘除了键。旧键仍按原规则校验（整数、宽 300–4096、
-// 高 340–4096），非法旧值照旧拒绝而不是静默换成默认。版本 11 及以上的文件
-// 保持原样交给严格解码拒绝。
+// 高 340–4096），非法旧值照旧拒绝而不是静默换成默认。
 func stripLegacyWindowKeys(value any) (int, int, bool, error) {
 	m, ok := value.(map[string]any)
 	if !ok {
 		return 0, 0, false, nil
 	}
-	if ver, _ := m["version"].(float64); ver >= 11 {
-		return 0, 0, false, nil
-	}
+
 	adv, ok := m["advanced"].(map[string]any)
 	if !ok {
 		return 0, 0, false, nil

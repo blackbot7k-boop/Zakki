@@ -349,11 +349,18 @@ func TestPreferencesMigrateWindowGrid(t *testing.T) {
 		`{"version":10,"advanced":{"windowWidth":299}}`,
 		`{"version":10,"advanced":{"windowHeight":"540"}}`,
 		`{"version":10,"advanced":{"windowWidth":400.5}}`,
-		`{"version":11,"advanced":{"windowWidth":400}}`,
 	} {
 		if _, err := Decode([]byte(raw), testAccel); err == nil {
 			t.Fatalf("应拒绝: %s", raw)
 		}
+	}
+	// v11 带像素键：键被摘除（不再因版本守卫漏摘），列数行数走默认。
+	got, err := Decode([]byte(`{"version":11,"advanced":{"windowWidth":400}}`), testAccel)
+	if err != nil {
+		t.Fatalf("v11 像素键应摘除: %v", err)
+	}
+	if got.Advanced.WindowColumns != 22 || got.Advanced.WindowRows != 16 {
+		t.Fatalf("像素键摘除后应补默认: %+v", got.Advanced)
 	}
 }
 

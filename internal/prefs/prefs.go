@@ -237,11 +237,13 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if err := rejectJSONNull(value, "preferences"); err != nil {
 		return Preferences{}, err
 	}
+	// 两个摘除都必须执行：像素键与备份键可能同时存在，不能让 || 短路掉后者。
 	legacyW, legacyH, hasLegacyWindow, err := stripLegacyWindowKeys(value)
 	if err != nil {
 		return Preferences{}, err
 	}
-	if hasLegacyWindow || stripLegacyStorageKeys(value) {
+	storageStripped := stripLegacyStorageKeys(value)
+	if hasLegacyWindow || storageStripped {
 		// 严格解码不认旧键；重新编回 JSON 再解码。map 编码只影响键序，
 		// 不改变取值，原文件保持原样。
 		sanitized, err := json.Marshal(value)

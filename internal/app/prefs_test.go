@@ -85,6 +85,15 @@ func TestPrefsOldBackupFieldsStripped(t *testing.T) {
 	if strings.Contains(string(prefsReadRaw(t, a.preferencesPath())), "backup") {
 		t.Fatal("写回应已去掉 backup 键")
 	}
+	// 短路回归：旧像素键触发重编码时，备份键与 autosaveDelayMs 也必须摘掉。
+	mixed := `{"version":10,"backup":{"intervalMinutes":5},"advanced":{"windowWidth":400,"autosaveDelayMs":800}}`
+	mixedGot, err := decodePreferences([]byte(mixed))
+	if err != nil {
+		t.Fatalf("多旧键应全部摘除: %v", err)
+	}
+	if mixedGot.Advanced.WindowColumns != 22 || mixedGot.Storage != defaultPreferences().Storage {
+		t.Fatalf("多旧键摘除后应补默认: %+v", mixedGot)
+	}
 	// 开发期可能写出的「版本 12 带旧键」文件同样摘除，不拦启动。
 	if _, err := decodePreferences([]byte(`{"version":12,"backup":{},"advanced":{"autosaveDelayMs":800}}`)); err != nil {
 		t.Fatalf("版本 12 带旧键应摘除: %v", err)
