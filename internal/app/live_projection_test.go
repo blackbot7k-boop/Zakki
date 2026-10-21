@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -207,5 +208,20 @@ func TestProjectedHeadingKeepsHeight(t *testing.T) {
 	}
 	if input.H < r.H-2 || input.H > r.H+2 {
 		t.Fatalf("heading jumps on focus: preview=%v editor=%v", r, input)
+	}
+}
+
+func TestPlainLineProjectionMatchesRegion(t *testing.T) {
+	raw := "```go\n甲乙 := 1\n\nfmt.Println(\"é\")\n```"
+	lines := []string{"甲乙 := 1", "", "fmt.Println(\"é\")"}
+	off := len([]rune("```go\n"))
+	for _, l := range lines {
+		n := len([]rune(l))
+		want := projectRegion(raw, off, off+n, false, false)
+		got := plainLineProjection(raw, l, off)
+		if got.text != want.text || got.start != want.start || got.end != want.end || !slices.Equal(got.units, want.units) {
+			t.Fatalf("行 %q: got %+v want %+v", l, got, want)
+		}
+		off += n + 1
 	}
 }

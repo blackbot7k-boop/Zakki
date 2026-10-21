@@ -35,6 +35,7 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	}
 
 	style := a.resolveStyle(-1, dark, true)
+	a.virt.beginFrame(a.liveScroll.Y)
 	// 虚拟化列表：只构建视口内外的少数块，长文档的首帧与稳态帧成本与
 	// 可见块数相关，而与文档总块数无关（编辑器仍按块工作，见 live_edit.go）。
 	blockStarts := a.mdCacheOffsets
@@ -61,6 +62,7 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 			blockEnd := blockStarts[i+1] - 1
 			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1, &hits)
 		})
+		a.virt.endFrame(list.Bounds())
 		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
 			TrackScroll(&a.liveScroll).
 			Padding(style.padX, style.padY).Gap(style.blockGap).
@@ -493,27 +495,34 @@ func (a *app) renderCodePreview(c *ui.Context, t *ui.Theme, md resolvedStyle, bl
 			shown = []string{" "}
 		}
 		font := codeLiveFont(md)
+		// 行首源码偏移：虚拟化时跳过的行也要算进去。
+		starts := make([]int, len(shown))
 		off := proj.start
-		for i, l := range shown {
+		for i := range shown {
+			starts[i] = off
+			if i < len(lines) {
+				off += utf8.RuneCountInString(lines[i]) + 1
+			}
+		}
+		est := md.codeSize * md.codeLineHeigh
+		a.virtualRows(c, virtKey{blk.raw, bkCode}, len(shown), est, -1, func(i int) ui.Element {
 			source := ""
 			if i < len(lines) {
 				source = lines[i]
 			}
 			n := utf8.RuneCountInString(source)
-			lineProj := projectRegion(blk.raw, off, off+n, false, false)
-			display := l
+			lineStart := starts[i]
+			display := shown[i]
 			if display == "" {
 				display = " "
 			}
 			var el ui.Element
 			if codeOn && i < len(spans) {
-				el = ui.RichText(c, spans[i]...).
-					Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh).FillWidth()
+				el = ui.RichText(c.Key("cl-"+strconv.Itoa(i)), spans[i]...)
 			} else {
-				el = ui.Text(c, display).
-					Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh).FillWidth()
+				el = ui.Text(c.Key("cl-"+strconv.Itoa(i)), display)
 			}
-			lineStart := off
+			el.Font(md.monoFont).FontSize(md.codeSize).LineHeight(md.codeLineHeigh).FillWidth()
 			el.Selectable().OnClick(func() {
 				a.liveClickHandled = true
 				if source == "" {
@@ -525,10 +534,10 @@ func (a *app) renderCodePreview(c *ui.Context, t *ui.Theme, md resolvedStyle, bl
 				a.focusBlock(block, lineStart+s, lineStart+e)
 			})
 			if hits != nil {
-				recordLiveHit(el, block, lineProj, font, hits)
+				recordLiveHit(el, block, plainLineProjection(blk.raw, source, lineStart), font, hits)
 			}
-			off += n + 1
-		}
+			return el
+		})
 	})
 }
 

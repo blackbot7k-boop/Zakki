@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"unicode/utf8"
 
@@ -205,7 +206,16 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 			}
 		}
 	}
-	index := 0
+	// 每行首个单元格在 positions 里的序号：虚拟化时跳过的行也要算进去。
+	firstCell := make([]int, len(blk.table.rows))
+	for row, index := 0, 0; row < len(blk.table.rows); row++ {
+		firstCell[row] = index
+		index += len(blk.table.rows[row])
+	}
+	pin := -1
+	if target >= 0 {
+		pin = max(0, sort.SearchInts(firstCell, target+1)-1)
+	}
 	grid := ui.Column(c).FillWidth()
 	if md.sketch {
 		// 手账：外框与格线都用铅笔线；单元格不铺底色，避免盖住线条。
@@ -214,9 +224,11 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 	} else {
 		grid.Radius(6).Clip().Border(1, t.Border)
 	}
+	est := md.codeSize*md.lineHeight + 2*md.tablePadY + 1
 	grid.Children(func() {
-		for row, cells := range blk.table.rows {
-			ui.Row(c.Key(fmt.Sprintf("row-%d", row))).FillWidth().Children(func() {
+		a.virtualRows(c, virtKey{blk.raw, bkTable}, len(blk.table.rows), est, pin, func(row int) ui.Element {
+			cells, index := blk.table.rows[row], firstCell[row]
+			return ui.Row(c.Key(fmt.Sprintf("row-%d", row))).FillWidth().Children(func() {
 				for col := 0; col < cols; col++ {
 					ci := index + col
 					cell := ui.Box(c.Key(fmt.Sprintf("cell-%d", col))).Grow(1).Basis(0).MinWidth(0).Padding(md.tablePadY, md.tablePadX).
@@ -272,8 +284,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 					})
 				}
 			})
-			index += len(cells)
-		}
+		})
 	})
 }
 

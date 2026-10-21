@@ -109,6 +109,7 @@ type liveEditorState struct {
 	// liveScroll 实时预览滚动位置：手账纸面画在视口上，按它对齐内容滚动。
 	liveScroll     ui.ScrollState
 	liveList       ui.ListState // 实时预览块列表的虚拟化状态（只建可见块）
+	virt           liveVirtState
 	previewCache   livePreviewCache
 	mdCacheValid   bool
 	mdCacheDoc     string

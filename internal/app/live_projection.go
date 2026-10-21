@@ -70,6 +70,18 @@ func projectBlock(b liveBlock) liveProjection {
 	return projectRegion(b.raw, lo, hi, b.kind != bkCode, false)
 }
 
+// plainLineProjection 等价于 projectRegion(raw, lo, lo+行长, false, false)，
+// 前提是 line 恰为 raw 从 rune 偏移 lo 起的一整行：代码块逐行预览时不必
+// 为每行把整块源码转一遍 rune（行数 × 块长的平方开销）。
+func plainLineProjection(raw, line string, lo int) liveProjection {
+	n := utf8.RuneCountInString(line)
+	p := liveProjection{raw: raw, text: line, start: lo, end: lo + n, units: make([]projectedRune, n)}
+	for i := range p.units {
+		p.units[i] = projectedRune{lo + i, lo + i + 1}
+	}
+	return p
+}
+
 func projectRegion(raw string, lo, hi int, inline, cell bool) liveProjection {
 	rs := []rune(raw)
 	lo, hi = clamp(lo, 0, len(rs)), clamp(hi, lo, len(rs))

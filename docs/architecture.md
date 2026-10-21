@@ -57,6 +57,7 @@
 | `internal/app/live_preview_cache.go` | 当前文档块代际的有限缓存（最多 64 块）：可见文字投影、表格 cell/偏移与代码 token spans；只保存纯数据，不保存 UI 元素/Context，不保留历史版本。切标签、重切和编辑失效，代码颜色随完整 palette 失效；仍由原控件整体布局单个大块。 |
 | `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块；代码块内 Enter 委托 `applyCodeEnter`。 |
 | `internal/app/live_codeblock.go` | 围栏代码块专属编辑：Tab/Shift+Tab 缩进（`applyCodeTab`，单位取外观页 `appearance.codeIndent`，退化围栏落到合成内容行）、Enter 续行缩进（`applyCodeEnter`，继承行首缩进、开括号再加一级）、右下角语言徽标（`codeLangBadge`：FocusBind 聚焦、失焦/Enter 提交、Esc 取消，改写围栏 info 串不经 `applyDocEditAt` 以免抢主编辑器焦点；会话态 `codeLang*` 存 `liveEditorState`）。 |
+| `internal/app/live_virtual.go` | 块内虚拟化：200 行以上的代码块预览与表格（含正在编辑的表格）只构建视口上下各一屏的行，其余用占位撑开；位置取上一帧 `Bounds` 并按滚动量校正，行高按构建过的行实测缓存（`liveVirtState`，键为块源码 + 块类型，帧末清掉未用条目），未测行用实测均值；正在编辑的表格行总会构建；窗口依据过期（首帧或刚滚动）时再要一帧校正。单个超长段落仍整段排版。 |
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
 | `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
 | `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索命中（`searchHit`：强调色 + 加粗 + 强调色淡底）覆盖颜色、字重与底色，保留字体、斜体与装饰；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
