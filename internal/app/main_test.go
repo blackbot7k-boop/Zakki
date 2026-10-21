@@ -104,10 +104,8 @@ func TestView(t *testing.T) {
 		t.Error("再次点击应回到实时预览")
 	}
 
-	// 搜索条开合（底栏搜索图标）。
-	if err := tt.Click("搜索"); err != nil {
-		t.Fatal(err)
-	}
+	// 搜索条开合（⌘F，底栏不再有搜索图标）。
+	tt.Key(ui.Cmd, ui.KeyF)
 	if !a.findOpen {
 		t.Error("点击搜索后应打开查找条")
 	}
@@ -137,7 +135,7 @@ func TestHeaderClosePreservesNotes(t *testing.T) {
 	}
 }
 
-// TestStatusBarActions 底栏只保留源码和搜索两个操作。
+// TestStatusBarActions 底栏只保留源码开关；搜索入口走 ⌘F 与菜单。
 func TestStatusBarActions(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
@@ -145,7 +143,7 @@ func TestStatusBarActions(t *testing.T) {
 	tt := ui.NewTester(func(c *ui.Context) {
 		a.statusBar(c, c.Theme(), themeIsDark(c.Theme()))
 	}, 400, 36)
-	want := []string{"0 行 · 0 词 · 0 字符", "尚未保存", "源码", "搜索"}
+	want := []string{"0 行 · 0 词 · 0 字符", "尚未保存", "源码"}
 	if got := tt.Texts(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("底栏内容=%q，要 %q", got, want)
 	}
@@ -154,12 +152,6 @@ func TestStatusBarActions(t *testing.T) {
 	}
 	if !a.cfg.Source {
 		t.Error("源码切换应继续可用")
-	}
-	if err := tt.Click("搜索"); err != nil {
-		t.Fatal(err)
-	}
-	if !a.findOpen {
-		t.Error("搜索切换应继续可用")
 	}
 }
 

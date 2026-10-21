@@ -34,9 +34,7 @@ func TestLivePaneResizeAndScrollFocus(t *testing.T) {
 	}
 	for _, height := range []int{900, 340, 540} {
 		tt.SetSize(400, height)
-		if err := tt.Click("搜索"); err != nil {
-			t.Fatal(err)
-		}
+		tt.Key(ui.Cmd, ui.KeyF)
 		tt.ClickAt(8, float32(height-60)) // 左侧留白：对上哪一行就编辑哪一行
 		tt.Frame()                        // 虚拟列表：焦点编辑器所在行在点击后的下一帧构建
 		if !tt.Focused("内容") || a.mdActive < 0 {

@@ -78,9 +78,11 @@ func (a *app) menuTitle(i int) string {
 const tabTooltipPreviewRunes = 40
 
 // tabTooltip 顶栏圆点的悬停提示：标签名 + 切换快捷键，第二行是正文首个
-// 非空行（去掉行首 Markdown 标记），让未命名的圆点也能认出内容。
+// 非空行（去掉行首 Markdown 标记），让未命名的圆点也能认出内容；
+// 与标签名相同的行不重复展示。
 func (a *app) tabTooltip(i int) string {
-	tip := a.menuTitle(i)
+	name := a.menuTitle(i)
+	tip := name
 	if b, ok := parsedFixedBinding(fmt.Sprintf("tab%d", i+1)); ok {
 		tip += "  " + b.displayName()
 	}
@@ -89,7 +91,7 @@ func (a *app) tabTooltip(i int) string {
 		var line string
 		line, rest, _ = strings.Cut(rest, "\n")
 		line = strings.TrimSpace(strings.TrimLeft(line, "#>-*+ \t"))
-		if line == "" {
+		if line == "" || line == name {
 			continue
 		}
 		n := 0

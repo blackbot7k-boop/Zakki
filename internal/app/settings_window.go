@@ -67,6 +67,10 @@ type settingsUIState struct {
 	bodySizeDirty   bool
 	lineHeightDirty bool
 
+	// 保存页：笔记目录是否位于 git 工作区，按目录缓存（避免每帧探测）。
+	gitProbeDir  string
+	gitProbeRepo bool
+
 	// Keymap 页：搜索词、正在录制的命令 ID、冲突/非法提示。keyErrID 非空时
 	// 提示显示在该命令行下方，否则在页面底部（其他页的写入错误也走 keyErr）。
 	keySearch   string
@@ -88,6 +92,7 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.syncDraftBindings()
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
 	ui.keyErr, ui.keyErrID, ui.keyConflict = "", "", keymapConflict{}
+	ui.gitProbeDir = ""
 }
 
 // mergeDraftFromPrefs 把外部更新合并进未编辑字段；已编辑字段继续保留在非模态窗口中。

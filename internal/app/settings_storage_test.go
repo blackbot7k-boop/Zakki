@@ -18,9 +18,15 @@ func TestStoragePageRendersFileAndGitControls(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 900)
 	tt.Frame()
-	for _, want := range []string{"笔记文件", a.notes.DataPath(), "显示文件", "更换位置…", "自动提交"} {
+	for _, want := range []string{"笔记文件", a.notes.DataPath(), "显示文件", "更换位置…"} {
 		if !tt.HasText(want) {
 			t.Fatalf("保存页缺少 %q: %v", want, tt.Texts())
+		}
+	}
+	// 普通文件夹不渲染 Git 区块（用长文案断言，避免命中被裁剪的短标题）。
+	for _, gone := range []string{"自动提交", "提交间隔", "最近提交"} {
+		if tt.HasText(gone) {
+			t.Fatalf("非 git 仓库不应显示 %q: %v", gone, tt.Texts())
 		}
 	}
 	if a.prefs.Git.AutoCommit || a.prefs.Git.AutoPush || a.prefs.Git.CommitMinutes != 1 || a.prefs.Git.PushMinutes != 10 {

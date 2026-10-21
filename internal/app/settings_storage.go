@@ -1,15 +1,28 @@
 package app
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/notes"
 	"zakki/locales"
 )
 
-// storagePage 展示唯一笔记文件与独立的 Git 调度；渲染路径不做磁盘或仓库探测。
+// probeNotesGitRepo 报告笔记文件所在目录是否位于 git 工作区内（向上找 .git），
+// 结果按目录缓存，打开窗口或更换位置时失效。
+func (a *app) probeNotesGitRepo() bool {
+	dir := filepath.Dir(a.notes.DataPath())
+	if a.settingsUI.gitProbeDir != dir {
+		a.settingsUI.gitProbeDir = dir
+		a.settingsUI.gitProbeRepo = notes.DirIsGitRepo(dir)
+	}
+	return a.settingsUI.gitProbeRepo
+}
+
+// storagePage 展示唯一笔记文件与保存状态；Git 区块仅在笔记位于工作区内时出现。
 func (a *app) storagePage(c *ui.Context) {
 	ui.Scroll(c.Key("storage-controls")).Fill().Children(func() {
 		ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
@@ -32,66 +45,67 @@ func (a *app) storagePage(c *ui.Context) {
 				}
 			})
 			ui.Text(c, a.storageStatus()).FontSize(12).TextColor(tMuted(c))
-			ui.Box(c).Grow(1)
-			if ui.Button(c, locales.MenuSave()).Clicked() {
-				a.saveCurrent()
-			}
-			sectionDivider(c)
-			settingsSectionTitle(c, locales.StorageGit())
-			status := a.notes.GitStatus()
-			switch {
-			case status.Missing:
-				settingsLead(c, locales.GitToolsMissing())
-			case status.RepoRoot == "":
-				settingsLead(c, locales.StorageNoRepo())
-			default:
-				ui.Text(c, status.RepoRoot).FontSize(12).TextColor(tMuted(c))
-			}
-			settingsRow(c, locales.StorageAutoCommit(), "", func() {
-				if ui.Switch(c.Key("auto-commit"), &a.settingsUI.draft.Git.AutoCommit).Label(locales.StorageAutoCommit()).Changed() {
-					enabled := a.settingsUI.draft.Git.AutoCommit
-					_ = a.updatePreferences(func(p *preferences) {
-						p.Git.AutoCommit = enabled
-						if !enabled {
-							p.Git.AutoPush = false
-						}
-					})
+			ui.Row(c).FillWidth().Children(func() {
+				ui.Box(c).Grow(1)
+				if ui.Button(c, locales.MenuSave()).Clicked() {
+					a.saveCurrent()
 				}
 			})
-			if a.prefs.Git.AutoCommit {
-				settingsRow(c, locales.StorageCommitInterval(), "", func() {
-					minutes := float64(a.prefs.Git.CommitMinutes)
-					if ui.NumberInput(c.Key("commit-minutes"), &minutes, 1, 1440, 1).Width(150).Label(locales.StorageCommitInterval()).Changed() {
-						_ = a.updatePreferences(func(p *preferences) { p.Git.CommitMinutes = int(minutes) })
+			if a.probeNotesGitRepo() {
+				sectionDivider(c)
+				settingsSectionTitle(c, locales.StorageGit())
+				status := a.notes.GitStatus()
+				if status.Missing {
+					settingsLead(c, locales.GitToolsMissing())
+				} else {
+					ui.Text(c, status.RepoRoot).FontSize(12).TextColor(tMuted(c))
+				}
+				settingsRow(c, locales.StorageAutoCommit(), "", func() {
+					if ui.Switch(c.Key("auto-commit"), &a.settingsUI.draft.Git.AutoCommit).Label(locales.StorageAutoCommit()).Changed() {
+						enabled := a.settingsUI.draft.Git.AutoCommit
+						_ = a.updatePreferences(func(p *preferences) {
+							p.Git.AutoCommit = enabled
+							if !enabled {
+								p.Git.AutoPush = false
+							}
+						})
 					}
 				})
-				settingsRow(c, locales.StorageAutoPush(), locales.StoragePushHint(), func() {
-					if ui.Switch(c.Key("auto-push"), &a.settingsUI.draft.Git.AutoPush).Label(locales.StorageAutoPush()).Changed() {
-						enabled := a.settingsUI.draft.Git.AutoPush
-						_ = a.updatePreferences(func(p *preferences) { p.Git.AutoPush = enabled })
-					}
-				})
-				if a.prefs.Git.AutoPush {
-					settingsRow(c, locales.StoragePushInterval(), "", func() {
-						minutes := float64(a.prefs.Git.PushMinutes)
-						if ui.NumberInput(c.Key("push-minutes"), &minutes, 1, 1440, 1).Width(150).Label(locales.StoragePushInterval()).Changed() {
-							_ = a.updatePreferences(func(p *preferences) { p.Git.PushMinutes = int(minutes) })
+				if a.prefs.Git.AutoCommit {
+					settingsRow(c, locales.StorageCommitInterval(), "", func() {
+						minutes := float64(a.prefs.Git.CommitMinutes)
+						if ui.NumberInput(c.Key("commit-minutes"), &minutes, 1, 1440, 1).Width(150).Label(locales.StorageCommitInterval()).Changed() {
+							_ = a.updatePreferences(func(p *preferences) { p.Git.CommitMinutes = int(minutes) })
 						}
 					})
+					settingsRow(c, locales.StorageAutoPush(), locales.StoragePushHint(), func() {
+						if ui.Switch(c.Key("auto-push"), &a.settingsUI.draft.Git.AutoPush).Label(locales.StorageAutoPush()).Changed() {
+							enabled := a.settingsUI.draft.Git.AutoPush
+							_ = a.updatePreferences(func(p *preferences) { p.Git.AutoPush = enabled })
+						}
+					})
+					if a.prefs.Git.AutoPush {
+						settingsRow(c, locales.StoragePushInterval(), "", func() {
+							minutes := float64(a.prefs.Git.PushMinutes)
+							if ui.NumberInput(c.Key("push-minutes"), &minutes, 1, 1440, 1).Width(150).Label(locales.StoragePushInterval()).Changed() {
+								_ = a.updatePreferences(func(p *preferences) { p.Git.PushMinutes = int(minutes) })
+							}
+						})
+					}
 				}
-			}
-			for _, event := range []struct {
-				label string
-				at    time.Time
-			}{
-				{locales.StorageLastCommit(), status.CommitTime}, {locales.StorageLastPush(), status.PushTime},
-			} {
-				if !event.at.IsZero() {
-					ui.Text(c, event.label+" "+event.at.Format("01-02 15:04")).FontSize(11).TextColor(tMuted(c))
+				for _, event := range []struct {
+					label string
+					at    time.Time
+				}{
+					{locales.StorageLastCommit(), status.CommitTime}, {locales.StorageLastPush(), status.PushTime},
+				} {
+					if !event.at.IsZero() {
+						ui.Text(c, event.label+" "+event.at.Format("01-02 15:04")).FontSize(11).TextColor(tMuted(c))
+					}
 				}
-			}
-			if status.Error != "" {
-				ui.Text(c, status.Error).FontSize(12).TextColor(c.Theme().Danger)
+				if status.Error != "" {
+					ui.Text(c, status.Error).FontSize(12).TextColor(c.Theme().Danger)
+				}
 			}
 			sectionDivider(c)
 			a.cardResetFooter(c, "storage", pageStorage)

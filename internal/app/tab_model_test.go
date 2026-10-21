@@ -1008,4 +1008,13 @@ func TestTabTooltipShowsShortcutAndPreview(t *testing.T) {
 	if got := a.tabTooltip(2); got != want {
 		t.Fatalf("长首行应截断: %q", got)
 	}
+	// 正文首行与标签名相同时不重复展示，取下一个非空行。
+	a.tabs[3].Name, a.tabs[3].Text = "待办", "待办\n买菜"
+	if got, want := a.tabTooltip(3), "待办  "+key(3)+"\n买菜"; got != want {
+		t.Fatalf("重名首行应去重: %q, want %q", got, want)
+	}
+	a.tabs[3].Text = "待办"
+	if got, want := a.tabTooltip(3), "待办  "+key(3); got != want {
+		t.Fatalf("全文仅重名行时应无预览: %q, want %q", got, want)
+	}
 }

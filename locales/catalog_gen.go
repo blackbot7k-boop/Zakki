@@ -546,16 +546,6 @@ func (msgs Messages) StatusSource() string {
 	return Catalog.Format(msgs.locale, "statusSource", nil)
 }
 
-// StatusSearch says "Search"
-// in the language the app shows.
-func StatusSearch() string { return In(i18n.Locale()).StatusSearch() }
-
-// StatusSearch says "Search"
-// in the language of msgs.
-func (msgs Messages) StatusSearch() string {
-	return Catalog.Format(msgs.locale, "statusSearch", nil)
-}
-
 // StatusNeverBackedUp says "Not backed up yet"
 // in the language the app shows.
 func StatusNeverBackedUp() string { return In(i18n.Locale()).StatusNeverBackedUp() }
@@ -2306,46 +2296,6 @@ func RememberBoundsSwitch() string { return In(i18n.Locale()).RememberBoundsSwit
 // in the language of msgs.
 func (msgs Messages) RememberBoundsSwitch() string {
 	return Catalog.Format(msgs.locale, "rememberBoundsSwitch", nil)
-}
-
-// DefaultWindowSizeHint says "Size of a new main window, in Chinese characters per line and lines. A remembered window keeps its last size."
-// in the language the app shows.
-func DefaultWindowSizeHint() string { return In(i18n.Locale()).DefaultWindowSizeHint() }
-
-// DefaultWindowSizeHint says "Size of a new main window, in Chinese characters per line and lines. A remembered window keeps its last size."
-// in the language of msgs.
-func (msgs Messages) DefaultWindowSizeHint() string {
-	return Catalog.Format(msgs.locale, "defaultWindowSizeHint", nil)
-}
-
-// DefaultWindowColumns says "Characters per line"
-// in the language the app shows.
-func DefaultWindowColumns() string { return In(i18n.Locale()).DefaultWindowColumns() }
-
-// DefaultWindowColumns says "Characters per line"
-// in the language of msgs.
-func (msgs Messages) DefaultWindowColumns() string {
-	return Catalog.Format(msgs.locale, "defaultWindowColumns", nil)
-}
-
-// DefaultWindowRows says "Lines"
-// in the language the app shows.
-func DefaultWindowRows() string { return In(i18n.Locale()).DefaultWindowRows() }
-
-// DefaultWindowRows says "Lines"
-// in the language of msgs.
-func (msgs Messages) DefaultWindowRows() string {
-	return Catalog.Format(msgs.locale, "defaultWindowRows", nil)
-}
-
-// DefaultWindowPixels says "About {w, number} × {h, number} px at the current font size"
-// in the language the app shows.
-func DefaultWindowPixels(w int, h int) string { return In(i18n.Locale()).DefaultWindowPixels(w, h) }
-
-// DefaultWindowPixels says "About {w, number} × {h, number} px at the current font size"
-// in the language of msgs.
-func (msgs Messages) DefaultWindowPixels(w int, h int) string {
-	return Catalog.Format(msgs.locale, "defaultWindowPixels", map[string]any{"w": w, "h": h})
 }
 
 // LanguageRow says "App language"
@@ -4822,16 +4772,6 @@ func StorageGit() string { return In(i18n.Locale()).StorageGit() }
 // in the language of msgs.
 func (msgs Messages) StorageGit() string {
 	return Catalog.Format(msgs.locale, "storageGit", nil)
-}
-
-// StorageNoRepo says "Choose a location inside a Git repository to use Git. Zakki does not initialize repositories."
-// in the language the app shows.
-func StorageNoRepo() string { return In(i18n.Locale()).StorageNoRepo() }
-
-// StorageNoRepo says "Choose a location inside a Git repository to use Git. Zakki does not initialize repositories."
-// in the language of msgs.
-func (msgs Messages) StorageNoRepo() string {
-	return Catalog.Format(msgs.locale, "storageNoRepo", nil)
 }
 
 // StorageAutoCommit says "Automatic commits"

@@ -491,29 +491,21 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 			a.iconStatusToggle(c, "sb-source", iconPreview, iconEyeFilled, locales.StatusSource(), a.cfg.Source, t, dark, func() {
 				a.toggleSourceMode()
 			})
-			// 搜索开关（Lucide search）
-			a.iconStatusToggle(c, "sb-find", iconSearch, nil, locales.StatusSearch(), a.findOpen, t, dark, func() {
-				a.findOpen = !a.findOpen
-				if a.findOpen {
-					a.query, a.matchIdx, a.findFocus = "", 0, 1
-				}
-			})
 		})
 	})
 }
 
-// iconStatusToggle 底栏开关图标：激活换实心图形（svgActive 为 nil 时仅变色）。
+// iconStatusToggle 底栏开关图标：激活换实心图形并用强调色。
 func (a *app) iconStatusToggle(c *ui.Context, key string, svg, svgActive *ui.SVG, label string, on bool, t *ui.Theme, dark bool, fn func()) {
 	style := a.resolveStyle(-1, dark, true)
-	fg := style.accent
-	ink := fg
+	ink := style.accent
 	if !on {
-		ink = fg.Mix(style.status, 0.30)
+		ink = style.accent.Mix(style.status, 0.30)
 	}
 	if on && svgActive != nil {
 		svg = svgActive
 	}
-	if chromeIcon(c, key, svg, label, ink, chromeHover(fg)).Clicked() {
+	if chromeIcon(c, key, svg, label, ink, chromeHover(style.accent)).Clicked() {
 		fn()
 	}
 }

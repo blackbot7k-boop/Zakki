@@ -64,7 +64,6 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	for _, want := range []string{
 		"界面外观", "风格", "颜色主题",
 		"排版主题", "中文字体", "英文字体", "代码字体",
-		"常规", "应用语言", "每行字数", "行数",
 		"主题", "排版", "语法配色", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
@@ -239,41 +238,6 @@ func TestSettingsInvalidNumericTextAndErrorSurviveFrames(t *testing.T) {
 	}
 	if a.prefs.Appearance.BodySize != 18 || a.settingsUI.bodySizeText != "18" {
 		t.Fatalf("合法修正未提交或未规范化: prefs=%v text=%q", a.prefs.Appearance.BodySize, a.settingsUI.bodySizeText)
-	}
-}
-
-func TestSettingsDefaultWindowSize(t *testing.T) {
-	a := newTestApp(t)
-	a.openSettings(pageGeneral)
-	tt := ui.NewTester(a.settingsView, 900, 620)
-	if _, ok := tt.Find("每行字数"); !ok {
-		t.Fatalf("常规页应有每行字数: %v", tt.Texts())
-	}
-	if _, ok := tt.Find("行数"); !ok {
-		t.Fatalf("常规页应有行数: %v", tt.Texts())
-	}
-	w, h := defaultWindowSize(a.prefs)
-	if !tt.HasText(locales.DefaultWindowPixels(w, h)) {
-		t.Fatalf("常规页应显示换算后的像素: %v", tt.Texts())
-	}
-	if err := a.updatePreferences(func(p *preferences) {
-		p.Advanced.WindowColumns = 30
-		p.Advanced.WindowRows = 20
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if a.prefs.Advanced.WindowColumns != 30 || a.settingsUI.draft.Advanced.WindowColumns != 30 || a.settingsUI.draft.Advanced.WindowRows != 20 {
-		t.Fatalf("默认尺寸未写入: prefs=%+v draft=%+v", a.prefs.Advanced, a.settingsUI.draft.Advanced)
-	}
-	// 开窗尺寸按当前字号换算：字号变大，同样的字数行数需要更大的窗口。
-	w0, h0 := a.windowOptions().Width, a.windowOptions().Height
-	a.prefs.Appearance.BodySize = 22
-	if w1, h1 := a.windowOptions().Width, a.windowOptions().Height; w1 <= w0 || h1 <= h0 {
-		t.Fatalf("字号变大后窗口应随之变大: %d×%d → %d×%d", w0, h0, w1, h1)
-	}
-	a.resetPageDefaults(pageGeneral)
-	if a.prefs.Advanced.WindowColumns != 22 || a.prefs.Advanced.WindowRows != 16 {
-		t.Fatalf("恢复本页默认应回到 22 × 16: %+v", a.prefs.Advanced)
 	}
 }
 
