@@ -87,7 +87,7 @@ func (a *app) obAppearance(c *ui.Context) {
 	ui.Text(c, locales.OnboardAppearanceTitle()).FontSize(23).Bold()
 	ui.Column(c).FillWidth().Gap(14).Padding(12, 0, 0, 0).Children(func() {
 		obRow(c, locales.LanguageRow(), func() {
-			ui.Segmented(c.Key("ob-language"), &ob.languageIndex, "English", "简体中文").FillWidth().Label(locales.LanguageRow()).OnChange(func() {
+			ui.Segmented(c.Key("ob-language"), &ob.languageIndex, "English", "简体中文").Label(locales.LanguageRow()).OnChange(func() {
 				tag := "en"
 				if ob.languageIndex == 1 {
 					tag = "zh-Hans"
@@ -99,12 +99,12 @@ func (a *app) obAppearance(c *ui.Context) {
 			})
 		})
 		obRow(c, locales.OnboardMode(), func() {
-			ui.Segmented(c.Key("ob-mode"), &ob.modeIndex, locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()).FillWidth().Label(locales.OnboardMode()).OnChange(func() {
+			ui.Segmented(c.Key("ob-mode"), &ob.modeIndex, locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()).Label(locales.OnboardMode()).OnChange(func() {
 				ob.appearance.AppearanceMode = []string{"system", "light", "dark"}[ob.modeIndex]
 			})
 		})
 		obRow(c, locales.OnboardStyle(), func() {
-			ui.Segmented(c.Key("ob-style"), &ob.styleIndex, locales.StyleStandard(), locales.StyleSketch()).FillWidth().Label(locales.OnboardStyle()).OnChange(func() {
+			ui.Segmented(c.Key("ob-style"), &ob.styleIndex, locales.StyleStandard(), locales.StyleSketch()).Label(locales.OnboardStyle()).OnChange(func() {
 				ob.appearance.Style = []string{styleStandard, styleSketch}[ob.styleIndex]
 			})
 		})
@@ -123,9 +123,9 @@ func (a *app) obNotes(c *ui.Context) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Text(c, locales.OnboardTabCountTitle()).Grow(1)
 			ui.Text(c, locales.OnboardTabRange(MaxTabCount)).FontSize(12).TextColor(tMuted(c))
-			ui.Button(c.Key("ob-minus"), "−").Label(locales.OnboardFewerTabs()).Disabled(ob.tabCount <= 1).OnClick(func() { a.setTabCount(ob.tabCount - 1) })
+			ui.Button(c.Key("ob-minus"), "−").Size(28, 26).Label(locales.OnboardFewerTabs()).Disabled(ob.tabCount <= 1).OnClick(func() { a.setTabCount(ob.tabCount - 1) })
 			ui.TextInput(c.Key("ob-count"), &ob.tabCountText).Width(40).Label(locales.OnboardTabCountTitle()).OnChange(a.commitTabCountText)
-			ui.Button(c.Key("ob-plus"), "+").Label(locales.OnboardMoreTabs()).Disabled(ob.tabCount >= MaxTabCount).OnClick(func() { a.setTabCount(ob.tabCount + 1) })
+			ui.Button(c.Key("ob-plus"), "+").Size(28, 26).Label(locales.OnboardMoreTabs()).Disabled(ob.tabCount >= MaxTabCount).OnClick(func() { a.setTabCount(ob.tabCount + 1) })
 		})
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
 			ui.Text(c, locales.StorageChooseTitle()).Bold()
