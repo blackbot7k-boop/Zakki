@@ -202,6 +202,7 @@ func (a *app) applyPreferencesToRuntime() {
 	a.cfg.AlwaysOnTop = p.Window.AlwaysOnTop
 	a.cfg.HideOnEscape = p.Window.HideOnEscape
 	a.notes.SetBackupDir(p.Backup.BackupDir)
+	a.notes.SetGitAutoPush(p.Backup.GitAutoPush, a.gitPushInterval())
 	if a.ready {
 		applyTheme(p.Appearance.AppearanceMode)
 	}
@@ -219,4 +220,9 @@ func (a *app) autosaveDelay() time.Duration {
 
 func (a *app) backupIntervalDuration() time.Duration {
 	return time.Duration(a.prefs.Backup.IntervalMinutes) * time.Minute
+}
+
+// gitPushInterval Git 自动推送的最小间隔（偏好，分钟）。
+func (a *app) gitPushInterval() time.Duration {
+	return time.Duration(a.prefs.Backup.GitPushMinutes) * time.Minute
 }

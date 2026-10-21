@@ -1,13 +1,13 @@
 package app
 
-// 设置页 UI：常规、外观（卡片分组 + 常驻实时预览）、备份与数据、快捷键。
-// 所有字段即时应用并自动保存；「恢复本页默认值」在卡片底部，需确认，不清除笔记或备份。
+// 设置页 UI：常规、外观（卡片分组 + 常驻实时预览）、快捷键与各卡片分组小部件。
+// 备份与数据页在 settings_backup.go。所有字段即时应用并自动保存；
+// 「恢复本页默认值」在卡片底部，需确认，不清除笔记或备份。
 
 import (
 	"strconv"
 	"strings"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
@@ -158,6 +158,10 @@ func (a *app) appearanceControls(c *ui.Context) {
 		a.codeThemeSelect(c)
 		a.codeIndentSelect(c)
 		sectionDivider(c)
+		settingsSectionTitle(c, locales.CardTabBar())
+		settingsLead(c, locales.TabDotShapeHint())
+		a.tabAppearanceSection(c)
+		sectionDivider(c)
 		a.cardResetFooter(c, "appearance", pageAppearance)
 	})
 }
@@ -195,11 +199,13 @@ func (a *app) appearanceModeSelect(c *ui.Context) {
 	})
 }
 
-// colorThemeSelect 颜色主题下拉。
+// colorThemeSelect 颜色主题下拉，左侧迷你样随当前明暗预览所选主题。
 func (a *app) colorThemeSelect(c *ui.Context) {
 	options := colorThemeNames()
+	pal := colorPaletteFor(a.settingsUI.draft.Appearance.ColorTheme, -1, themeIsDark(c.Theme()))
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
+		ui.Box(c).Width(44).Shrink(0).Children(func() { miniMock(c, pal) })
 		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
 			a.pushAppearance()
@@ -617,91 +623,6 @@ func keyOfDisplay(keys, options []string, display string) string {
 	return keys[0]
 }
 
-// ---- 备份与数据 ----
-
-func (a *app) backupPage(c *ui.Context, t *ui.Theme, dark bool) {
-	ui.Column(c).FillWidth().Children(func() {
-		// 未保存指示与写保护状态。
-		a.persistStatus(c, t)
-
-		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
-			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
-				settingsSectionTitle(c, locales.CardBackupFolder())
-				settingsLead(c, locales.BackupFolderHint())
-				mono := monoFontStack("sfmono")
-				// 备份文件夹是唯一存储地址：未选择时显示内置目录。
-				chosen := a.prefs.Backup.BackupDir
-				dir := a.notes.BackupDir()
-				ui.Column(c).FillWidth().PaddingY(8).Gap(6).Children(func() {
-					if chosen == "" {
-						ui.Text(c, locales.BackupNotSet()).FontSize(12).TextColor(tMuted(c))
-					}
-					ui.Text(c, dir).FontSize(12).Font(mono)
-					ui.Row(c).Gap(8).Children(func() {
-						if ui.Button(c, locales.OpenFolder()).Clicked() {
-							_ = mygo.Shell.OpenPath(dir)
-						}
-						if chosen == "" {
-							if ui.Button(c, locales.ChooseFolder()).Clicked() {
-								a.pickBackupFolder()
-							}
-						} else {
-							if ui.Button(c, locales.CommonChange()).Clicked() {
-								a.pickBackupFolder()
-							}
-							if ui.Button(c, locales.CommonDisconnect()).Clicked() {
-								a.disconnectBackupFolder()
-							}
-						}
-					})
-				})
-				sectionDivider(c)
-				settingsSectionTitle(c, locales.CardManualActions())
-				settingsCompactRow(c, locales.ShowDataLocation(), a.notes.DataFile, func() {
-					if ui.Button(c, locales.ShowDataLocation()).Clicked() {
-						mygo.Shell.ShowItemInFolder(a.notes.DataFile)
-					}
-				})
-				sectionDivider(c)
-				a.cardResetFooter(c, "backup", pageBackup)
-			})
-
-			// 本页操作错误（备份失败、目录不可用等）。
-			if a.settingsUI.keyErr != "" {
-				ui.Text(c, a.settingsUI.keyErr).FontSize(12).TextColor(t.Danger)
-			}
-		})
-	})
-}
-
-// persistStatus 持久化状态：未保存指示、重试入口、写保护恢复。
-func (a *app) persistStatus(c *ui.Context, t *ui.Theme) {
-	if msg := a.prefsSaveError(); msg != "" {
-		ui.Column(c).FillWidth().Gap(6).Padding(10, 12).Radius(8).
-			Background(t.Surface).BorderWidth(1).BorderColor(t.Danger).Children(func() {
-			ui.Text(c, locales.SettingsUnsaved()).Bold().TextColor(t.Danger)
-			ui.Text(c, msg).FontSize(12).TextColor(tMuted(c))
-			if ui.Button(c, locales.RetrySave()).Clicked() {
-				a.retryPreferencesSave()
-				a.settingsUI.syncDraftFromPrefs(a.prefs)
-			}
-		})
-	}
-	blocked := a.notes.SaveBlocked()
-	if blocked {
-		ui.Column(c).FillWidth().Gap(6).Padding(10, 12).Radius(8).
-			Background(t.Surface).BorderWidth(1).BorderColor(t.Warning).Children(func() {
-			ui.Text(c, locales.WriteProtectedTitle()).Bold()
-			ui.Text(c, locales.WriteProtectedBody()).FontSize(12).TextColor(tMuted(c))
-			if ui.Button(c, locales.WriteBackButton()).Clicked() {
-				if err := a.confirmWriteBack(); err != nil {
-					a.settingsUI.keyErr = locales.WriteBackFailed(err.Error())
-				}
-			}
-		})
-	}
-}
-
 // ---- 卡片分组小部件 ----
 
 // cardResetFooter 卡片底部的「恢复本页默认值」行（右置，需确认）。
@@ -721,4 +642,140 @@ func (a *app) cardResetFooter(c *ui.Context, key, page string) {
 			a.confirmResetPage(page)
 		})
 	})
+}
+
+// tabAnimSpeedOptions 动画速度选择项（当前语言文案与倍率，顺序固定）。
+func tabAnimSpeedOptions() []struct {
+	display string
+	speed   float32
+} {
+	return []struct {
+		display string
+		speed   float32
+	}{
+		{locales.AnimSlow(), 0.5},
+		{locales.AnimNormal(), 1},
+		{locales.AnimFast(), 1.5},
+		{locales.AnimFaster(), 2},
+	}
+}
+
+func tabAnimSpeedDisplay(speed float32) string {
+	if speed <= 0 {
+		speed = 1
+	}
+	for _, o := range tabAnimSpeedOptions() {
+		if o.speed == speed {
+			return o.display
+		}
+	}
+	return tabAnimSpeedOptions()[1].display // 非法值收敛到「正常」
+}
+
+// tabDotShapeOptions 标签形状选择项（ID 与当前语言文案，顺序即下拉顺序）。
+func tabDotShapeOptions() []struct {
+	id, display string
+} {
+	return []struct {
+		id, display string
+	}{
+		{tabDotShapeDot, locales.ShapeDot()},
+		{tabDotShapeRing, locales.ShapeRing()},
+	}
+}
+
+func tabDotShapeDisplay(id string) string {
+	for _, o := range tabDotShapeOptions() {
+		if o.id == id {
+			return o.display
+		}
+	}
+	return tabDotShapeOptions()[0].display // 空串/非法值收敛到「圆点」
+}
+
+func tabDotShapeKey(display string) string {
+	for _, o := range tabDotShapeOptions() {
+		if o.display == display {
+			return o.id
+		}
+	}
+	return tabDotShapeDot
+}
+
+// tabAppearanceSection 外观页的「顶栏」区：形状、标题宽、动画速度、
+// 顶栏动效、毛玻璃回退强度（标签列表在独立的「标签」页，见 settings_tabs.go）。
+func (a *app) tabAppearanceSection(c *ui.Context) {
+	// Select/Segmented 绑定显示文案，每帧从当前值同步。
+	a.settingsUI.tabAnimSpeedSel = tabAnimSpeedDisplay(a.cfg.TabAnimSpeed)
+	a.settingsUI.tabDotShapeSel = tabDotShapeDisplay(a.activeDotShape())
+	a.settingsUI.tabShapeIdx = 0
+	if a.activeDotShape() == tabDotShapeRing {
+		a.settingsUI.tabShapeIdx = 1
+	}
+	titleW := float64(a.cfg.TabTitleWidth)
+	if titleW <= 0 {
+		titleW = 120
+	}
+	glass := float64(a.cfg.GlassStrength)
+	if glass <= 0 {
+		glass = 0.5
+	}
+	ui.Column(c).FillWidth().Children(func() {
+		settingsCompactRow(c, locales.TabDotShape(), "", func() {
+			if ui.Segmented(c, &a.settingsUI.tabShapeIdx, locales.ShapeDot(), locales.ShapeRing()).
+				Label(locales.TabDotShape()).Changed() {
+				if a.settingsUI.tabShapeIdx == 1 {
+					a.cfg.TabDotShape = tabDotShapeRing
+				} else {
+					a.cfg.TabDotShape = tabDotShapeDot
+				}
+				a.scheduleSave()
+				a.withWindow(func() {})
+			}
+		})
+		settingsCompactRow(c, locales.TabTitleMaxWidth(), locales.TabTitleMaxWidthHint(), func() {
+			if ui.NumberInput(c, &titleW, 80, 220, 10).Changed() {
+				a.cfg.TabTitleWidth = float32(titleW)
+				a.scheduleSave()
+				a.withWindow(func() {})
+			}
+		})
+		settingsCompactRow(c, locales.TabAnimSpeed(), locales.TabAnimSpeedHint(), func() {
+			opts := tabAnimSpeedOptions()
+			displays := make([]string, len(opts))
+			for i, o := range opts {
+				displays[i] = o.display
+			}
+			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel, displays).Width(200).Changed() {
+				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
+				a.scheduleSave()
+			}
+		})
+		settingsCompactRow(c, locales.TabMotion(), locales.TabMotionHint(), func() {
+			motion := !a.cfg.TabMotionOff
+			if ui.Switch(c, &motion).Label(locales.TabMotionSwitch()).Changed() {
+				a.cfg.TabMotionOff = !motion
+				a.scheduleSave()
+				a.withWindow(func() {})
+			}
+		})
+		settingsCompactRow(c, locales.GlassStrength(), locales.GlassStrengthHint(), func() {
+			if ui.NumberInput(c, &glass, 0.2, 0.9, 0.05).Changed() {
+				a.cfg.GlassStrength = float32(glass)
+				a.scheduleSave()
+				a.withWindow(func() {})
+			}
+		})
+		ui.Text(c, locales.TabsPageFootnote()).
+			FontSize(11).TextColor(tMuted(c)).PaddingY(10)
+	})
+}
+
+func tabAnimSpeedKey(display string) float32 {
+	for _, o := range tabAnimSpeedOptions() {
+		if o.display == display {
+			return o.speed
+		}
+	}
+	return 1
 }

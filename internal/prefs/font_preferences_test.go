@@ -10,8 +10,8 @@ import (
 )
 
 func TestFontPreferencesVersion7RoundTrip(t *testing.T) {
-	if CurrentVersion != 8 {
-		t.Fatalf("CurrentVersion = %d, want 8", CurrentVersion)
+	if CurrentVersion != 9 {
+		t.Fatalf("CurrentVersion = %d, want 9", CurrentVersion)
 	}
 	want := Default(5)
 	want.Appearance.BodyFont = "songti"

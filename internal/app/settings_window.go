@@ -44,8 +44,20 @@ type settingsUIState struct {
 	tabDotShapeSel    string
 	tabShapeIdx       int
 
-	// 标签页：展开了调色板的标签 ID（0 = 无）。
-	expandedColor uint64
+	// 标签页：拖拽排序的 List 状态、行内重命名会话与每行取色器草稿。
+	// tabWellColors 是取色器绑定值；tabWellSeeded 记录上次播种基线：
+	// 字段偏离基线即取色器在写入（Changed 可能晚一帧），绝不回播种；
+	// 基线偏离标签色才重播种（行数变化或拖拽重排后行序漂移）。
+	tabList            ui.ListState
+	tabRenaming        uint64
+	tabRenameDraft     string
+	tabRenameFocus     int
+	tabRenameSeenFocus bool
+	tabRenameComposing bool
+	tabWellColors      [MaxTabCount]ui.Color
+	tabWellSeeded      [MaxTabCount]ui.Color
+	tabWellOpen        [MaxTabCount]bool
+	tabWellLen         int
 
 	// 数字字段的文本工作副本、行内错误与文本级 dirty 状态。
 	bodySizeText    string
@@ -61,6 +73,11 @@ type settingsUIState struct {
 	keyErr    string
 
 	resetTarget string // 待确认的「恢复本页默认值」页面
+
+	// 备份页：备份文件夹是否为 git 仓库的探测结果，按文件夹缓存。
+	// 文件夹可能在网络卷上，不能每帧 Stat；打开窗口、切页或换文件夹时重探。
+	gitProbeDir  string
+	gitProbeRepo bool
 }
 
 // syncDraftFromPrefs 明确丢弃草稿并重置为当前偏好（打开窗口、切页、重置时调用）。
@@ -72,6 +89,7 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.syncDraftBindings()
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
 	ui.keyErr = ""
+	ui.gitProbeDir = ""
 }
 
 // mergeDraftFromPrefs 把外部更新合并进未编辑字段；已编辑字段继续保留在非模态窗口中。
@@ -125,6 +143,8 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 	mergeInt(&backupDraft.Keep, backupBefore.Keep, backupCurrent.Keep)
 	mergeBool(&backupDraft.OnLaunch, backupBefore.OnLaunch, backupCurrent.OnLaunch)
 	mergeString(&backupDraft.BackupDir, backupBefore.BackupDir, backupCurrent.BackupDir)
+	mergeBool(&backupDraft.GitAutoPush, backupBefore.GitAutoPush, backupCurrent.GitAutoPush)
+	mergeInt(&backupDraft.GitPushMinutes, backupBefore.GitPushMinutes, backupCurrent.GitPushMinutes)
 
 	ui.draft.Version = next.Version
 	ui.draft.Keymap = next.Keymap
@@ -337,6 +357,12 @@ func (ui *settingsUIState) applyBackupDraft(p *preferences) {
 	if draft.OnLaunch != before.OnLaunch {
 		p.Backup.OnLaunch = draft.OnLaunch
 	}
+	if draft.GitAutoPush != before.GitAutoPush {
+		p.Backup.GitAutoPush = draft.GitAutoPush
+	}
+	if draft.GitPushMinutes != before.GitPushMinutes {
+		p.Backup.GitPushMinutes = draft.GitPushMinutes
+	}
 	if draft.BackupDir != before.BackupDir {
 		p.Backup.BackupDir = draft.BackupDir
 	}
@@ -447,4 +473,20 @@ func (a *app) resetPageAfterConfirmation(page string) {
 // setAlwaysOnTop 通过统一入口切换置顶。
 func (a *app) setAlwaysOnTop(on bool) {
 	_ = a.updatePreferences(func(p *preferences) { p.Window.AlwaysOnTop = on })
+}
+
+// zoomBodySize 快捷缩放正文字号：dir 为 ±1 时在当前生效字号上步进，0 复位为
+// 排版主题默认；上下限与偏好校验（10–40）一致，越界不报错只停在边界。
+func (a *app) zoomBodySize(dir int) {
+	_ = a.updatePreferences(func(p *preferences) {
+		if dir == 0 {
+			p.Appearance.BodySize = 0
+			return
+		}
+		cur := p.Appearance.BodySize
+		if cur <= 0 {
+			cur = markdownLayoutByID(p.Appearance.MarkdownTheme).bodySize
+		}
+		p.Appearance.BodySize = min(max(cur+float32(dir), 10), 40)
+	})
 }

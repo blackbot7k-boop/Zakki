@@ -26,7 +26,10 @@ import (
 // 旧文件从未写过该键，升级时统一补默认。
 // 版本 8 扩展既有字体键：支持 local:<真实家族名>，西文与代码字体另支持 fira；
 // 不新增 JSON 字段，不改默认字体或触发下载。
-const CurrentVersion = 8
+// 版本 9 起备份文件夹支持 Git 自动化：backup.gitAutoPush（开关，默认开）与
+// backup.gitPushMinutes（自动推送最小间隔，默认 10，1–1440）。旧文件从未写过
+// 这两个键，迁移时统一补默认；无破坏性变更。
+const CurrentVersion = 9
 
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
@@ -78,6 +81,12 @@ type Backup struct {
 	// 空串 = 未选择，写入内置目录（应用数据 backups/）。可选云盘同步
 	// 文件夹（iCloud、坚果云等），即云备份。
 	BackupDir string `json:"backupDir"`
+	// GitAutoPush 是备份文件夹为 git 仓库时是否自动提交并推送。提交随每次
+	// 备份进行，推送按 GitPushMinutes 节流。GitAutoPush 只在该文件夹真的是
+	// git 仓库时生效。
+	GitAutoPush bool `json:"gitAutoPush"`
+	// GitPushMinutes 是两次自动推送尝试之间的最小间隔（分钟）。
+	GitPushMinutes int `json:"gitPushMinutes"`
 }
 
 type Keymap struct {
@@ -89,6 +98,9 @@ type Advanced struct {
 	WindowWidth     int `json:"windowWidth"`
 	WindowHeight    int `json:"windowHeight"`
 }
+
+// defaultGitPushMinutes 是 Git 自动推送间隔的默认值（分钟）。
+const defaultGitPushMinutes = 10
 
 // Default 全新安装的默认值。
 func Default(backupIntervalMinutes int) Preferences {
@@ -102,7 +114,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			CodeIndent:     "space2",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
-		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true},
+		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitAutoPush: true, GitPushMinutes: defaultGitPushMinutes},
 		Keymap: Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
 			AutosaveDelayMS: 800,
@@ -173,6 +185,7 @@ func (p Preferences) Validate(v AccelValidator) error {
 	}{
 		{"backup.intervalMinutes", p.Backup.IntervalMinutes, 1, 1440},
 		{"backup.keep", p.Backup.Keep, 1, 1000},
+		{"backup.gitPushMinutes", p.Backup.GitPushMinutes, 1, 1440},
 		{"advanced.autosaveDelayMs", p.Advanced.AutosaveDelayMS, 100, 10000},
 		{"advanced.windowWidth", p.Advanced.WindowWidth, 300, 4096},
 		{"advanced.windowHeight", p.Advanced.WindowHeight, 340, 4096},
@@ -258,7 +271,11 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Backup.Keep == 0 {
 		p.Backup.Keep = def.Backup.Keep
 	}
-	// gitMode 缺键（含版本 2 及更早的文件）按关闭处理：行为与升级前一致。
+	// gitPushMinutes 缺键（含版本 9 之前的文件）补默认；0 本身不合法，
+	// 由 Validate 拒绝，不会与显式值混淆。
+	if p.Backup.GitPushMinutes == 0 {
+		p.Backup.GitPushMinutes = def.Backup.GitPushMinutes
+	}
 	if p.Advanced.AutosaveDelayMS == 0 {
 		p.Advanced.AutosaveDelayMS = def.Advanced.AutosaveDelayMS
 	}
@@ -282,6 +299,9 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // backupDir 键更名发生在严格解码前（见 Decode），这里只承载版本号提升。
 // 版本 7 给从未写过 codeIndent 的旧文件补默认 2 空格。
 // 版本 8 仅扩展字体键取值，保留字体值与此前迁移行为。
+// 版本 9 给从未写过 Git 键的旧文件补 gitAutoPush = true：备份文件夹若是
+// git 仓库，升级后默认恢复自动提交（0.3.6 的 gitMode 用户回到开启状态）。
+// 显式关闭只存在于版本 9 及以后的文件，不受此迁移影响。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -302,6 +322,10 @@ func migrate(p Preferences) Preferences {
 	if p.Version < 7 && p.Appearance.CodeIndent == "" {
 		// 版本 6 及更早的写入方从未写过 codeIndent 键，升级时补默认 2 空格。
 		p.Appearance.CodeIndent = "space2"
+	}
+	if p.Version < 9 && !p.Backup.GitAutoPush {
+		// 版本 8 及更早的写入方从未写过 gitAutoPush 键，缺省即开启。
+		p.Backup.GitAutoPush = true
 	}
 	p.Version = CurrentVersion
 	return p

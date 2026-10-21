@@ -693,14 +693,14 @@ func TestTabsSettingsPage(t *testing.T) {
 			t.Fatalf("列表缺少 %s，texts=%q", a.menuTitle(i), tt.Texts())
 		}
 	}
-	// 外观区控件。
-	for _, want := range []string{"标签标题最大宽度", "切换动画速度", "毛玻璃回退强度"} {
-		if !tt.HasText(want) {
-			t.Fatalf("外观区缺少 %q，texts=%q", want, tt.Texts())
+	// 外观区控件已迁到「外观」页，标签页只剩列表。
+	for _, gone := range []string{"标签标题最大宽度", "切换动画速度", "毛玻璃回退强度"} {
+		if tt.HasText(gone) {
+			t.Fatalf("标签页不应再有 %q（已迁外观页）, texts=%q", gone, tt.Texts())
 		}
 	}
 
-	// 重命名输入：即时保存。
+	// 重命名输入：即时保存（走设置页行内重命名会话）。
 	a.editSettingsTabName(t, tt, 2, "改名乙")
 	if a.tabs[1].Name != "改名乙" {
 		t.Fatalf("设置页重命名未保存: %q", a.tabs[1].Name)
@@ -741,6 +741,7 @@ func TestTabsSettingsDeleteEmptyTabThroughUI(t *testing.T) {
 	before := len(a.tabs)
 	tt := ui.NewTester(a.settingsView, 760, 600)
 
+	// 删除入口是行尾的图标按钮，可达名仍是「删除 〈标签名〉」。
 	if err := tt.Click(locales.TabDelete(a.menuTitle(target))); err != nil {
 		t.Fatal(err)
 	}
@@ -752,53 +753,91 @@ func TestTabsSettingsDeleteEmptyTabThroughUI(t *testing.T) {
 	}
 }
 
-func TestTabsSettingsPaletteToggleAndSelectThroughUI(t *testing.T) {
+func TestTabsSettingsRowUIState(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	a.settingsPage = pageTabs
-	tabID := a.tabs[0].ID
 	a.tabs[0].Color = tabPaletteColors[0]
 	tt := ui.NewTester(a.settingsView, 760, 600)
+	tt.Frame()
 
-	if err := tt.Click(locales.TabRecolor()); err != nil {
-		t.Fatal(err)
+	// 旧控件退场：颜色按钮、上/下移与 ⌘N 提示都不再渲染（用元素精确查找，
+	// 避免命中提示文案里的子串）。
+	for _, gone := range []string{"颜色", "↑", "↓"} {
+		if _, ok := tt.Find(gone); ok {
+			t.Fatalf("设置页不应再有 %q 元素, texts=%q", gone, tt.Texts())
+		}
 	}
-	if a.settingsUI.expandedColor != tabID {
-		t.Fatalf("点击调色板图标后 expandedColor = %d，要 %d", a.settingsUI.expandedColor, tabID)
+	if tt.HasText("⌘1") {
+		t.Fatalf("设置页不应再有 ⌘N 提示, texts=%q", tt.Texts())
 	}
-	if err := tt.Click(locales.TabColorOf(tabPaletteColors[1])); err != nil {
-		t.Fatal(err)
+	// 取色器色块以颜色为可达名，草稿每帧从标签色播种。
+	if _, ok := tt.Find(locales.TabColorOf(a.tabs[0].Color)); !ok {
+		t.Fatalf("找不到颜色色块 %q, texts=%q", locales.TabColorOf(a.tabs[0].Color), tt.Texts())
 	}
-	if a.tabs[0].Color != tabPaletteColors[1] {
-		t.Fatalf("点击色块后颜色 = %q，要 %q", a.tabs[0].Color, tabPaletteColors[1])
-	}
-	if a.settingsUI.expandedColor != 0 {
-		t.Fatalf("选择颜色后调色板应收起: %d", a.settingsUI.expandedColor)
+	if a.settingsUI.tabWellColors[0] != ui.Hex(tabPaletteColors[0]) {
+		t.Fatalf("取色器草稿未播种: %+v", a.settingsUI.tabWellColors[0])
 	}
 
-	if err := tt.Click(locales.TabRecolor()); err != nil {
-		t.Fatal(err)
+	// 双击名称重命名：会话进入后输入框出现，提交/取消走同一存储。
+	a.beginSettingsRename(0)
+	tt.Frame()
+	if a.settingsUI.tabRenaming != a.tabs[0].ID || !tt.HasText(locales.RenameTabField()) {
+		t.Fatalf("应进入行内重命名: renaming=%d", a.settingsUI.tabRenaming)
 	}
-	if a.settingsUI.expandedColor != tabID {
-		t.Fatal("调色板应可再次展开")
+	a.settingsUI.tabRenameDraft = "改名甲" // 与输入框同一存储，等价键入
+	a.commitSettingsRename()
+	tt.Frame()
+	if a.tabs[0].Name != "改名甲" || a.settingsUI.tabRenaming != 0 {
+		t.Fatalf("提交重命名失败: name=%q renaming=%d", a.tabs[0].Name, a.settingsUI.tabRenaming)
 	}
-	if err := tt.Click(locales.TabRecolor()); err != nil {
-		t.Fatal(err)
-	}
-	if a.settingsUI.expandedColor != 0 {
-		t.Fatal("再次点击调色板图标应收起")
-	}
-	if a.tabs[0].Color != tabPaletteColors[1] {
-		t.Fatal("收起调色板不应改变颜色")
+	a.beginSettingsRename(0)
+	a.settingsUI.tabRenameDraft = "草稿"
+	a.cancelSettingsRename()
+	if a.tabs[0].Name != "改名甲" || a.settingsUI.tabRenaming != 0 {
+		t.Fatalf("取消不应落盘: name=%q renaming=%d", a.tabs[0].Name, a.settingsUI.tabRenaming)
 	}
 }
 
-// editSettingsTabName 在设置页里改某标签的名称输入框（经重新构建验证绑定）。
+// TestReorderTab 拖拽排序语义：to 是「移到哪一行之前」，目标在后时
+// 剔除被移行再折算插入点；active 按稳定 ID 跟随。
+func TestReorderTab(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	for len(a.tabs) < 4 {
+		a.addTab()
+	}
+	ids := []uint64{a.tabs[0].ID, a.tabs[1].ID, a.tabs[2].ID, a.tabs[3].ID}
+
+	// 中间行拖到末尾：to=4 → 新下标 3。
+	a.active = 1
+	if !a.reorderTab(1, 4) {
+		t.Fatal("拖到末尾应成功")
+	}
+	if a.tabs[3].ID != ids[1] || a.active != 3 {
+		t.Fatalf("拖到末尾失败: order=%v active=%d", a.tabs, a.active)
+	}
+	// 末尾行拖回队首：to=0。
+	if !a.reorderTab(3, 0) {
+		t.Fatal("拖到队首应成功")
+	}
+	if a.tabs[0].ID != ids[1] || a.active != 0 {
+		t.Fatalf("拖回队首失败: order=%v active=%d", a.tabs, a.active)
+	}
+	// 原位与越界：静默拒绝。
+	if a.reorderTab(0, 1) || a.reorderTab(-1, 0) || a.reorderTab(0, len(a.tabs)+1) {
+		t.Fatal("原位/越界拖拽应拒绝")
+	}
+}
+
+// editSettingsTabName 在设置页里重命名某标签：走行内重命名会话
+// （双击名称进入后的同一存储与提交路径）。
 func (a *app) editSettingsTabName(t *testing.T, tt *ui.Tester, index1 int, name string) {
 	t.Helper()
-	// 直接驱动绑定（与输入框同一存储），等价于键入后触发 Changed。
-	a.tabs[index1-1].Name = name
-	a.renameTab(index1-1, name)
+	a.beginSettingsRename(index1 - 1)
+	tt.Frame()
+	a.settingsUI.tabRenameDraft = name // 与输入框同一存储，等价键入
+	a.commitSettingsRename()
 	tt.Frame()
 }
 

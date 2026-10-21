@@ -50,6 +50,29 @@ type Store struct {
 	// backupDir 是用户选择的备份文件夹，唯一的备份存储地址；空 = DefaultBackupDir。
 	// 随偏好变更由 SetBackupDir 更新（主线程）。
 	backupDir string
+
+	// RunGit 执行 git 命令；测试可注入假 runner。
+	RunGit GitRunner
+
+	// Git 自动化配置由主线程随偏好变更写入；状态由 git worker 发布。
+	gitAutoPush     bool
+	gitPushInterval time.Duration
+	lastGitCommit   time.Time
+	lastGitPush     time.Time
+	lastPushAttempt time.Time
+	gitErr          string
+	// git worker 不持 backupMu：备份入口可能在主线程，git 命令（含网络推送）
+	// 不能让它等。worker 只保留最新一次排队请求；gitGen 随备份文件夹变更递增，
+	// 旧文件夹的结果不再发布。gitDone 在 worker 退出时关闭。
+	gitQueued  *gitRequest
+	gitRunning bool
+	gitDone    chan struct{}
+	gitGen     uint64
+}
+
+type gitRequest struct {
+	dir, name string
+	gen       uint64
 }
 
 type pendingSave struct {
@@ -66,20 +89,60 @@ func NewStore(dataFile, defaultBackupDir string, now func() time.Time, migrate M
 	if now == nil {
 		now = time.Now
 	}
-	return &Store{
+	s := &Store{
 		DataFile:         dataFile,
 		DefaultBackupDir: defaultBackupDir,
 		Now:              now,
 		Migrate:          migrate,
 		stateWrite:       atomicfile.WriteBytes,
+		RunGit:           DefaultGitRunner(),
 	}
+	return s
 }
 
 // SetBackupDir 更新备份文件夹（主线程随偏好变更调用）；空串回到内置目录。
+// 文件夹变更后 Git 状态不再属于新目的地，一并作废。
 func (s *Store) SetBackupDir(dir string) {
 	s.mu.Lock()
+	if dir != s.backupDir {
+		s.lastGitCommit, s.lastGitPush, s.lastPushAttempt, s.gitErr = time.Time{}, time.Time{}, time.Time{}, ""
+		s.gitGen++
+		s.gitQueued = nil
+	}
 	s.backupDir = dir
 	s.mu.Unlock()
+}
+
+// SetGitAutoPush 更新 Git 自动化配置（主线程随偏好变更调用）。interval 为
+// 两次自动 push 尝试之间的最小间隔；enabled 为 false 时备份后不做任何 git 操作。
+func (s *Store) SetGitAutoPush(enabled bool, interval time.Duration) {
+	s.mu.Lock()
+	if !enabled && s.gitAutoPush {
+		s.gitErr = "" // 关闭后旧错误不再有意义
+	}
+	s.gitAutoPush, s.gitPushInterval = enabled, interval
+	s.mu.Unlock()
+}
+
+// GitCommitTime 最近一次自动提交时间（零值表示尚未提交过）。
+func (s *Store) GitCommitTime() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastGitCommit
+}
+
+// GitPushTime 最近一次成功自动推送时间（零值表示尚未推送过）。
+func (s *Store) GitPushTime() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastGitPush
+}
+
+// GitError 最近一次自动提交/推送的错误描述（空串表示没有）。
+func (s *Store) GitError() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.gitErr
 }
 
 // BackupDir 返回当前生效的备份目的地：所选文件夹，未选择时是内置目录。
@@ -282,8 +345,119 @@ func (s *Store) writeBackup(keep int, interval time.Duration, periodic bool) (st
 
 	s.mu.Lock()
 	s.lastBackup = s.Now()
+	if s.gitAutoPush {
+		s.queueGitLocked(gitRequest{dir: dest, name: name, gen: s.gitGen})
+	}
 	s.mu.Unlock()
 	return name, nil
+}
+
+// queueGitLocked 排队一次 git 步骤并在需要时启动 worker；调用方持有 mu。
+// 忙碌时只保留最新请求：一次提交会带上此前所有未提交的备份变更。
+func (s *Store) queueGitLocked(req gitRequest) {
+	s.gitQueued = &req
+	if s.gitRunning {
+		return
+	}
+	s.gitRunning = true
+	s.gitDone = make(chan struct{})
+	go s.gitWorker()
+}
+
+func (s *Store) gitWorker() {
+	for {
+		s.mu.Lock()
+		req := s.gitQueued
+		s.gitQueued = nil
+		if req == nil {
+			s.gitRunning = false
+			close(s.gitDone)
+			s.mu.Unlock()
+			return
+		}
+		s.mu.Unlock()
+		s.runGitBackupStep(*req)
+	}
+}
+
+// WaitGitIdle 等待已排队的 git 步骤全部完成（测试与需要确定状态的调用方用）。
+func (s *Store) WaitGitIdle() {
+	for {
+		s.mu.Lock()
+		if !s.gitRunning {
+			s.mu.Unlock()
+			return
+		}
+		done := s.gitDone
+		s.mu.Unlock()
+		<-done
+	}
+}
+
+// runGitBackupStep 把备份文件夹里的备份变更（含修剪产生的删除）提交到 git
+// 仓库，并在距上次推送尝试超过配置间隔时 push。在 git worker 上运行，与备份
+// 写入并行；命令耗时受 gitCommandTimeout 约束。仓库缺失时静默跳过；
+// 身份/远端等失败如实记录，下次备份自动重试。备份文件夹已更换时丢弃结果。
+func (s *Store) runGitBackupStep(req gitRequest) {
+	if !DirIsGitRepo(req.dir) {
+		return
+	}
+	message := "backup: " + strings.TrimSuffix(req.name, ".json")
+	committed, err := runGitJob(s.RunGit, req.dir, message)
+
+	s.mu.Lock()
+	if s.gitGen != req.gen {
+		s.mu.Unlock()
+		return
+	}
+	if err != nil {
+		s.gitErr = err.Error()
+	} else {
+		s.gitErr = ""
+		if committed {
+			s.lastGitCommit = s.Now()
+		}
+	}
+	interval := s.gitPushInterval
+	s.mu.Unlock()
+	if err != nil {
+		slog.Warn("Git 自动备份失败", "dir", req.dir, "error", err)
+		return // 提交失败不推送，等下次备份重试
+	}
+
+	// 推送按尝试时间节流：失败也计一次尝试，避免无网时每次备份都硬撞。
+	now := s.Now()
+	s.mu.Lock()
+	due := s.gitGen == req.gen && interval > 0 &&
+		(s.lastPushAttempt.IsZero() || now.Sub(s.lastPushAttempt) >= interval)
+	if due {
+		s.lastPushAttempt = now
+	}
+	s.mu.Unlock()
+	if !due {
+		return
+	}
+	_, err = s.runGit(req.dir, "push")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.gitGen != req.gen {
+		return
+	}
+	if err != nil {
+		s.gitErr = err.Error()
+		slog.Warn("Git 自动推送失败", "dir", req.dir, "error", err)
+		return
+	}
+	s.gitErr = ""
+	s.lastGitPush = s.Now()
+}
+
+// runGit 执行一条 git 命令；runner 未注入时视为未配置，返回哨兵错误。
+func (s *Store) runGit(dir string, args ...string) (string, error) {
+	if s.RunGit == nil {
+		return "", fmt.Errorf("git runner 未配置")
+	}
+	return s.RunGit(dir, args...)
 }
 
 // backupFilePrefix 是备份文件的命名前缀；legacyBackupFilePrefix

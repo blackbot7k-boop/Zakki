@@ -230,26 +230,6 @@ func (msgs Messages) TabSwitchTo(tab string) string {
 	return Catalog.Format(msgs.locale, "tabSwitchTo", map[string]any{"tab": tab})
 }
 
-// TabMoveUp says "Move {tab} Up"
-// in the language the app shows.
-func TabMoveUp(tab string) string { return In(i18n.Locale()).TabMoveUp(tab) }
-
-// TabMoveUp says "Move {tab} Up"
-// in the language of msgs.
-func (msgs Messages) TabMoveUp(tab string) string {
-	return Catalog.Format(msgs.locale, "tabMoveUp", map[string]any{"tab": tab})
-}
-
-// TabMoveDown says "Move {tab} Down"
-// in the language the app shows.
-func TabMoveDown(tab string) string { return In(i18n.Locale()).TabMoveDown(tab) }
-
-// TabMoveDown says "Move {tab} Down"
-// in the language of msgs.
-func (msgs Messages) TabMoveDown(tab string) string {
-	return Catalog.Format(msgs.locale, "tabMoveDown", map[string]any{"tab": tab})
-}
-
 // TabDelete says "Delete {tab}"
 // in the language the app shows.
 func TabDelete(tab string) string { return In(i18n.Locale()).TabDelete(tab) }
@@ -388,6 +368,16 @@ func FindDone() string { return In(i18n.Locale()).FindDone() }
 // in the language of msgs.
 func (msgs Messages) FindDone() string {
 	return Catalog.Format(msgs.locale, "findDone", nil)
+}
+
+// FindClose says "Close Find"
+// in the language the app shows.
+func FindClose() string { return In(i18n.Locale()).FindClose() }
+
+// FindClose says "Close Find"
+// in the language of msgs.
+func (msgs Messages) FindClose() string {
+	return Catalog.Format(msgs.locale, "findClose", nil)
 }
 
 // FindNoResults says "No results"
@@ -536,6 +526,36 @@ func (msgs Messages) MenuKeepOnTop() string {
 	return Catalog.Format(msgs.locale, "menuKeepOnTop", nil)
 }
 
+// MenuZoomIn says "Bigger Text"
+// in the language the app shows.
+func MenuZoomIn() string { return In(i18n.Locale()).MenuZoomIn() }
+
+// MenuZoomIn says "Bigger Text"
+// in the language of msgs.
+func (msgs Messages) MenuZoomIn() string {
+	return Catalog.Format(msgs.locale, "menuZoomIn", nil)
+}
+
+// MenuZoomOut says "Smaller Text"
+// in the language the app shows.
+func MenuZoomOut() string { return In(i18n.Locale()).MenuZoomOut() }
+
+// MenuZoomOut says "Smaller Text"
+// in the language of msgs.
+func (msgs Messages) MenuZoomOut() string {
+	return Catalog.Format(msgs.locale, "menuZoomOut", nil)
+}
+
+// MenuZoomReset says "Default Text Size"
+// in the language the app shows.
+func MenuZoomReset() string { return In(i18n.Locale()).MenuZoomReset() }
+
+// MenuZoomReset says "Default Text Size"
+// in the language of msgs.
+func (msgs Messages) MenuZoomReset() string {
+	return Catalog.Format(msgs.locale, "menuZoomReset", nil)
+}
+
 // MenuPrevTab says "Previous Tab"
 // in the language the app shows.
 func MenuPrevTab() string { return In(i18n.Locale()).MenuPrevTab() }
@@ -664,6 +684,16 @@ func MenuRenameTab() string { return In(i18n.Locale()).MenuRenameTab() }
 // in the language of msgs.
 func (msgs Messages) MenuRenameTab() string {
 	return Catalog.Format(msgs.locale, "menuRenameTab", nil)
+}
+
+// MenuDeleteTab says "Delete Tab"
+// in the language the app shows.
+func MenuDeleteTab() string { return In(i18n.Locale()).MenuDeleteTab() }
+
+// MenuDeleteTab says "Delete Tab"
+// in the language of msgs.
+func (msgs Messages) MenuDeleteTab() string {
+	return Catalog.Format(msgs.locale, "menuDeleteTab", nil)
 }
 
 // MenuBackupNow says "Back Up Now"
@@ -1108,6 +1138,16 @@ func FixedRenameTab() string { return In(i18n.Locale()).FixedRenameTab() }
 // in the language of msgs.
 func (msgs Messages) FixedRenameTab() string {
 	return Catalog.Format(msgs.locale, "fixedRenameTab", nil)
+}
+
+// FixedDeleteTab says "Delete Tab"
+// in the language the app shows.
+func FixedDeleteTab() string { return In(i18n.Locale()).FixedDeleteTab() }
+
+// FixedDeleteTab says "Delete Tab"
+// in the language of msgs.
+func (msgs Messages) FixedDeleteTab() string {
+	return Catalog.Format(msgs.locale, "fixedDeleteTab", nil)
 }
 
 // FixedPrevTab says "Previous Tab"
@@ -2782,11 +2822,11 @@ func (msgs Messages) CardTabBar() string {
 	return Catalog.Format(msgs.locale, "cardTabBar", nil)
 }
 
-// TabsListLead says "Click a color dot to switch. Click Color to recolor. Double-click a dot or the title to rename."
+// TabsListLead says "Drag rows to reorder. Click a color to change it. Double-click a name to rename."
 // in the language the app shows.
 func TabsListLead() string { return In(i18n.Locale()).TabsListLead() }
 
-// TabsListLead says "Click a color dot to switch. Click Color to recolor. Double-click a dot or the title to rename."
+// TabsListLead says "Drag rows to reorder. Click a color to change it. Double-click a name to rename."
 // in the language of msgs.
 func (msgs Messages) TabsListLead() string {
 	return Catalog.Format(msgs.locale, "tabsListLead", nil)
@@ -2940,26 +2980,6 @@ func TabDotShapeHint() string { return In(i18n.Locale()).TabDotShapeHint() }
 // in the language of msgs.
 func (msgs Messages) TabDotShapeHint() string {
 	return Catalog.Format(msgs.locale, "tabDotShapeHint", nil)
-}
-
-// TabCurrent says "Current"
-// in the language the app shows.
-func TabCurrent() string { return In(i18n.Locale()).TabCurrent() }
-
-// TabCurrent says "Current"
-// in the language of msgs.
-func (msgs Messages) TabCurrent() string {
-	return Catalog.Format(msgs.locale, "tabCurrent", nil)
-}
-
-// TabRecolor says "Color"
-// in the language the app shows.
-func TabRecolor() string { return In(i18n.Locale()).TabRecolor() }
-
-// TabRecolor says "Color"
-// in the language of msgs.
-func (msgs Messages) TabRecolor() string {
-	return Catalog.Format(msgs.locale, "tabRecolor", nil)
 }
 
 // ShapeDot says "Dot"
@@ -3152,14 +3172,14 @@ func (msgs Messages) OpenFolder() string {
 	return Catalog.Format(msgs.locale, "openFolder", nil)
 }
 
-// CardManualActions says "Do it now"
+// CardDataFile says "Data file"
 // in the language the app shows.
-func CardManualActions() string { return In(i18n.Locale()).CardManualActions() }
+func CardDataFile() string { return In(i18n.Locale()).CardDataFile() }
 
-// CardManualActions says "Do it now"
+// CardDataFile says "Data file"
 // in the language of msgs.
-func (msgs Messages) CardManualActions() string {
-	return Catalog.Format(msgs.locale, "cardManualActions", nil)
+func (msgs Messages) CardDataFile() string {
+	return Catalog.Format(msgs.locale, "cardDataFile", nil)
 }
 
 // ShowDataLocation says "Show Data Location"
@@ -3170,6 +3190,16 @@ func ShowDataLocation() string { return In(i18n.Locale()).ShowDataLocation() }
 // in the language of msgs.
 func (msgs Messages) ShowDataLocation() string {
 	return Catalog.Format(msgs.locale, "showDataLocation", nil)
+}
+
+// ShowInFinder says "Show in Finder"
+// in the language the app shows.
+func ShowInFinder() string { return In(i18n.Locale()).ShowInFinder() }
+
+// ShowInFinder says "Show in Finder"
+// in the language of msgs.
+func (msgs Messages) ShowInFinder() string {
+	return Catalog.Format(msgs.locale, "showInFinder", nil)
 }
 
 // SaveFailedQuitCancelled says "Save failed; quit or update-restart cancelled: {err}"
@@ -3920,24 +3950,122 @@ func (msgs Messages) CardBackupFolder() string {
 	return Catalog.Format(msgs.locale, "cardBackupFolder", nil)
 }
 
-// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. Left unset, b…"
+// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. If the folder…"
 // in the language the app shows.
 func BackupFolderHint() string { return In(i18n.Locale()).BackupFolderHint() }
 
-// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. Left unset, b…"
+// BackupFolderHint says "Backups live only in this folder; a cloud-sync folder (iCloud, Nutstore, …) makes them cloud backups. If the folder…"
 // in the language of msgs.
 func (msgs Messages) BackupFolderHint() string {
 	return Catalog.Format(msgs.locale, "backupFolderHint", nil)
 }
 
-// BackupNotSet says "None chosen"
+// BackupBuiltinLead says "No folder chosen — backups currently go to:"
 // in the language the app shows.
-func BackupNotSet() string { return In(i18n.Locale()).BackupNotSet() }
+func BackupBuiltinLead() string { return In(i18n.Locale()).BackupBuiltinLead() }
 
-// BackupNotSet says "None chosen"
+// BackupBuiltinLead says "No folder chosen — backups currently go to:"
 // in the language of msgs.
-func (msgs Messages) BackupNotSet() string {
-	return Catalog.Format(msgs.locale, "backupNotSet", nil)
+func (msgs Messages) BackupBuiltinLead() string {
+	return Catalog.Format(msgs.locale, "backupBuiltinLead", nil)
+}
+
+// GitSectionTitle says "Git repository"
+// in the language the app shows.
+func GitSectionTitle() string { return In(i18n.Locale()).GitSectionTitle() }
+
+// GitSectionTitle says "Git repository"
+// in the language of msgs.
+func (msgs Messages) GitSectionTitle() string {
+	return Catalog.Format(msgs.locale, "gitSectionTitle", nil)
+}
+
+// GitAutoPushLabel says "Automatic commit & push"
+// in the language the app shows.
+func GitAutoPushLabel() string { return In(i18n.Locale()).GitAutoPushLabel() }
+
+// GitAutoPushLabel says "Automatic commit & push"
+// in the language of msgs.
+func (msgs Messages) GitAutoPushLabel() string {
+	return Catalog.Format(msgs.locale, "gitAutoPushLabel", nil)
+}
+
+// GitAutoPushHint says "Commits backup files after each backup and pushes on the interval below. Only backup files are committed; the rest of…"
+// in the language the app shows.
+func GitAutoPushHint() string { return In(i18n.Locale()).GitAutoPushHint() }
+
+// GitAutoPushHint says "Commits backup files after each backup and pushes on the interval below. Only backup files are committed; the rest of…"
+// in the language of msgs.
+func (msgs Messages) GitAutoPushHint() string {
+	return Catalog.Format(msgs.locale, "gitAutoPushHint", nil)
+}
+
+// GitPushIntervalLabel says "Push interval (minutes)"
+// in the language the app shows.
+func GitPushIntervalLabel() string { return In(i18n.Locale()).GitPushIntervalLabel() }
+
+// GitPushIntervalLabel says "Push interval (minutes)"
+// in the language of msgs.
+func (msgs Messages) GitPushIntervalLabel() string {
+	return Catalog.Format(msgs.locale, "gitPushIntervalLabel", nil)
+}
+
+// GitPushIntervalHint says "Minimum time between automatic push attempts"
+// in the language the app shows.
+func GitPushIntervalHint() string { return In(i18n.Locale()).GitPushIntervalHint() }
+
+// GitPushIntervalHint says "Minimum time between automatic push attempts"
+// in the language of msgs.
+func (msgs Messages) GitPushIntervalHint() string {
+	return Catalog.Format(msgs.locale, "gitPushIntervalHint", nil)
+}
+
+// GitStatusNever says "Never committed"
+// in the language the app shows.
+func GitStatusNever() string { return In(i18n.Locale()).GitStatusNever() }
+
+// GitStatusNever says "Never committed"
+// in the language of msgs.
+func (msgs Messages) GitStatusNever() string {
+	return Catalog.Format(msgs.locale, "gitStatusNever", nil)
+}
+
+// GitStatusCommit says "Committed {time}"
+// in the language the app shows.
+//
+// time is 01-02 15:04
+func GitStatusCommit(time_ string) string { return In(i18n.Locale()).GitStatusCommit(time_) }
+
+// GitStatusCommit says "Committed {time}"
+// in the language of msgs.
+//
+// time is 01-02 15:04
+func (msgs Messages) GitStatusCommit(time_ string) string {
+	return Catalog.Format(msgs.locale, "gitStatusCommit", map[string]any{"time": time_})
+}
+
+// GitStatusPush says "Pushed {time}"
+// in the language the app shows.
+//
+// time is 01-02 15:04
+func GitStatusPush(time_ string) string { return In(i18n.Locale()).GitStatusPush(time_) }
+
+// GitStatusPush says "Pushed {time}"
+// in the language of msgs.
+//
+// time is 01-02 15:04
+func (msgs Messages) GitStatusPush(time_ string) string {
+	return Catalog.Format(msgs.locale, "gitStatusPush", map[string]any{"time": time_})
+}
+
+// GitStatusFailed says "Failed: {err}"
+// in the language the app shows.
+func GitStatusFailed(err string) string { return In(i18n.Locale()).GitStatusFailed(err) }
+
+// GitStatusFailed says "Failed: {err}"
+// in the language of msgs.
+func (msgs Messages) GitStatusFailed(err string) string {
+	return Catalog.Format(msgs.locale, "gitStatusFailed", map[string]any{"err": err})
 }
 
 // FontCacheUnavailable says "Font cache unavailable: {fonts}"

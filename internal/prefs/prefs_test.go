@@ -101,7 +101,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 8 {
+	if got.Version != CurrentVersion || CurrentVersion != 9 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -256,6 +256,41 @@ func TestPreferencesMigrateSingleBackupFolder(t *testing.T) {
 	}
 	if _, err := Decode([]byte(`{"version":6,"backup":{"gitMode":"commit"}}`), testAccel); err == nil {
 		t.Fatal("v6 文件出现旧键 gitMode 必须拒绝")
+	}
+}
+
+// TestPreferencesMigrateGitAutomation 版本 9 起备份文件夹支持 Git 自动化：
+// 旧文件从未写过这两个键，迁移补 gitAutoPush = true 与默认推送间隔；
+// 显式关闭只存在于版本 9 及以后的文件，原样保留。
+func TestPreferencesMigrateGitAutomation(t *testing.T) {
+	// v8 文件缺 Git 键：迁移后开启，间隔补默认。
+	v8, err := Decode([]byte(`{"version":8,"backup":{"backupDir":"/tmp/repo"}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v8.Version != CurrentVersion || !v8.Backup.GitAutoPush {
+		t.Fatalf("旧文件迁移后 Git 自动化应默认开启: %+v 版本 %d", v8.Backup, v8.Version)
+	}
+	if v8.Backup.GitPushMinutes != defaultGitPushMinutes {
+		t.Fatalf("缺推送间隔应补默认 %d: %d", defaultGitPushMinutes, v8.Backup.GitPushMinutes)
+	}
+	// v9 文件显式关闭：原样保留，不受迁移影响。
+	v9off, err := Decode([]byte(`{"version":9,"backup":{"gitAutoPush":false,"gitPushMinutes":30}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v9off.Backup.GitAutoPush || v9off.Backup.GitPushMinutes != 30 {
+		t.Fatalf("v9 显式值应原样保留: %+v", v9off.Backup)
+	}
+	// 全新安装默认开启且间隔为默认值。
+	if d := Default(5); !d.Backup.GitAutoPush || d.Backup.GitPushMinutes != defaultGitPushMinutes {
+		t.Fatalf("默认偏好 Git 键错误: %+v", d.Backup)
+	}
+	// 推送间隔超出 1–1440 拒绝。
+	bad := Default(5)
+	bad.Backup.GitPushMinutes = 1441
+	if err := bad.Validate(testAccel); err == nil {
+		t.Fatal("gitPushMinutes 超范围必须拒绝")
 	}
 }
 

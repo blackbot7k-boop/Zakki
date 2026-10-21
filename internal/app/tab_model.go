@@ -240,7 +240,8 @@ func (a *app) tabIndexByID(id uint64) int {
 	return -1
 }
 
-// confirmDeleteTab UI 入口：有内容的标签先弹原生确认，确认后按稳定 ID
+// confirmDeleteTab UI 入口：有内容的标签先弹原生确认（居中于主窗口，
+// 回车默认落在「取消」，危险操作不跟默认键），确认后按稳定 ID
 // 重新定位，避免对话框期间重排标签后误删另一项。
 func (a *app) confirmDeleteTab(i int) {
 	if i < 0 || i >= len(a.tabs) || len(a.tabs) <= 1 {
@@ -254,11 +255,14 @@ func (a *app) confirmDeleteTab(i int) {
 	title := a.menuTitle(i)
 	go func() {
 		res, err := mygo.Dialog.Message(mygo.MessageOptions{
-			Type:    mygo.MessageQuestion,
-			Title:   locales.DialogDeleteTabTitle(),
-			Message: locales.DialogDeleteTabMessage(title),
-			Detail:  locales.DialogDeleteTabDetail(),
-			Buttons: []string{locales.DialogDeleteTabConfirm(), locales.CommonCancel()},
+			Parent:        a.win,
+			Type:          mygo.MessageQuestion,
+			Title:         locales.DialogDeleteTabTitle(),
+			Message:       locales.DialogDeleteTabMessage(title),
+			Detail:        locales.DialogDeleteTabDetail(),
+			Buttons:       []string{locales.DialogDeleteTabConfirm(), locales.CommonCancel()},
+			DefaultButton: 1, // 回车给「取消」：删除必须显式确认
+			CancelButton:  1,
 		})
 		if err != nil || res.Button != 0 {
 			return
@@ -297,15 +301,34 @@ func (a *app) renameTab(i int, name string) {
 // moveTab 上/下移动第 i 个标签（dir=-1 上移，+1 下移）；
 // active 跟随它原来指向的那个标签（按 ID）。
 func (a *app) moveTab(i, dir int) bool {
-	j := i + dir
-	if i < 0 || i >= len(a.tabs) || j < 0 || j >= len(a.tabs) {
+	to := i - 1 // 上移：落到前一行之前
+	if dir > 0 {
+		to = i + 2 // 下移：落到后一行之后（to 语义是「移到哪一行之前」）
+	}
+	return a.reorderTab(i, to)
+}
+
+// reorderTab 把第 i 个标签移动到 to（List 语义：移到第 to 行之前，
+// len(tabs) 表示末尾），供设置页拖拽排序与 moveTab 共用；
+// active 跟随它原来指向的那个标签（按 ID）。
+func (a *app) reorderTab(i, to int) bool {
+	if i < 0 || i >= len(a.tabs) || to < 0 || to > len(a.tabs) {
+		return false
+	}
+	j := to
+	if j > i {
+		j-- // 目标在后：剔除被移走的那行后再折算插入点
+	}
+	if j == i {
 		return false
 	}
 	activeID := a.tabs[a.active].ID
 	if a.cfg.Source {
 		a.saveSourceSession()
 	}
-	a.tabs[i], a.tabs[j] = a.tabs[j], a.tabs[i]
+	tb := a.tabs[i]
+	a.tabs = slices.Delete(a.tabs, i, i+1)
+	a.tabs = slices.Insert(a.tabs, j, tb)
 	for k := range a.tabs {
 		if a.tabs[k].ID == activeID {
 			a.active = k
