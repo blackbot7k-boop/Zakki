@@ -245,7 +245,7 @@ func TestSketchStyleSwitch(t *testing.T) {
 	a := newTestApp(t)
 	a.fonts.families = families("LXGW WenKai Lite")
 	a.prefs.Appearance.ColorTheme, a.prefs.Appearance.MarkdownTheme = "paper", "book"
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
@@ -315,7 +315,7 @@ func TestJitterDeterministic(t *testing.T) {
 // 「风格」）；选其他颜色只改颜色主题，不联动风格、排版与字体。
 func TestSketchColorDropdownAppliesColorOnly(t *testing.T) {
 	a := newTestApp(t)
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()

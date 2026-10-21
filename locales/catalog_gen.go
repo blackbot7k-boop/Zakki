@@ -2188,14 +2188,14 @@ func (msgs Messages) PageGeneral() string {
 	return Catalog.Format(msgs.locale, "pageGeneral", nil)
 }
 
-// PageAppearance says "Appearance"
+// CardGeneral says "Basics"
 // in the language the app shows.
-func PageAppearance() string { return In(i18n.Locale()).PageAppearance() }
+func CardGeneral() string { return In(i18n.Locale()).CardGeneral() }
 
-// PageAppearance says "Appearance"
+// CardGeneral says "Basics"
 // in the language of msgs.
-func (msgs Messages) PageAppearance() string {
-	return Catalog.Format(msgs.locale, "pageAppearance", nil)
+func (msgs Messages) CardGeneral() string {
+	return Catalog.Format(msgs.locale, "cardGeneral", nil)
 }
 
 // PageTabs says "Tabs"
@@ -2278,16 +2278,6 @@ func (msgs Messages) SettingsUnsaved() string {
 	return Catalog.Format(msgs.locale, "settingsUnsaved", nil)
 }
 
-// CardWindow says "Window"
-// in the language the app shows.
-func CardWindow() string { return In(i18n.Locale()).CardWindow() }
-
-// CardWindow says "Window"
-// in the language of msgs.
-func (msgs Messages) CardWindow() string {
-	return Catalog.Format(msgs.locale, "cardWindow", nil)
-}
-
 // RememberBounds says "Remember window position & size"
 // in the language the app shows.
 func RememberBounds() string { return In(i18n.Locale()).RememberBounds() }
@@ -2356,16 +2346,6 @@ func DefaultWindowPixels(w int, h int) string { return In(i18n.Locale()).Default
 // in the language of msgs.
 func (msgs Messages) DefaultWindowPixels(w int, h int) string {
 	return Catalog.Format(msgs.locale, "defaultWindowPixels", map[string]any{"w": w, "h": h})
-}
-
-// CardLanguage says "Language"
-// in the language the app shows.
-func CardLanguage() string { return In(i18n.Locale()).CardLanguage() }
-
-// CardLanguage says "Language"
-// in the language of msgs.
-func (msgs Messages) CardLanguage() string {
-	return Catalog.Format(msgs.locale, "cardLanguage", nil)
 }
 
 // LanguageRow says "App language"

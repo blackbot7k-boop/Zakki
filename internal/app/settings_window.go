@@ -1,7 +1,7 @@
 package app
 
 // 设置窗口：单实例、非模态、系统标题栏，独立记忆位置和尺寸。
-// 左侧导航：常规 / 外观 / 标签与外观 / 备份与数据 / 快捷键。
+// 左侧导航：通用 / 标签 / 备份与数据 / 快捷键。
 // 所有字段即时生效并自动保存；每页提供「恢复本页默认值」。
 
 import (
@@ -15,11 +15,10 @@ import (
 
 // settingsPageID 设置页 ID。
 const (
-	pageGeneral    = "general"
-	pageAppearance = "appearance"
-	pageTabs       = "tabs"
-	pageBackup     = "backup"
-	pageKeymap     = "keymap"
+	pageGeneral = "general"
+	pageTabs    = "tabs"
+	pageBackup  = "backup"
+	pageKeymap  = "keymap"
 )
 
 // settingsUIState 设置窗口的临时输入状态（主线程）。控件绑定草稿，
@@ -264,7 +263,6 @@ func (a *app) settingsView(c *ui.Context) {
 	ui.Row(c).Fill().LineHeight(1.35).Children(func() {
 		if ui.Sidebar(c, &a.settingsPage, func() {
 			ui.SidebarItem(c, pageGeneral, iconGear, locales.PageGeneral())
-			ui.SidebarItem(c, pageAppearance, iconPalette, locales.PageAppearance())
 			ui.SidebarItem(c, pageTabs, iconLayers, locales.PageTabs())
 			ui.SidebarItem(c, pageBackup, iconDatabase, locales.PageBackup())
 			ui.SidebarItem(c, pageKeymap, iconKeyboard, locales.PageKeymap())
@@ -274,8 +272,6 @@ func (a *app) settingsView(c *ui.Context) {
 		}
 		ui.Column(c).Fill().Grow(1).Padding(28, 12, 28, 24).Gap(18).Children(func() {
 			switch a.settingsPage {
-			case pageAppearance:
-				a.appearancePage(c)
 			case pageTabs:
 				a.tabsPage(c, &t)
 			case pageBackup:
@@ -283,7 +279,7 @@ func (a *app) settingsView(c *ui.Context) {
 			case pageKeymap:
 				a.keymapPage(c, &t, dark)
 			default:
-				a.generalPage(c, &t, dark)
+				a.generalPage(c)
 			}
 		})
 	})
@@ -392,7 +388,6 @@ func (a *app) resetPageDefaults(page string) {
 			p.Window = defaults.Window
 			p.Advanced.WindowColumns = defaults.Advanced.WindowColumns
 			p.Advanced.WindowRows = defaults.Advanced.WindowRows
-		case pageAppearance:
 			p.Appearance = defaults.Appearance
 		case pageBackup:
 			p.Backup = defaults.Backup

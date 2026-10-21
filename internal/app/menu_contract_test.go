@@ -336,7 +336,7 @@ func TestSettingsWindowLifecycleState(t *testing.T) {
 func TestSettingsViewRendersPages(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	for _, page := range []string{pageGeneral, pageAppearance, pageBackup, pageKeymap} {
+	for _, page := range []string{pageGeneral, pageBackup, pageKeymap} {
 		a.settingsPage = page
 		a.settingsUI.syncDraftFromPrefs(a.prefs)
 		tt := ui.NewTester(a.settingsView, 760, 600)
@@ -350,7 +350,6 @@ func TestSettingsViewRendersPages(t *testing.T) {
 			if tt.HasText("窗口置顶") || tt.HasText("按 Esc 隐藏窗口") {
 				t.Fatalf("常规页不应再有置顶/Esc 开关: %v", tt.Texts())
 			}
-		case pageAppearance:
 			if !tt.HasText("颜色主题") || !tt.HasText("语法配色") {
 				t.Fatalf("外观页缺少主题选择: %v", tt.Texts())
 			}
@@ -384,7 +383,7 @@ func TestSettingsViewRendersPages(t *testing.T) {
 func TestSettingsAppearanceInstantApply(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 900)
 	tt.Frame()
@@ -438,7 +437,7 @@ func TestSettingsGeneralSwitchesApply(t *testing.T) {
 func TestSettingsNumberFieldRejectsInvalid(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 760, 600)
 	tt.Frame()

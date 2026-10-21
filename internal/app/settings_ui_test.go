@@ -57,13 +57,14 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
 
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
 	for _, want := range []string{
 		"界面外观", "风格", "颜色主题",
 		"排版主题", "中文字体", "英文字体", "代码字体",
+		"常规", "应用语言", "每行字数", "行数",
 		"主题", "排版", "语法配色", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
@@ -73,14 +74,6 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	// 页面级常驻预览已移除：不应再出现「预览」栏标题。
 	if tt.HasText("预览") {
 		t.Fatalf("外观页不应再有页面级预览栏: %v", tt.Texts())
-	}
-
-	a.settingsPage = pageGeneral
-	a.settingsUI.syncDraftFromPrefs(a.prefs)
-	tt = ui.NewTester(a.settingsView, 900, 620)
-	tt.Frame()
-	if !tt.HasText("窗口") || !tt.HasText("恢复本页默认值") {
-		t.Fatalf("常规页应为卡片分组且重置按钮在卡片内: %v", tt.Texts())
 	}
 
 	a.settingsPage = pageBackup
@@ -98,7 +91,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 func TestSettingsWideLayoutFallback(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 
 	// 窄视口：单栏滚动列，内容完整且无页面级预览。
@@ -130,7 +123,7 @@ func TestSettingsFontSplitPersists(t *testing.T) {
 	if err := a.loadPreferences(); err != nil {
 		t.Fatal(err)
 	}
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	// 视口要够高，排版微调卡片与下拉选项才在可视区内。
 	tt := ui.NewTester(a.settingsView, 900, 1200)
@@ -209,7 +202,7 @@ func TestSettingsDraftMergesExternalUpdatesByField(t *testing.T) {
 
 func TestSettingsInvalidNumericTextAndErrorSurviveFrames(t *testing.T) {
 	a := newTestApp(t)
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	a.settingsUI.bodySizeText = "99"
 	a.commitFloatField("bodySize")
@@ -284,6 +277,38 @@ func TestSettingsDefaultWindowSize(t *testing.T) {
 	}
 }
 
+func TestSettingsGeneralResetScope(t *testing.T) {
+	a := newTestApp(t)
+	a.openSettings(pageGeneral)
+	if err := a.updatePreferences(func(p *preferences) {
+		p.Window.RememberBounds = false
+		p.Appearance.ColorTheme = "graphite"
+		p.Appearance.BodySize = 22
+		p.Advanced.WindowColumns = 30
+		p.Advanced.WindowRows = 20
+		p.Advanced.AutosaveDelayMS = 1200
+		p.Backup.Keep = 3
+		p.Keymap.Overrides["format.bold"] = "Alt+Shift+B"
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before := a.prefs
+	text := a.tabs[0].Text
+	a.resetPageDefaults(pageGeneral)
+	defaults := defaultPreferences()
+	if a.prefs.Window != defaults.Window || a.prefs.Appearance != defaults.Appearance ||
+		a.prefs.Advanced.WindowColumns != defaults.Advanced.WindowColumns || a.prefs.Advanced.WindowRows != defaults.Advanced.WindowRows {
+		t.Fatalf("通用页重置未同时恢复窗口和外观: %+v", a.prefs)
+	}
+	if a.prefs.Backup != before.Backup || a.prefs.Keymap.Overrides["format.bold"] != "Alt+Shift+B" ||
+		a.prefs.Advanced.AutosaveDelayMS != before.Advanced.AutosaveDelayMS || a.tabs[0].Text != text {
+		t.Fatal("通用页重置不应影响备份、快捷键、自动保存间隔或笔记内容")
+	}
+	if a.settingsUI.draft.Appearance != a.prefs.Appearance || a.settingsUI.draft.Window != a.prefs.Window {
+		t.Fatal("通用页重置后草稿未同步")
+	}
+}
+
 func TestResetPageAfterConfirmationDropsWhenWindowClosed(t *testing.T) {
 	a := newTestApp(t)
 	a.prefs.Window.AlwaysOnTop = true
@@ -305,7 +330,7 @@ func TestSettingsCodeThemePersists(t *testing.T) {
 	if a.prefs.Appearance.CodeTheme != "soft" {
 		t.Fatalf("新安装默认应为柔和: %+v", a.prefs.Appearance)
 	}
-	a.settingsPage = pageAppearance
+	a.settingsPage = pageGeneral
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
