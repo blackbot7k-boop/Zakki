@@ -9,8 +9,11 @@ import (
 	"zakki/locales"
 )
 
+// fontOption 字体下拉的一项：local 为本机字体分组，preview 为样字的字体栈，
+// 空串表示不画样字（未安装的可下载字体、「跟随中文字体」）。
 type fontOption struct {
-	key, name, status string
+	key, name, status, preview string
+	local                      bool
 }
 
 // fontDisplayOf 字体键的纯展示名（不含安装状态），供设置页 Select 绑定与
@@ -63,7 +66,8 @@ func fontDisplayOf(kind int, key string) string {
 }
 
 // fontOptions 合并预设与本机字体：预设按当前安装状态标注，本机字体去重后
-// 追加（kind 2 只列等宽家族）。current 保证始终在列表里，避免丢已选值。
+// 按文字归类追加——中文只列含中文字形的家族，英文只列西文家族，代码只列
+// 等宽家族。current 保证始终在列表里，避免丢已选值。
 func (a *app) fontOptions(kind int, current string) []fontOption {
 	var options []fontOption
 	switch kind {
@@ -76,6 +80,7 @@ func (a *app) fontOptions(kind int, current string) []fontOption {
 	}
 	for i := range options {
 		options[i].name = fontDisplayOf(kind, options[i].key)
+		options[i].preview = presetFontStack(kind, options[i].key)
 	}
 	seen := map[string]bool{}
 	for i := range options {
@@ -90,6 +95,8 @@ func (a *app) fontOptions(kind int, current string) []fontOption {
 		options[i].status = locales.FontNeedsDownload()
 		if hasFontFamily(a.fonts.families, r.Family) {
 			options[i].status = locales.FontInstalled()
+		} else {
+			options[i].preview = ""
 		}
 	}
 	for _, f := range a.fonts.families {
@@ -98,13 +105,13 @@ func (a *app) fontOptions(kind int, current string) []fontOption {
 			continue
 		}
 		seen[strings.ToLower(f.Name)] = true
-		if kind == 2 && !f.Monospaced {
+		if !localFontFits(kind, f) {
 			continue
 		}
-		options = append(options, fontOption{key: key, name: f.Name, status: locales.FontInstalled()})
+		options = append(options, fontOption{key: key, name: f.Name, status: locales.FontInstalled(), preview: f.Name, local: true})
 	}
 	for _, o := range options {
-		if o.key == current {
+		if o.key == canonicalFontKey(kind, current) {
 			return options
 		}
 	}
@@ -112,49 +119,115 @@ func (a *app) fontOptions(kind int, current string) []fontOption {
 	if current == "" {
 		label = locales.FontThemeDefault()
 	}
-	return append(options, fontOption{key: current, name: label})
+	return append(options, fontOption{key: current, name: label, local: fonts.LocalFamily(current) != ""})
 }
 
-// fontPicker 向导用的下拉：键直接绑定，含搜索与状态标注，返回是否变化。
+// canonicalFontKey 默认字体的别名对应的预设项：中文与代码字体的空串、sonnet
+// 显示为各自的默认字体。只用于显示，不能写回——空串不触发字体下载。
+func canonicalFontKey(kind int, key string) string {
+	if key != "" && key != "sonnet" {
+		return key
+	}
+	switch kind {
+	case 0:
+		return "kai"
+	case 2:
+		return "jbm"
+	}
+	return key
+}
+
+// localFontFits 本机字体是否进入某个下拉：按家族名推断文字，表情与符号字体都不列。
+func localFontFits(kind int, f ui.FontFamily) bool {
+	script := fonts.ClassifyFamily(f.Name)
+	switch kind {
+	case 0:
+		return script == fonts.ScriptChinese
+	case 1:
+		return script == fonts.ScriptLatin
+	default:
+		return f.Monospaced && (script == fonts.ScriptLatin || script == fonts.ScriptChinese)
+	}
+}
+
+// presetFontStack 预设项样字用的字体栈；「跟随中文字体」不画样字。
+func presetFontStack(kind int, key string) string {
+	switch kind {
+	case 0:
+		return cjkFontStack(key)
+	case 1:
+		return latinFontStack(key)
+	default:
+		return monoFontStack(key)
+	}
+}
+
+func fontSample(kind int) string {
+	switch kind {
+	case 0:
+		return locales.FontSampleChinese()
+	case 1:
+		return locales.FontSampleLatin()
+	default:
+		return locales.FontSampleCode()
+	}
+}
+
+// fontPicker 字体下拉（设置页与首启向导共用）：键直接绑定；弹层含搜索、
+// 「推荐 / 本机字体」两组，每项用该字体写一行样字并标注安装状态，
+// 限高滚动、打开时滚到当前项。返回是否变化。
 func (a *app) fontPicker(c *ui.Context, key *string, kind int, label string, width float32) bool {
+	t := c.Theme()
 	picker := &a.fonts.pickers[kind]
 	options := a.fontOptions(kind, *key)
-	display := *key
+	canonical := canonicalFontKey(kind, *key)
+	current := fontOption{name: *key}
 	for _, o := range options {
-		if o.key == *key {
-			display = o.name
-			if o.status != "" {
-				display += " · " + o.status
-			}
+		if o.key == canonical {
+			current = o
 			break
 		}
 	}
 	sel := ui.SelectBase(c, key)
-	sel.Trigger.Width(width).MinHeight(32).Padding(6, 10).Radius(7).
-		Border(1, c.Theme().Border).Label(label).Children(func() {
-		ui.Text(c, display).FontSize(12).Grow(1)
-		ui.Text(c, "⌄").FontSize(12).TextColor(tMuted(c))
+	sel.Trigger.Width(width).Label(label)
+	selectTrigger(c, sel.Trigger, func() {
+		ui.Text(c, current.name).SingleLine().Shrink(1)
+		if current.key == *key && current.status == locales.FontNeedsDownload() {
+			ui.Box(c).Grow(1)
+			ui.Text(c, current.status).FontSize(11).TextColor(tMuted(c)).Shrink(0)
+		}
 	})
+	if !sel.Open() {
+		picker.query = ""
+	}
+	query := strings.ToLower(strings.TrimSpace(picker.query))
 	sel.Popup(func(panel ui.Element) {
-		panel.Width(width+40).Padding(6).Radius(8).
-			Background(c.Theme().Background).Border(1, c.Theme().Border).Column().Gap(6).Children(func() {
+		selectPanel(c, panel)
+		panel.Width(max(width, 300)).Column().Gap(4).Children(func() {
 			ui.SearchField(c, &picker.query).Label(locales.FontSearch()).FillWidth()
-			ui.Scroll(c).FillWidth().Height(220).Children(func() {
-				ui.Column(c).FillWidth().Gap(2).Children(func() {
-					for _, o := range options {
-						if picker.query != "" && !strings.Contains(strings.ToLower(o.name), strings.ToLower(picker.query)) {
-							continue
-						}
-						item := sel.Item(o.key).Padding(6, 8).Radius(5).FillWidth()
-						if item.Highlighted() {
-							item = item.Background(c.Theme().Surface)
-						}
-						item.Children(func() {
-							ui.Text(c, o.name).FontSize(12).Grow(1)
-							if o.status != "" {
-								ui.Text(c, o.status).FontSize(10).TextColor(tMuted(c))
+			ui.Scroll(c).FillWidth().MaxHeight(selectMaxHeight).Children(func() {
+				ui.Column(c).FillWidth().Gap(1).Children(func() {
+					shown := 0
+					for _, local := range []bool{false, true} {
+						header := false
+						for _, o := range options {
+							if o.local != local || query != "" && !strings.Contains(strings.ToLower(o.name), query) {
+								continue
 							}
-						})
+							if !header {
+								header = true
+								groupName := locales.FontGroupRecommended()
+								if local {
+									groupName = locales.FontGroupLocal()
+								}
+								ui.Text(c, groupName).FontSize(11).Bold().TextColor(tMuted(c)).Padding(6, 8, 2, 8)
+							}
+							shown++
+							fontPickerItem(c, sel, o, kind, canonical, t)
+						}
+					}
+					if shown == 0 {
+						ui.Text(c, locales.FontNoMatch()).FontSize(12).TextColor(tMuted(c)).Padding(8)
 					}
 				})
 			})
@@ -163,19 +236,25 @@ func (a *app) fontPicker(c *ui.Context, key *string, kind int, label string, wid
 	return sel.Trigger.Changed()
 }
 
-// fontSelectSettings 设置页下拉的选项与「显示名 → 键」映射；显示名来自
-// fontDisplayOf，与 syncDraftBindings 的绑定值同源。下载状态不进选项文本，
-// 由行下方的提示与准备进度表达。
-func (a *app) fontSelectSettings(kind int, current string) ([]string, map[string]string) {
-	options := a.fontOptions(kind, current)
-	displays := make([]string, 0, len(options))
-	keyOf := map[string]string{}
-	for _, o := range options {
-		if _, dup := keyOf[o.name]; dup && o.key != current {
-			continue
-		}
-		displays = append(displays, o.name)
-		keyOf[o.name] = o.key
+func fontPickerItem(c *ui.Context, sel ui.SelectParts[string], o fontOption, kind int, selected string, t *ui.Theme) {
+	item := sel.Item(o.key).FillWidth().Column().AlignItems(ui.Start).Gap(2).Padding(5, 8).Radius(t.Radius)
+	fg, muted := t.Text, t.TextMuted
+	switch {
+	case item.Highlighted():
+		item.Background(t.Accent)
+		fg, muted = t.AccentText, t.AccentText
+	case o.key == selected:
+		item.Background(t.Surface)
 	}
-	return displays, keyOf
+	item.Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
+			ui.Text(c, o.name).FontSize(12).TextColor(fg).SingleLine().Grow(1).Shrink(1)
+			if o.status != "" && !o.local {
+				ui.Text(c, o.status).FontSize(10).TextColor(muted).Shrink(0)
+			}
+		})
+		if o.preview != "" {
+			ui.Text(c, fontSample(kind)).Font(o.preview).FontSize(15).TextColor(fg).SingleLine().FillWidth()
+		}
+	})
 }

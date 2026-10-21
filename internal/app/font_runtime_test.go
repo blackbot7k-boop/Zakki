@@ -94,3 +94,32 @@ func TestFontJobsDedupeAndSkipInstalled(t *testing.T) {
 		t.Fatalf("已装字体不应再下载: %+v", jobs)
 	}
 }
+
+// 本机字体按文字归入下拉：中文只列含中文字形的家族，英文只列西文家族，表情字体都不列。
+func TestFontOptionsSplitByScript(t *testing.T) {
+	a := newTestApp(t)
+	a.fonts.families = families("Dank Mono", "PingFang SC", "Apple Color Emoji", "Hiragino Sans")
+	has := func(options []fontOption, key string) bool {
+		for _, o := range options {
+			if o.key == key {
+				return true
+			}
+		}
+		return false
+	}
+	cjk, latin := a.fontOptions(0, "kai"), a.fontOptions(1, "")
+	if !has(cjk, "local:PingFang SC") || has(cjk, "local:Dank Mono") {
+		t.Fatalf("中文字体只列中文家族: %+v", cjk)
+	}
+	if !has(latin, "local:Dank Mono") || has(latin, "local:PingFang SC") {
+		t.Fatalf("英文字体只列西文家族: %+v", latin)
+	}
+	for _, key := range []string{"local:Apple Color Emoji", "local:Hiragino Sans"} {
+		if has(cjk, key) || has(latin, key) {
+			t.Fatalf("%s 不应进入中英文字体: cjk=%+v latin=%+v", key, cjk, latin)
+		}
+	}
+	if canonicalFontKey(0, "") != "kai" || canonicalFontKey(2, "sonnet") != "jbm" || canonicalFontKey(1, "") != "" {
+		t.Fatal("默认字体别名应显示为预设项，英文的空串（跟随中文）保持原样")
+	}
+}

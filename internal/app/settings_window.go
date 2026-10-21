@@ -33,9 +33,9 @@ type settingsUIState struct {
 	// Select 控件绑定显示文案；与 draft 同步。
 	appearanceModeSel string
 	languageSel       string
-	bodyFontSel       string
-	latinFontSel      string
-	monoFontSel       string
+	bodyFontKey       string
+	latinFontKey      string
+	monoFontKey       string
 	markdownThemeSel  string
 	colorThemeSel     string
 	codeThemeSel      string
@@ -164,9 +164,9 @@ func (ui *settingsUIState) syncDraftBindings() {
 	ui.colorThemeSel = colorThemeDisplayName(p.Appearance.ColorTheme)
 	ui.codeThemeSel = codeThemeDisplay(p.Appearance.CodeTheme)
 	ui.codeIndentSel = codeIndentDisplay(p.Appearance.CodeIndent)
-	ui.bodyFontSel = fontDisplayOf(0, p.Appearance.BodyFont)
-	ui.latinFontSel = fontDisplayOf(1, p.Appearance.LatinFont)
-	ui.monoFontSel = fontDisplayOf(2, p.Appearance.MonoFont)
+	ui.bodyFontKey = p.Appearance.BodyFont
+	ui.latinFontKey = p.Appearance.LatinFont
+	ui.monoFontKey = p.Appearance.MonoFont
 	if !ui.bodySizeDirty {
 		ui.bodySizeText = floatText(p.Appearance.BodySize)
 		ui.bodySizeErr = ""

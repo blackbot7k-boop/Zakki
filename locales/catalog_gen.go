@@ -4444,6 +4444,66 @@ func (msgs Messages) FontSearch() string {
 	return Catalog.Format(msgs.locale, "fontSearch", nil)
 }
 
+// FontGroupRecommended says "Recommended"
+// in the language the app shows.
+func FontGroupRecommended() string { return In(i18n.Locale()).FontGroupRecommended() }
+
+// FontGroupRecommended says "Recommended"
+// in the language of msgs.
+func (msgs Messages) FontGroupRecommended() string {
+	return Catalog.Format(msgs.locale, "fontGroupRecommended", nil)
+}
+
+// FontGroupLocal says "Installed Fonts"
+// in the language the app shows.
+func FontGroupLocal() string { return In(i18n.Locale()).FontGroupLocal() }
+
+// FontGroupLocal says "Installed Fonts"
+// in the language of msgs.
+func (msgs Messages) FontGroupLocal() string {
+	return Catalog.Format(msgs.locale, "fontGroupLocal", nil)
+}
+
+// FontNoMatch says "No matching fonts"
+// in the language the app shows.
+func FontNoMatch() string { return In(i18n.Locale()).FontNoMatch() }
+
+// FontNoMatch says "No matching fonts"
+// in the language of msgs.
+func (msgs Messages) FontNoMatch() string {
+	return Catalog.Format(msgs.locale, "fontNoMatch", nil)
+}
+
+// FontSampleChinese says "你好，便签 Zakki 2026"
+// in the language the app shows.
+func FontSampleChinese() string { return In(i18n.Locale()).FontSampleChinese() }
+
+// FontSampleChinese says "你好，便签 Zakki 2026"
+// in the language of msgs.
+func (msgs Messages) FontSampleChinese() string {
+	return Catalog.Format(msgs.locale, "fontSampleChinese", nil)
+}
+
+// FontSampleLatin says "Hello, Zakki 2026"
+// in the language the app shows.
+func FontSampleLatin() string { return In(i18n.Locale()).FontSampleLatin() }
+
+// FontSampleLatin says "Hello, Zakki 2026"
+// in the language of msgs.
+func (msgs Messages) FontSampleLatin() string {
+	return Catalog.Format(msgs.locale, "fontSampleLatin", nil)
+}
+
+// FontSampleCode says "if err != nil: 0O1lI => []"
+// in the language the app shows.
+func FontSampleCode() string { return In(i18n.Locale()).FontSampleCode() }
+
+// FontSampleCode says "if err != nil: 0O1lI => []"
+// in the language of msgs.
+func (msgs Messages) FontSampleCode() string {
+	return Catalog.Format(msgs.locale, "fontSampleCode", nil)
+}
+
 // FontScanning says "Finding installed fonts…"
 // in the language the app shows.
 func FontScanning() string { return In(i18n.Locale()).FontScanning() }

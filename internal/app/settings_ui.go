@@ -181,8 +181,8 @@ func (a *app) presetSketchRow(c *ui.Context) {
 			a.settingsUI.draft.Appearance.BodyFont = "hand"
 			a.settingsUI.draft.Appearance.LatinFont = ""
 			a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-			a.settingsUI.bodyFontSel = fontDisplayOf(0, "hand")
-			a.settingsUI.latinFontSel = fontDisplayOf(1, "")
+			a.settingsUI.bodyFontKey = "hand"
+			a.settingsUI.latinFontKey = ""
 			a.pushAppearance()
 		}
 	})
@@ -287,8 +287,8 @@ func (a *app) colorThemeCards(c *ui.Context, dark bool) {
 					a.settingsUI.draft.Appearance.BodyFont = "hand"
 					a.settingsUI.draft.Appearance.LatinFont = ""
 					a.settingsUI.markdownThemeSel = markdownThemeDisplay("sketch")
-					a.settingsUI.bodyFontSel = fontDisplayOf(0, "hand")
-					a.settingsUI.latinFontSel = fontDisplayOf(1, "")
+					a.settingsUI.bodyFontKey = "hand"
+					a.settingsUI.latinFontKey = ""
 				}
 				a.pushAppearance()
 			}
@@ -466,9 +466,8 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontChinese())
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			options, keyOf := a.fontSelectSettings(0, a.settingsUI.draft.Appearance.BodyFont)
-			if boundedSelect(c, &a.settingsUI.bodyFontSel, options).Width(200).Changed() {
-				a.applySettingsFont("bodyFont", keyOf[a.settingsUI.bodyFontSel])
+			if a.fontPicker(c.Key("st-bodyFont"), &a.settingsUI.bodyFontKey, 0, locales.FontChinese(), 200) {
+				a.applySettingsFont("bodyFont", a.settingsUI.bodyFontKey)
 			}
 		})
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
@@ -476,9 +475,8 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontWestern())
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			options, keyOf := a.fontSelectSettings(1, a.settingsUI.draft.Appearance.LatinFont)
-			if boundedSelect(c, &a.settingsUI.latinFontSel, options).Width(200).Changed() {
-				a.applySettingsFont("latinFont", keyOf[a.settingsUI.latinFontSel])
+			if a.fontPicker(c.Key("st-latinFont"), &a.settingsUI.latinFontKey, 1, locales.FontWestern(), 200) {
+				a.applySettingsFont("latinFont", a.settingsUI.latinFontKey)
 			}
 		})
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
@@ -486,9 +484,8 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontCode())
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
 			})
-			options, keyOf := a.fontSelectSettings(2, a.settingsUI.draft.Appearance.MonoFont)
-			if boundedSelect(c, &a.settingsUI.monoFontSel, options).Width(200).Changed() {
-				a.applySettingsFont("monoFont", keyOf[a.settingsUI.monoFontSel])
+			if a.fontPicker(c.Key("st-monoFont"), &a.settingsUI.monoFontKey, 2, locales.FontCode(), 200) {
+				a.applySettingsFont("monoFont", a.settingsUI.monoFontKey)
 			}
 		})
 		// 所选字体缺失时的统一准备进度：可取消；失败保留旧偏好。
