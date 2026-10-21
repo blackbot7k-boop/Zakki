@@ -30,7 +30,9 @@ func newTestApp(tb testing.TB) *app {
 	registerHandFont()
 	dir := tb.TempDir()
 	a := newAppAt(dir)
-	a.mdActive = 0 // 编辑机制测试默认从首个焦点块开始（生产环境启动是预览态 -1）
+	tb.Cleanup(a.notes.Close)
+	a.prefs.Storage.SaveIntervalMS = 100 // 等待落盘的测试不必等默认 2 秒；校验下限 100
+	a.mdActive = 0                       // 编辑机制测试默认从首个焦点块开始（生产环境启动是预览态 -1）
 	base := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 	a.setTestNow(func() time.Time { return base })
 	a.invalidateMdCache()
@@ -40,7 +42,7 @@ func newTestApp(tb testing.TB) *app {
 // setTestNow 测试注入时钟：app 与 notes.Store 共用同一函数。
 func (a *app) setTestNow(now func() time.Time) {
 	a.now = now
-	a.notes.Now = now
+	a.notes.SetClock(now)
 }
 
 // TestView 以无窗口方式跑视图：点切换、字数统计、预览与待办勾选。
@@ -55,8 +57,8 @@ func TestView(t *testing.T) {
 	if !tt.HasText("1 行 · 2 词 · 11 字符") {
 		t.Errorf("应显示行/词/字符统计，texts %q", tt.Texts())
 	}
-	if !tt.HasText("尚未备份") {
-		t.Errorf("无备份时应显示尚未备份，texts %q", tt.Texts())
+	if !tt.HasText("尚未保存") {
+		t.Errorf("未保存时应显示尚未保存，texts %q", tt.Texts())
 	}
 
 	// 标签 1 的圆点按钮（Label 为「标签 1」）与状态栏文案不冲突，
@@ -143,7 +145,7 @@ func TestStatusBarActions(t *testing.T) {
 	tt := ui.NewTester(func(c *ui.Context) {
 		a.statusBar(c, c.Theme(), themeIsDark(c.Theme()))
 	}, 400, 36)
-	want := []string{"0 行 · 0 词 · 0 字符", "尚未备份", "源码", "搜索"}
+	want := []string{"0 行 · 0 词 · 0 字符", "尚未保存", "源码", "搜索"}
 	if got := tt.Texts(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("底栏内容=%q，要 %q", got, want)
 	}
@@ -620,8 +622,9 @@ func TestSettingsTabMotionAndShapeRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := newTestApp(t)
-	b.notes.DataFile = a.notes.DataFile // 读同一个临时目录的数据文件
-	raw, err := os.ReadFile(b.notes.DataFile)
+	b.notes.Close()
+	b.notes = newNotesStore(a.notes.DataPath(), b.now) // 读同一个临时目录的数据文件
+	raw, err := os.ReadFile(b.notes.DataPath())
 	if err != nil {
 		t.Fatal(err)
 	}

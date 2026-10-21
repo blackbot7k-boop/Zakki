@@ -320,11 +320,11 @@ func (msgs Messages) DialogDeleteTabMessage(tab string) string {
 	return Catalog.Format(msgs.locale, "dialogDeleteTabMessage", map[string]any{"tab": tab})
 }
 
-// DialogDeleteTabDetail says "A safety backup is made first; if it fails the deletion is cancelled."
+// DialogDeleteTabDetail says "The change is saved automatically. Deleting a tab cannot be undone within the editor."
 // in the language the app shows.
 func DialogDeleteTabDetail() string { return In(i18n.Locale()).DialogDeleteTabDetail() }
 
-// DialogDeleteTabDetail says "A safety backup is made first; if it fails the deletion is cancelled."
+// DialogDeleteTabDetail says "The change is saved automatically. Deleting a tab cannot be undone within the editor."
 // in the language of msgs.
 func (msgs Messages) DialogDeleteTabDetail() string {
 	return Catalog.Format(msgs.locale, "dialogDeleteTabDetail", nil)
@@ -382,11 +382,11 @@ func (msgs Messages) DialogReplaceAllMessage(total string, tabs string) string {
 	return Catalog.Format(msgs.locale, "dialogReplaceAllMessage", map[string]any{"total": total, "tabs": tabs})
 }
 
-// DialogReplaceAllDetail says "Only the change in the current tab can be undone. A safety backup is made first; if it fails nothing is replaced."
+// DialogReplaceAllDetail says "Only replacements in the current tab can be undone. Changes in other tabs are saved directly."
 // in the language the app shows.
 func DialogReplaceAllDetail() string { return In(i18n.Locale()).DialogReplaceAllDetail() }
 
-// DialogReplaceAllDetail says "Only the change in the current tab can be undone. A safety backup is made first; if it fails nothing is replaced."
+// DialogReplaceAllDetail says "Only replacements in the current tab can be undone. Changes in other tabs are saved directly."
 // in the language of msgs.
 func (msgs Messages) DialogReplaceAllDetail() string {
 	return Catalog.Format(msgs.locale, "dialogReplaceAllDetail", nil)
@@ -2248,11 +2248,11 @@ func (msgs Messages) DialogResetPageMessage() string {
 	return Catalog.Format(msgs.locale, "dialogResetPageMessage", nil)
 }
 
-// DialogResetPageDetail says "Only this page resets; notes and backups are untouched."
+// DialogResetPageDetail says "Resets only this page's settings, not notes or their location."
 // in the language the app shows.
 func DialogResetPageDetail() string { return In(i18n.Locale()).DialogResetPageDetail() }
 
-// DialogResetPageDetail says "Only this page resets; notes and backups are untouched."
+// DialogResetPageDetail says "Resets only this page's settings, not notes or their location."
 // in the language of msgs.
 func (msgs Messages) DialogResetPageDetail() string {
 	return Catalog.Format(msgs.locale, "dialogResetPageDetail", nil)
@@ -4534,11 +4534,11 @@ func (msgs Messages) OnboardAppearanceTitle() string {
 	return Catalog.Format(msgs.locale, "onboardAppearanceTitle", nil)
 }
 
-// OnboardNotesTitle says "Notes & backups"
+// OnboardNotesTitle says "Notes & saving"
 // in the language the app shows.
 func OnboardNotesTitle() string { return In(i18n.Locale()).OnboardNotesTitle() }
 
-// OnboardNotesTitle says "Notes & backups"
+// OnboardNotesTitle says "Notes & saving"
 // in the language of msgs.
 func (msgs Messages) OnboardNotesTitle() string {
 	return Catalog.Format(msgs.locale, "onboardNotesTitle", nil)
@@ -4702,4 +4702,324 @@ func UseHandFont() string { return In(i18n.Locale()).UseHandFont() }
 // in the language of msgs.
 func (msgs Messages) UseHandFont() string {
 	return Catalog.Format(msgs.locale, "useHandFont", nil)
+}
+
+// PageStorage says "Save & Sync"
+// in the language the app shows.
+func PageStorage() string { return In(i18n.Locale()).PageStorage() }
+
+// PageStorage says "Save & Sync"
+// in the language of msgs.
+func (msgs Messages) PageStorage() string {
+	return Catalog.Format(msgs.locale, "pageStorage", nil)
+}
+
+// MenuSave says "Save"
+// in the language the app shows.
+func MenuSave() string { return In(i18n.Locale()).MenuSave() }
+
+// MenuSave says "Save"
+// in the language of msgs.
+func (msgs Messages) MenuSave() string {
+	return Catalog.Format(msgs.locale, "menuSave", nil)
+}
+
+// FixedSave says "Save"
+// in the language the app shows.
+func FixedSave() string { return In(i18n.Locale()).FixedSave() }
+
+// FixedSave says "Save"
+// in the language of msgs.
+func (msgs Messages) FixedSave() string {
+	return Catalog.Format(msgs.locale, "fixedSave", nil)
+}
+
+// StorageFile says "Notes file"
+// in the language the app shows.
+func StorageFile() string { return In(i18n.Locale()).StorageFile() }
+
+// StorageFile says "Notes file"
+// in the language of msgs.
+func (msgs Messages) StorageFile() string {
+	return Catalog.Format(msgs.locale, "storageFile", nil)
+}
+
+// StorageFileHint says "All tabs are saved in this one JSON file. No historical copies are created."
+// in the language the app shows.
+func StorageFileHint() string { return In(i18n.Locale()).StorageFileHint() }
+
+// StorageFileHint says "All tabs are saved in this one JSON file. No historical copies are created."
+// in the language of msgs.
+func (msgs Messages) StorageFileHint() string {
+	return Catalog.Format(msgs.locale, "storageFileHint", nil)
+}
+
+// StorageShowFile says "Show File"
+// in the language the app shows.
+func StorageShowFile() string { return In(i18n.Locale()).StorageShowFile() }
+
+// StorageShowFile says "Show File"
+// in the language of msgs.
+func (msgs Messages) StorageShowFile() string {
+	return Catalog.Format(msgs.locale, "storageShowFile", nil)
+}
+
+// StorageChangeLocation says "Change Location…"
+// in the language the app shows.
+func StorageChangeLocation() string { return In(i18n.Locale()).StorageChangeLocation() }
+
+// StorageChangeLocation says "Change Location…"
+// in the language of msgs.
+func (msgs Messages) StorageChangeLocation() string {
+	return Catalog.Format(msgs.locale, "storageChangeLocation", nil)
+}
+
+// StorageChooseTitle says "Choose Notes Location"
+// in the language the app shows.
+func StorageChooseTitle() string { return In(i18n.Locale()).StorageChooseTitle() }
+
+// StorageChooseTitle says "Choose Notes Location"
+// in the language of msgs.
+func (msgs Messages) StorageChooseTitle() string {
+	return Catalog.Format(msgs.locale, "storageChooseTitle", nil)
+}
+
+// StorageChooseHint says "Zakki will read and write zakki.json in this folder. Existing files will not be overwritten."
+// in the language the app shows.
+func StorageChooseHint() string { return In(i18n.Locale()).StorageChooseHint() }
+
+// StorageChooseHint says "Zakki will read and write zakki.json in this folder. Existing files will not be overwritten."
+// in the language of msgs.
+func (msgs Messages) StorageChooseHint() string {
+	return Catalog.Format(msgs.locale, "storageChooseHint", nil)
+}
+
+// StorageInterval says "Save interval (seconds)"
+// in the language the app shows.
+func StorageInterval() string { return In(i18n.Locale()).StorageInterval() }
+
+// StorageInterval says "Save interval (seconds)"
+// in the language of msgs.
+func (msgs Messages) StorageInterval() string {
+	return Catalog.Format(msgs.locale, "storageInterval", nil)
+}
+
+// StorageIntervalHint says "Changes are saved by this deadline, even while you keep typing. No changes means no write."
+// in the language the app shows.
+func StorageIntervalHint() string { return In(i18n.Locale()).StorageIntervalHint() }
+
+// StorageIntervalHint says "Changes are saved by this deadline, even while you keep typing. No changes means no write."
+// in the language of msgs.
+func (msgs Messages) StorageIntervalHint() string {
+	return Catalog.Format(msgs.locale, "storageIntervalHint", nil)
+}
+
+// StorageGit says "Git"
+// in the language the app shows.
+func StorageGit() string { return In(i18n.Locale()).StorageGit() }
+
+// StorageGit says "Git"
+// in the language of msgs.
+func (msgs Messages) StorageGit() string {
+	return Catalog.Format(msgs.locale, "storageGit", nil)
+}
+
+// StorageNoRepo says "Choose a location inside a Git repository to use Git. Zakki does not initialize repositories."
+// in the language the app shows.
+func StorageNoRepo() string { return In(i18n.Locale()).StorageNoRepo() }
+
+// StorageNoRepo says "Choose a location inside a Git repository to use Git. Zakki does not initialize repositories."
+// in the language of msgs.
+func (msgs Messages) StorageNoRepo() string {
+	return Catalog.Format(msgs.locale, "storageNoRepo", nil)
+}
+
+// StorageAutoCommit says "Automatic commits"
+// in the language the app shows.
+func StorageAutoCommit() string { return In(i18n.Locale()).StorageAutoCommit() }
+
+// StorageAutoCommit says "Automatic commits"
+// in the language of msgs.
+func (msgs Messages) StorageAutoCommit() string {
+	return Catalog.Format(msgs.locale, "storageAutoCommit", nil)
+}
+
+// StorageCommitHint says "Commits only the successfully saved notes file, leaving other staged files out."
+// in the language the app shows.
+func StorageCommitHint() string { return In(i18n.Locale()).StorageCommitHint() }
+
+// StorageCommitHint says "Commits only the successfully saved notes file, leaving other staged files out."
+// in the language of msgs.
+func (msgs Messages) StorageCommitHint() string {
+	return Catalog.Format(msgs.locale, "storageCommitHint", nil)
+}
+
+// StorageCommitInterval says "Commit interval (minutes)"
+// in the language the app shows.
+func StorageCommitInterval() string { return In(i18n.Locale()).StorageCommitInterval() }
+
+// StorageCommitInterval says "Commit interval (minutes)"
+// in the language of msgs.
+func (msgs Messages) StorageCommitInterval() string {
+	return Catalog.Format(msgs.locale, "storageCommitInterval", nil)
+}
+
+// StorageAutoPush says "Automatic push"
+// in the language the app shows.
+func StorageAutoPush() string { return In(i18n.Locale()).StorageAutoPush() }
+
+// StorageAutoPush says "Automatic push"
+// in the language of msgs.
+func (msgs Messages) StorageAutoPush() string {
+	return Catalog.Format(msgs.locale, "storageAutoPush", nil)
+}
+
+// StoragePushHint says "Push sends branch history, which may include other commits. A dedicated notes repository is recommended."
+// in the language the app shows.
+func StoragePushHint() string { return In(i18n.Locale()).StoragePushHint() }
+
+// StoragePushHint says "Push sends branch history, which may include other commits. A dedicated notes repository is recommended."
+// in the language of msgs.
+func (msgs Messages) StoragePushHint() string {
+	return Catalog.Format(msgs.locale, "storagePushHint", nil)
+}
+
+// StoragePushInterval says "Push interval (minutes)"
+// in the language the app shows.
+func StoragePushInterval() string { return In(i18n.Locale()).StoragePushInterval() }
+
+// StoragePushInterval says "Push interval (minutes)"
+// in the language of msgs.
+func (msgs Messages) StoragePushInterval() string {
+	return Catalog.Format(msgs.locale, "storagePushInterval", nil)
+}
+
+// StorageLastCommit says "Last commit:"
+// in the language the app shows.
+func StorageLastCommit() string { return In(i18n.Locale()).StorageLastCommit() }
+
+// StorageLastCommit says "Last commit:"
+// in the language of msgs.
+func (msgs Messages) StorageLastCommit() string {
+	return Catalog.Format(msgs.locale, "storageLastCommit", nil)
+}
+
+// StorageLastPush says "Last push:"
+// in the language the app shows.
+func StorageLastPush() string { return In(i18n.Locale()).StorageLastPush() }
+
+// StorageLastPush says "Last push:"
+// in the language of msgs.
+func (msgs Messages) StorageLastPush() string {
+	return Catalog.Format(msgs.locale, "storageLastPush", nil)
+}
+
+// StorageReadFailed says "Cannot read notes; saving is paused: {err}"
+// in the language the app shows.
+func StorageReadFailed(err string) string { return In(i18n.Locale()).StorageReadFailed(err) }
+
+// StorageReadFailed says "Cannot read notes; saving is paused: {err}"
+// in the language of msgs.
+func (msgs Messages) StorageReadFailed(err string) string {
+	return Catalog.Format(msgs.locale, "storageReadFailed", map[string]any{"err": err})
+}
+
+// StorageMoveFailed says "Cannot change the notes location: {err}"
+// in the language the app shows.
+func StorageMoveFailed(err string) string { return In(i18n.Locale()).StorageMoveFailed(err) }
+
+// StorageMoveFailed says "Cannot change the notes location: {err}"
+// in the language of msgs.
+func (msgs Messages) StorageMoveFailed(err string) string {
+	return Catalog.Format(msgs.locale, "storageMoveFailed", map[string]any{"err": err})
+}
+
+// StorageMoving says "Changing notes location…"
+// in the language the app shows.
+func StorageMoving() string { return In(i18n.Locale()).StorageMoving() }
+
+// StorageMoving says "Changing notes location…"
+// in the language of msgs.
+func (msgs Messages) StorageMoving() string {
+	return Catalog.Format(msgs.locale, "storageMoving", nil)
+}
+
+// StorageInvalidFolder says "Choose an existing folder."
+// in the language the app shows.
+func StorageInvalidFolder() string { return In(i18n.Locale()).StorageInvalidFolder() }
+
+// StorageInvalidFolder says "Choose an existing folder."
+// in the language of msgs.
+func (msgs Messages) StorageInvalidFolder() string {
+	return Catalog.Format(msgs.locale, "storageInvalidFolder", nil)
+}
+
+// StorageNotWritable says "This folder is not writable."
+// in the language the app shows.
+func StorageNotWritable() string { return In(i18n.Locale()).StorageNotWritable() }
+
+// StorageNotWritable says "This folder is not writable."
+// in the language of msgs.
+func (msgs Messages) StorageNotWritable() string {
+	return Catalog.Format(msgs.locale, "storageNotWritable", nil)
+}
+
+// StoragePaused says "Saving paused. The original file is unchanged."
+// in the language the app shows.
+func StoragePaused() string { return In(i18n.Locale()).StoragePaused() }
+
+// StoragePaused says "Saving paused. The original file is unchanged."
+// in the language of msgs.
+func (msgs Messages) StoragePaused() string {
+	return Catalog.Format(msgs.locale, "storagePaused", nil)
+}
+
+// StorageReload says "Reload File"
+// in the language the app shows.
+func StorageReload() string { return In(i18n.Locale()).StorageReload() }
+
+// StorageReload says "Reload File"
+// in the language of msgs.
+func (msgs Messages) StorageReload() string {
+	return Catalog.Format(msgs.locale, "storageReload", nil)
+}
+
+// StorageNotSaved says "Not saved yet"
+// in the language the app shows.
+func StorageNotSaved() string { return In(i18n.Locale()).StorageNotSaved() }
+
+// StorageNotSaved says "Not saved yet"
+// in the language of msgs.
+func (msgs Messages) StorageNotSaved() string {
+	return Catalog.Format(msgs.locale, "storageNotSaved", nil)
+}
+
+// StorageUnsaved says "Unsaved changes"
+// in the language the app shows.
+func StorageUnsaved() string { return In(i18n.Locale()).StorageUnsaved() }
+
+// StorageUnsaved says "Unsaved changes"
+// in the language of msgs.
+func (msgs Messages) StorageUnsaved() string {
+	return Catalog.Format(msgs.locale, "storageUnsaved", nil)
+}
+
+// StorageSavedAt says "Saved at {time}"
+// in the language the app shows.
+func StorageSavedAt(time_ string) string { return In(i18n.Locale()).StorageSavedAt(time_) }
+
+// StorageSavedAt says "Saved at {time}"
+// in the language of msgs.
+func (msgs Messages) StorageSavedAt(time_ string) string {
+	return Catalog.Format(msgs.locale, "storageSavedAt", map[string]any{"time": time_})
+}
+
+// CommonChoose says "Choose"
+// in the language the app shows.
+func CommonChoose() string { return In(i18n.Locale()).CommonChoose() }
+
+// CommonChoose says "Choose"
+// in the language of msgs.
+func (msgs Messages) CommonChoose() string {
+	return Catalog.Format(msgs.locale, "commonChoose", nil)
 }

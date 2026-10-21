@@ -1,7 +1,7 @@
 package app
 
 // 设置窗口：单实例、非模态、系统标题栏，独立记忆位置和尺寸。
-// 左侧导航：通用 / 标签 / 备份与数据 / 快捷键。
+// 左侧导航：通用 / 标签 / 保存与同步 / 快捷键。
 // 所有字段即时生效并自动保存；每页提供「恢复本页默认值」。
 
 import (
@@ -17,7 +17,7 @@ import (
 const (
 	pageGeneral = "general"
 	pageTabs    = "tabs"
-	pageBackup  = "backup"
+	pageStorage = "storage"
 	pageKeymap  = "keymap"
 )
 
@@ -77,10 +77,6 @@ type settingsUIState struct {
 
 	resetTarget string // 待确认的「恢复本页默认值」页面
 
-	// 备份页：备份文件夹是否为 git 仓库的探测结果，按文件夹缓存。
-	// 文件夹可能在网络卷上，不能每帧 Stat；打开窗口、切页或换文件夹时重探。
-	gitProbeDir  string
-	gitProbeRepo bool
 }
 
 // syncDraftFromPrefs 明确丢弃草稿并重置为当前偏好（打开窗口、切页、重置时调用）。
@@ -92,7 +88,6 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.syncDraftBindings()
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
 	ui.keyErr, ui.keyErrID, ui.keyConflict = "", "", keymapConflict{}
-	ui.gitProbeDir = ""
 }
 
 // mergeDraftFromPrefs 把外部更新合并进未编辑字段；已编辑字段继续保留在非模态窗口中。
@@ -118,11 +113,6 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 			*draft = current
 		}
 	}
-	mergeInt := func(draft *int, before, current int) {
-		if *draft == before {
-			*draft = current
-		}
-	}
 
 	d, before, current := &ui.draft.Appearance, old.Appearance, next.Appearance
 	mergeString(&d.AppearanceMode, before.AppearanceMode, current.AppearanceMode)
@@ -142,13 +132,8 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 	mergeBool(&windowDraft.HideOnEscape, windowBefore.HideOnEscape, windowCurrent.HideOnEscape)
 	mergeBool(&windowDraft.RememberBounds, windowBefore.RememberBounds, windowCurrent.RememberBounds)
 
-	backupDraft, backupBefore, backupCurrent := &ui.draft.Backup, old.Backup, next.Backup
-	mergeInt(&backupDraft.IntervalMinutes, backupBefore.IntervalMinutes, backupCurrent.IntervalMinutes)
-	mergeInt(&backupDraft.Keep, backupBefore.Keep, backupCurrent.Keep)
-	mergeBool(&backupDraft.OnLaunch, backupBefore.OnLaunch, backupCurrent.OnLaunch)
-	mergeString(&backupDraft.BackupDir, backupBefore.BackupDir, backupCurrent.BackupDir)
-	mergeBool(&backupDraft.GitAutoPush, backupBefore.GitAutoPush, backupCurrent.GitAutoPush)
-	mergeInt(&backupDraft.GitPushMinutes, backupBefore.GitPushMinutes, backupCurrent.GitPushMinutes)
+	ui.draft.Storage = next.Storage
+	ui.draft.Git = next.Git
 
 	ui.draft.Version = next.Version
 	ui.draft.Keymap = next.Keymap
@@ -223,6 +208,11 @@ func (a *app) openSettings(page string) {
 		Content:   ui.View(a.settingsView),
 	})
 	a.settingsWin = win
+	win.OnClose(func(e *mygo.CloseEvent) {
+		if a.storageMoving {
+			e.PreventDefault()
+		}
+	})
 	a.loadFontFamilies(win)
 	win.OnClosed(func() {
 		// 录制未结束时先恢复菜单与全局热键（必须在重置 settingsUI 之前，
@@ -260,11 +250,11 @@ func (a *app) settingsView(c *ui.Context) {
 	if a.settingsPage == "" {
 		a.settingsPage = pageGeneral
 	}
-	ui.Row(c).Fill().LineHeight(1.35).Children(func() {
+	ui.Row(c).Fill().LineHeight(1.35).Disabled(a.storageMoving).Children(func() {
 		if ui.Sidebar(c, &a.settingsPage, func() {
 			ui.SidebarItem(c, pageGeneral, iconGear, locales.PageGeneral())
 			ui.SidebarItem(c, pageTabs, iconLayers, locales.PageTabs())
-			ui.SidebarItem(c, pageBackup, iconDatabase, locales.PageBackup())
+			ui.SidebarItem(c, pageStorage, iconDatabase, locales.PageStorage())
 			ui.SidebarItem(c, pageKeymap, iconKeyboard, locales.PageKeymap())
 		}).Width(200).FillHeight().Changed() {
 			a.settingsUI.syncDraftFromPrefs(a.prefs)
@@ -274,8 +264,8 @@ func (a *app) settingsView(c *ui.Context) {
 			switch a.settingsPage {
 			case pageTabs:
 				a.tabsPage(c, &t)
-			case pageBackup:
-				a.backupPage(c, &t, dark)
+			case pageStorage:
+				a.storagePage(c)
 			case pageKeymap:
 				a.keymapPage(c, &t, dark)
 			default:
@@ -345,33 +335,6 @@ func (ui *settingsUIState) applyWindowDraft(p *preferences) {
 	}
 }
 
-// pushBackup 只推入用户实际编辑的备份字段。
-func (a *app) pushBackup() {
-	a.pushDraft(a.settingsUI.applyBackupDraft)
-}
-
-func (ui *settingsUIState) applyBackupDraft(p *preferences) {
-	draft, before := ui.draft.Backup, ui.synced.Backup
-	if draft.IntervalMinutes != before.IntervalMinutes {
-		p.Backup.IntervalMinutes = draft.IntervalMinutes
-	}
-	if draft.Keep != before.Keep {
-		p.Backup.Keep = draft.Keep
-	}
-	if draft.OnLaunch != before.OnLaunch {
-		p.Backup.OnLaunch = draft.OnLaunch
-	}
-	if draft.GitAutoPush != before.GitAutoPush {
-		p.Backup.GitAutoPush = draft.GitAutoPush
-	}
-	if draft.GitPushMinutes != before.GitPushMinutes {
-		p.Backup.GitPushMinutes = draft.GitPushMinutes
-	}
-	if draft.BackupDir != before.BackupDir {
-		p.Backup.BackupDir = draft.BackupDir
-	}
-}
-
 // pushDraft 统一推入；校验失败时保留草稿和行内错误供用户修正。
 func (a *app) pushDraft(mutate func(p *preferences)) {
 	if err := a.updatePreferences(mutate); err != nil {
@@ -389,8 +352,9 @@ func (a *app) resetPageDefaults(page string) {
 			p.Advanced.WindowColumns = defaults.Advanced.WindowColumns
 			p.Advanced.WindowRows = defaults.Advanced.WindowRows
 			p.Appearance = defaults.Appearance
-		case pageBackup:
-			p.Backup = defaults.Backup
+		case pageStorage:
+			p.Storage.SaveIntervalMS = defaults.Storage.SaveIntervalMS
+			p.Git = defaults.Git
 		case pageKeymap:
 			p.Keymap = defaults.Keymap
 		}

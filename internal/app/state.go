@@ -1,15 +1,11 @@
 package app
 
-// 应用状态、持久化与自动备份。
-//
-// 数据模型刻意保持简单：7 个点各自是一段 markdown 纯文本，
-// 整体存成一个 JSON 文件；备份是文件的滚动副本。
+// 所有标签集中存入一个笔记文件，路径和写入协调由 notes.Store 管理。
 
 import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -65,7 +61,6 @@ func newAppAt(dir string) *app {
 		now:      now,
 		notes: newNotesStore(
 			filepath.Join(dir, dataFileName),
-			filepath.Join(dir, backupDirName),
 			now,
 		),
 		prefsStore: newPrefsStore(filepath.Join(dir, "preferences.json")),
@@ -90,54 +85,39 @@ func (a *app) resetCodeLang() {
 	a.codeLangBlock, a.codeLangSeenFocus, a.codeLangSynced, a.codeLangFocus = -1, false, -1, 0
 }
 
-// ---- 数据目录与文件 ----
+// currentDataPath 始终返回唯一笔记文件。
+func (a *app) currentDataPath() string { return a.notes.DataPath() }
 
-// pendingPath 写保护期间新改动的暂存文件，绝不碰原路径。
-func (a *app) pendingPath() string { return a.notes.PendingPath() }
-
-// currentDataPath 当前生效的数据文件：写保护期间是暂存文件。
-func (a *app) currentDataPath() string { return a.notes.CurrentDataPath() }
-
-// ---- 载入与保存 ----
-
-// load 从磁盘读入数据。文件不存在用默认值（首次运行）；文件损坏或版本
-// 不支持时隔离原件、尽量从备份恢复，绝不覆盖用户数据。返回非 nil 表示
-// 数据文件有问题（即使已从备份恢复，也如实上报）。
+// load 只读取当前文件；异常时保留原件并暂停写入，不创建替代副本。
+// 成功读取（含空文件）解除因载入失败造成的写保护。
 func (a *app) load() error {
-	// 有效 pending 代表上一次在写保护期间完成的新编辑，优先于主文件和备份。
-	// 它必须保留到用户明确确认写回，避免覆盖无法确认安全性的原件。
-	if f, ok := a.notes.LoadPending(); ok {
-		a.applySavedFile(f)
-		a.notes.SetSaveBlocked(true)
-		a.resyncLive(0)
-		a.notice = locales.NoticeWriteProtected()
-		slog.Warn("已从暂存文件恢复，等待用户确认写回", "path", a.pendingPath())
-		return nil
-	} else if _, err := os.Stat(a.pendingPath()); err == nil {
-		slog.Warn("暂存文件无效，已保留原件且不自动覆盖", "path", a.pendingPath())
-	}
-
-	raw, err := os.ReadFile(a.notes.DataFile)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		a.initDefaults()
-		return nil
-	case err != nil:
-		return a.recoverFromBrokenFile(fmt.Errorf("读取数据文件失败: %w", err))
-	}
-	f, hadTabs, err := a.notes.ParseRaw(raw)
+	f, exists, hadTabs, err := a.notes.Load()
 	if err != nil {
-		if _, ok := err.(*versionError); ok {
-			return a.recoverFromBrokenFile(err)
-		}
-		return a.recoverFromBrokenFile(fmt.Errorf("解析数据文件失败: %w", err))
+		a.notes.SetSaveBlocked(true)
+		a.notice = locales.StorageReadFailed(err.Error())
+		return err
+	}
+	if !exists {
+		a.initDefaults()
+		a.notes.SetSaveBlocked(false)
+		return nil
 	}
 	a.applySavedFile(f)
 	if !hadTabs {
 		a.initDefaults() // 空文件：首次运行的欢迎文本
 	}
 	a.resyncLive(0)
+	a.notes.SetSaveBlocked(false)
+	a.notice = ""
 	return nil
+}
+
+// reloadNotes 是用户显式要求重新读取磁盘文件的入口；失败维持写保护。
+func (a *app) reloadNotes() {
+	if err := a.load(); err != nil {
+		a.notice = locales.StorageReadFailed(err.Error())
+	}
+	a.refreshSettingsWindow()
 }
 
 // applySavedFile 把迁移后的磁盘数据放进内存状态（主线程）。
@@ -164,34 +144,6 @@ func (a *app) applySavedFile(f savedFile) {
 		f.Settings.TabDotShape = ""
 	}
 	a.cfg.TabDotShape = f.Settings.TabDotShape
-}
-
-// recoverFromBrokenFile 数据文件不可用时的兜底：复制隔离原件（绝不删除或
-// 覆盖原件），尝试从最近备份恢复；都失败则用默认值并冻结对原路径的写入
-// （新改动暂存 .pending），等用户确认后再写回。返回 cause 供调用方上报。
-func (a *app) recoverFromBrokenFile(cause error) error {
-	a.notes.QuarantineCorruptFile()
-	var version *versionError
-	writeProtected := errors.As(cause, &version)
-	if f, name, ok := a.notes.LoadNewestBackup(); ok {
-		a.applySavedFile(f)
-		a.resyncLive(0)
-		if writeProtected {
-			a.notes.SetSaveBlocked(true)
-			a.notice = locales.NoticeWriteProtected()
-			slog.Warn("数据版本超前，已从备份临时恢复，原件保持写保护", "backup", name, "error", cause)
-			return cause
-		}
-		a.notice = locales.NoticeRecoveredFromBackup(name)
-		slog.Warn("数据文件损坏，已从备份恢复", "backup", name, "error", cause)
-		return cause
-	}
-	a.initDefaults()
-	a.resyncLive(0)
-	a.notes.SetSaveBlocked(true)
-	a.notice = locales.NoticeWriteProtected()
-	slog.Error("数据文件损坏且备份不可用，默认内容不写回原路径", "error", cause)
-	return cause
 }
 
 // welcomeTextFor 按初始标签数生成标签 1 的欢迎文本；提示段落来自 catalog。
@@ -257,22 +209,33 @@ func (a *app) saveNow() error {
 	return a.notes.SaveNow(a.snapshotFile())
 }
 
-// scheduleSave 防抖保存：配置延迟（默认 800ms）内没有新的改动才落盘。快照在主线程生成，
-// 后台定时器只把快照写盘，绝不读写 app 状态（MyGo：UI 状态只在主线程改）。
+// scheduleSave 替换待写快照，但不推迟首笔修改的保存期限。
 func (a *app) scheduleSave() {
-	win := a.win
-	after := func() {
-		if win != nil {
-			win.Update(func() {}) // 回主线程刷新状态栏（备份时间/错误提示）
+	a.notes.ScheduleSave(a.snapshotFile(), a.saveInterval(), a.storageRefresh())
+}
+
+// saveCurrent 是菜单保存入口，原生窗口中不等待磁盘 I/O。
+func (a *app) saveCurrent() {
+	snapshot, store, refresh := a.snapshotFile(), a.notes, a.storageRefresh()
+	save := func() { _ = store.SaveNow(snapshot); refresh() }
+	if a.ready {
+		go save()
+	} else {
+		save()
+	}
+}
+
+// storageRefresh 只捕获窗口引用，后台不读取 app 状态。
+func (a *app) storageRefresh() func() {
+	main, settings := a.win, a.settingsWin
+	return func() {
+		if main != nil {
+			main.Update(func() {})
+		}
+		if settings != nil {
+			settings.Update(func() {})
 		}
 	}
-	a.notes.ScheduleDebounced(
-		a.snapshotFile(),
-		a.autosaveDelay(),
-		a.backupIntervalDuration(),
-		a.prefs.Backup.Keep,
-		after,
-	)
 }
 
 // shutdown 退出流程（OnWillQuit，主线程）：取消防抖定时器，做一次最终快照
@@ -284,6 +247,9 @@ func (a *app) shutdown() {
 }
 
 func (a *app) shutdownForQuit() error {
+	if a.storageMoving {
+		return errors.New(locales.StorageMoving())
+	}
 	if err := a.notes.Shutdown(a.snapshotFile()); err != nil {
 		a.notes.SetStopped(false)
 		return err
@@ -292,72 +258,13 @@ func (a *app) shutdownForQuit() error {
 		a.notes.SetStopped(false)
 		return err
 	}
+	a.notes.Close()
 	slog.Info("退出前已最终保存")
 	return nil
 }
 
-// backupNow 保存当前数据并无条件写一份备份（手动备份入口，绕过周期节流）。
-func (a *app) backupNow() error {
-	if err := a.saveNow(); err != nil {
-		return err
-	}
-	return a.notes.BackupNow(a.prefs.Backup.Keep)
-}
-
-// backupInterval 自动滚动备份的默认最小间隔。
-const backupInterval = 5 * time.Minute
-
-// maybeWritePeriodicBackup 自动备份：距上次备份超过配置间隔才写一份。
-func (a *app) maybeWritePeriodicBackup() error {
-	return a.notes.MaybeWritePeriodicBackup(a.backupIntervalDuration(), a.prefs.Backup.Keep)
-}
-
-// backupOnLaunch 启用启动备份时做一份备份（当前数据文件存在时）。
-// 参数由调用方从偏好预取，可在后台 goroutine 调用而不与主线程的偏好变更竞争。
-func (a *app) backupOnLaunchAsync(enabled bool, keep int) error {
-	return a.notes.BackupOnLaunch(enabled, keep)
-}
-
-var removePendingAfterWriteBack = func(a *app) error { return a.notes.RemovePending() }
-
-// confirmWriteBack 用户确认后解除写保护，把当前状态写回数据文件
-// （不可用的原件此前已隔离为 .corrupt-<时间戳>，不会丢）。
-func (a *app) confirmWriteBack() error {
-	blocked := a.notes.SaveBlocked()
-	saved := a.snapshotFile()
-	if blocked {
-		// 先把唯一快照写入 pending，确保随后任一步失败或进程中断时，
-		// 下次启动优先恢复的内容都与即将写入主文件的内容一致。
-		if err := a.notes.SaveNow(saved); err != nil {
-			return err
-		}
-	}
-	a.notes.SetSaveBlocked(false)
-	if err := a.notes.SaveNow(saved); err != nil {
-		a.notes.SetSaveBlocked(blocked) // 写回失败维持写保护
-		return err
-	}
-	if !blocked {
-		return nil
-	}
-	if err := removePendingAfterWriteBack(a); err != nil && !errors.Is(err, os.ErrNotExist) {
-		a.notes.SetSaveBlocked(true)
-		a.notes.ReportPersist("清理暂存文件", err)
-		a.notice = locales.NoticeWriteProtected()
-		return fmt.Errorf("主数据已写入，但清理暂存文件失败，继续保持写保护: %w", err)
-	}
-	a.notice = ""
-	slog.Info("已按用户确认把数据写回原路径")
-	return nil
-}
-
-// clearActiveTab 清空当前标签内容。危险操作：先无条件备份，备份失败则
-// 取消清空。
+// clearActiveTab 清空当前标签内容；与普通编辑一致走自动保存。
 func (a *app) clearActiveTab() {
-	if err := a.backupNow(); err != nil {
-		slog.Error("清空当前标签前备份失败，已取消清空", "error", err)
-		return
-	}
 	a.activeTab().Text = ""
 	a.resyncLive(0)
 	a.liveFocus = 1 // 焦点回到编辑器（点击按钮会把焦点带走）
@@ -388,12 +295,6 @@ func orDefault(s, def string) string {
 	}
 	return s
 }
-
-// lastBackupTime 最近备份时间（后台备份也会更新 Store）。
-func (a *app) lastBackupTime() time.Time { return a.notes.LastBackupTime() }
-
-// loadLastBackupTime 启动时从备份目录恢复最近备份时间。
-func (a *app) loadLastBackupTime() error { return a.notes.LoadLastBackupTime() }
 
 // findMatches 找出 query 在 text 中的全部出现位置（大小写不敏感），
 // 返回按 rune 计的区间。

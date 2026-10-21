@@ -33,14 +33,16 @@ func Run() {
 	mygo.App.SetPath(mygo.PathUserData, dir)
 	mygo.Use(updatePlugin())
 
-	if err := a.load(); err != nil {
-		slog.Error("数据载入异常（已隔离原件并采用可用数据，未覆盖原文件）", "error", err)
-	}
-
-	// 偏好：preferences.json 为唯一来源；首次启动从旧 config 一次性迁移。
 	if err := a.loadPreferences(); err != nil {
-		slog.Warn("偏好载入未完成（详情见设置页；旧文件保持原样）", "error", err)
+		a.notes.SetSaveBlocked(true)
+		a.notice = locales.StorageReadFailed(err.Error())
+		slog.Error("偏好不可用，已暂停笔记保存", "error", err)
+	} else {
+		if err := a.openConfiguredNotes(); err != nil {
+			slog.Error("笔记文件不可用，已保留原件并暂停保存", "error", err)
+		}
 	}
+	a.applyPreferencesToRuntime()
 
 	// 语言切换（设置页或系统语言变化）后重建菜单与设置窗口文案；
 	// 原生窗口的界面由 MyGo 自动重绘。
@@ -61,16 +63,6 @@ func Run() {
 	// 最终保存数据与偏好并等它完成，之后忽略新的保存请求。
 	mygo.App.OnWillQuit(a.finishQuit)
 
-	startupTasksStarted := false
-	mygo.App.OnWindowCreated(func(win *mygo.Window) {
-		win.OnReadyToShow(func() {
-			if !startupTasksStarted {
-				startupTasksStarted = true
-				a.startStartupTasks()
-			}
-		})
-	})
-
 	mygo.App.WhenReady(func() {
 		a.ready = true // 之后偏好变更可安全触达原生 API
 		// 以 preferences.json 的语言为准同步一次（设置页显示值与实际语言一致；
@@ -87,7 +79,7 @@ func Run() {
 		} else {
 			a.createWindow()
 		}
-		slog.Info("应用就绪", "data", a.notes.DataFile, "prefs", a.preferencesPath())
+		slog.Info("应用就绪", "data", a.notes.DataPath(), "prefs", a.preferencesPath())
 	})
 
 	if err := mygo.App.Run(); err != nil {
@@ -422,7 +414,7 @@ func (a *app) createMenu() *mygo.Menu {
 			}},
 			mygo.Separator(),
 			// 立即备份必须绕过节流：保存当前数据并无条件写一份备份。
-			{Label: locales.MenuBackupNow(), Accelerator: "CmdOrCtrl+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.backupNow() }},
+			{Label: locales.MenuSave(), Accelerator: "CmdOrCtrl+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.saveCurrent() }},
 			{Label: locales.MenuExportMarkdown(), Click: func(*mygo.MenuItem, *mygo.Window) {
 				a.withWindow(func() { a.exportTab(a.active) })
 			}},

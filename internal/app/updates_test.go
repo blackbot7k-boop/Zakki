@@ -10,15 +10,12 @@ import (
 	"github.com/egoist/mygo"
 )
 
-func TestZakkiIdentityKeepsExistingData(t *testing.T) {
+func TestZakkiIdentity(t *testing.T) {
 	if appName != "Zakki" || !strings.HasPrefix(welcomeText, "# Zakki\n") {
 		t.Fatal("应用名与欢迎文字应使用 Zakki")
 	}
-	if dataDirectoryName != "Zakki" || legacyDataDirectoryName != "Tot MD" {
-		t.Fatal("数据目录应更名并保留旧目录名供迁移")
-	}
-	if dataFileName != "zakki.json" || legacyDataFileName != "tot-md.json" {
-		t.Fatal("数据文件应更名并保留旧文件名供迁移")
+	if dataDirectoryName != "Zakki" || dataFileName != "zakki.json" {
+		t.Fatal("数据目录与文件应使用 Zakki 命名")
 	}
 	raw, err := os.ReadFile("../../mygo.json")
 	if err != nil {
@@ -67,7 +64,7 @@ func TestQuitSavesBeforeUpdateRelaunch(t *testing.T) {
 	if event.DefaultPrevented() {
 		t.Fatal("保存成功不应阻止更新重启")
 	}
-	raw, err := os.ReadFile(a.notes.DataFile)
+	raw, err := os.ReadFile(a.notes.DataPath())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,6 +80,17 @@ func TestQuitSavesBeforeUpdateRelaunch(t *testing.T) {
 	if err != nil || !prefs.Window.AlwaysOnTop {
 		t.Fatalf("退出前应保存偏好: %+v %v", prefs, err)
 	}
+	entries, err := os.ReadDir(filepath.Dir(a.notes.DataPath()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 { // zakki.json + preferences.json
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("退出不应产生副本文件: %v", names)
+	}
 }
 
 func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
@@ -93,9 +101,12 @@ func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
 			if err := os.WriteFile(blocker, []byte("保留"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			dataPath, prefsPath := a.notes.DataFile, a.prefsStore.Path
+			prefsPath := a.prefsStore.Path
 			if failure == "notes" {
-				a.notes.DataFile = filepath.Join(blocker, "zakki.json")
+				// 数据路径换成目录：原子写必然失败。
+				if err := os.MkdirAll(a.notes.DataPath(), 0o755); err != nil {
+					t.Fatal(err)
+				}
 			} else {
 				a.prefsStore.Path = filepath.Join(blocker, "preferences.json")
 			}
@@ -104,12 +115,17 @@ func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
 			if !event.DefaultPrevented() || !strings.Contains(a.notice, "保存失败") {
 				t.Fatal("任一种保存失败必须取消退出/重启并提示")
 			}
-			a.notes.DataFile, a.prefsStore.Path = dataPath, prefsPath
+			a.prefsStore.Path = prefsPath
+			if failure == "notes" {
+				if err := os.Remove(a.notes.DataPath()); err != nil {
+					t.Fatal(err)
+				}
+			}
 			a.tabs[0].Text = "取消退出后继续编辑"
 			if err := a.saveNow(); err != nil {
 				t.Fatal(err)
 			}
-			raw, err := os.ReadFile(dataPath)
+			raw, err := os.ReadFile(a.notes.DataPath())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -126,25 +142,36 @@ func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
 	}
 }
 
-func TestUpdateRelaunchPreservesProtectedData(t *testing.T) {
+func TestQuitBlockedWhileFileUnreadable(t *testing.T) {
 	a := newTestApp(t)
-	original := []byte("不可覆盖的损坏原件")
-	if err := os.WriteFile(a.notes.DataFile, original, 0o600); err != nil {
+	original := []byte("version 超前的原件内容")
+	if err := os.WriteFile(a.notes.DataPath(), original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	a.notes.SetSaveBlocked(true)
-	a.tabs[0].Text = "暂存的笔记"
+	if err := a.load(); err == nil {
+		t.Fatal("高版本文件必须载入失败")
+	}
+	a.tabs[0].Text = "无法保存的新编辑"
 	event := &mygo.QuitEvent{}
 	a.finishQuit(event)
-	if event.DefaultPrevented() {
-		t.Fatal("写保护期间仍可保存暂存文件后退出")
+	if !event.DefaultPrevented() {
+		t.Fatal("原件不可写时必须取消退出")
 	}
-	raw, err := os.ReadFile(a.notes.DataFile)
+	raw, err := os.ReadFile(a.notes.DataPath())
 	if err != nil || string(raw) != string(original) {
-		t.Fatal("更新重启不应覆盖写保护原件")
+		t.Fatal("写保护期间不得改动原件")
 	}
-	raw, err = os.ReadFile(a.pendingPath())
-	if err != nil || !strings.Contains(string(raw), "暂存的笔记") {
-		t.Fatal("退出前必须保存暂存笔记")
+	entries, err := os.ReadDir(filepath.Dir(a.notes.DataPath()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".pending") || strings.Contains(e.Name(), ".corrupt-") {
+			t.Fatalf("不得生成暂存或隔离副本: %s", e.Name())
+		}
+	}
+	// 用户确认后仍不能解除：必须重新载入成功才恢复保存。
+	if err := a.saveNow(); err == nil {
+		t.Fatal("写保护期间保存必须失败")
 	}
 }

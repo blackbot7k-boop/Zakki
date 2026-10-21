@@ -16,7 +16,7 @@ func testAccel(acc string) error {
 }
 
 func TestPreferencesDefaultsAndValidation(t *testing.T) {
-	p := Default(5) // 与根目录 backupInterval（5 分钟）一致
+	p := Default()
 	if err := p.Validate(testAccel); err != nil {
 		t.Fatalf("默认偏好必须合法: %v", err)
 	}
@@ -26,14 +26,11 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 	if !p.Window.HideOnEscape || !p.Window.RememberBounds {
 		t.Fatalf("窗口默认值错误: %+v", p.Window)
 	}
-	if p.Backup.IntervalMinutes != 5 || p.Backup.Keep != 20 || !p.Backup.OnLaunch {
-		t.Fatalf("备份默认值错误: %+v", p.Backup)
+	if p.Storage != (Storage{SaveIntervalMS: 2000}) || p.Git != (Git{CommitMinutes: 1, PushMinutes: 10}) {
+		t.Fatalf("存储 / Git 默认值错误: %+v %+v", p.Storage, p.Git)
 	}
-	if p.Backup.BackupDir != "" {
-		t.Fatalf("全新安装不应预选备份文件夹: %+v", p.Backup)
-	}
-	if p.Advanced.AutosaveDelayMS != 800 || p.Advanced.WindowColumns != 22 || p.Advanced.WindowRows != 16 {
-		t.Fatalf("兼容参数默认值错误: %+v", p.Advanced)
+	if p.Advanced.WindowColumns != 22 || p.Advanced.WindowRows != 16 {
+		t.Fatalf("窗口参数默认值错误: %+v", p.Advanced)
 	}
 	for _, mutate := range []func(*Preferences){
 		func(p *Preferences) { p.Appearance.AppearanceMode = "blue" },
@@ -44,24 +41,27 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 		func(p *Preferences) { p.Appearance.BodySize = 41 },
 		func(p *Preferences) { p.Appearance.LineHeight = 0.5 },
 		func(p *Preferences) { p.Appearance.LineHeight = 3.1 },
-		func(p *Preferences) { p.Backup.IntervalMinutes = 0 },
-		func(p *Preferences) { p.Backup.IntervalMinutes = 1441 },
-		func(p *Preferences) { p.Backup.Keep = 1001 },
-		func(p *Preferences) { p.Advanced.AutosaveDelayMS = 99 },
+		func(p *Preferences) { p.Storage.SaveIntervalMS = 99 },
+		func(p *Preferences) { p.Storage.SaveIntervalMS = 60001 },
+		func(p *Preferences) { p.Git.CommitMinutes = 0 },
+		func(p *Preferences) { p.Git.CommitMinutes = 1441 },
+		func(p *Preferences) { p.Git.PushMinutes = 0 },
+		func(p *Preferences) { p.Git.PushMinutes = 1441 },
+		func(p *Preferences) { p.Git.AutoPush = true },
 		func(p *Preferences) { p.Advanced.WindowColumns = MinWindowColumns - 1 },
 		func(p *Preferences) { p.Advanced.WindowColumns = MaxWindowColumns + 1 },
 		func(p *Preferences) { p.Advanced.WindowRows = MinWindowRows - 1 },
 		func(p *Preferences) { p.Advanced.WindowRows = MaxWindowRows + 1 },
 		func(p *Preferences) { p.Keymap.Overrides["format.bold"] = "not a key+" },
 	} {
-		bad := Default(5)
+		bad := Default()
 		mutate(&bad)
 		if err := bad.Validate(testAccel); err == nil {
 			t.Fatalf("非法偏好应被拒绝: %+v", bad)
 		}
 	}
 	// 0 = 跟随主题；显式空串 = 解除绑定。
-	ok := Default(5)
+	ok := Default()
 	ok.Appearance.BodySize, ok.Appearance.LineHeight = 0, 0
 	ok.Keymap.Overrides["format.bold"] = ""
 	if err := ok.Validate(testAccel); err != nil {
@@ -95,22 +95,21 @@ func TestPreferencesDecodeStrict(t *testing.T) {
 }
 
 // TestPreferencesMigrateFontSplit 版本 1 只有单一正文字体键；升级后
-// latinFont 留空（跟随中文字体），渲染结果与升级前一致，其余字段原样保留；
-// backup 节缺键按未选择备份文件夹处理，行为与升级前一致。
+// latinFont 留空（跟随中文字体），渲染结果与升级前一致，其余字段原样保留。
 func TestPreferencesMigrateFontSplit(t *testing.T) {
-	v1 := `{"version":1,"appearance":{"bodyFont":"songti","monoFont":"menlo","bodySize":19,"colorTheme":"paper"},"backup":{"keep":7}}`
+	v1 := `{"version":1,"appearance":{"bodyFont":"songti","monoFont":"menlo","bodySize":19,"colorTheme":"paper"}}`
 	got, err := Decode([]byte(v1), testAccel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 11 {
+	if got.Version != CurrentVersion || CurrentVersion != 12 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
 		t.Fatalf("升级后西文应跟随中文字体: %q", got.Appearance.LatinFont)
 	}
 	if got.Appearance.BodyFont != "songti" || got.Appearance.MonoFont != "menlo" ||
-		got.Appearance.BodySize != 19 || got.Appearance.ColorTheme != "paper" || got.Backup.Keep != 7 {
+		got.Appearance.BodySize != 19 || got.Appearance.ColorTheme != "paper" {
 		t.Fatalf("升级不得改动其余偏好: %+v", got)
 	}
 	// 无 version 的旧文件同样升级。
@@ -132,25 +131,8 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if _, err := Decode([]byte(`{"version":2,"appearance":{"latinFont":"comic"}}`), testAccel); err == nil {
 		t.Fatal("未知西文字体必须拒绝")
 	}
-	// 版本 2 文件没有 backup 节的目录键：读回未选择状态。
-	v2b, err := Decode([]byte(`{"version":2,"backup":{"intervalMinutes":30,"keep":9}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v2b.Backup.BackupDir != "" ||
-		v2b.Backup.IntervalMinutes != 30 || v2b.Backup.Keep != 9 {
-		t.Fatalf("版本 2 备份策略应原样保留且未选择备份文件夹: %+v", v2b.Backup)
-	}
-	// 版本 3 的 mirrorDir 迁移为 backupDir；gitMode 随 Git 自动化移除。
-	v3, err := Decode([]byte(`{"version":3,"backup":{"mirrorDir":"/tmp/bak","gitMode":"commitPush"}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v3.Backup.BackupDir != "/tmp/bak" {
-		t.Fatalf("版本 3 的外部备份目录应迁移为备份文件夹: %+v", v3.Backup)
-	}
-	// 保存的是版本 5，磁盘模型随当前版本落盘。
-	if d := Default(5); d.Version != CurrentVersion || d.Appearance.LatinFont != "jetbrains" {
+	// 磁盘模型随当前版本落盘。
+	if d := Default(); d.Version != CurrentVersion || d.Appearance.LatinFont != "jetbrains" {
 		t.Fatalf("默认偏好应为当前版本且英文默认 JetBrains Mono: %+v", d)
 	}
 }
@@ -158,7 +140,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 // TestPreferencesMigrateThemeRenaming 版本 4 把更名前的主题 ID（"tot"）
 // 映射到新 ID（"classic" / "note"），主题取值本身不变。
 func TestPreferencesMigrateThemeRenaming(t *testing.T) {
-	v3 := `{"version":3,"appearance":{"colorTheme":"tot","markdownTheme":"tot","bodyFont":"kai"},"backup":{"keep":7}}`
+	v3 := `{"version":3,"appearance":{"colorTheme":"tot","markdownTheme":"tot","bodyFont":"kai"}}`
 	got, err := Decode([]byte(v3), testAccel)
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +151,7 @@ func TestPreferencesMigrateThemeRenaming(t *testing.T) {
 	if got.Appearance.ColorTheme != "classic" || got.Appearance.MarkdownTheme != "note" {
 		t.Fatalf("主题 ID 应映射到新 ID: %+v", got.Appearance)
 	}
-	if got.Appearance.BodyFont != "kai" || got.Backup.Keep != 7 {
+	if got.Appearance.BodyFont != "kai" {
 		t.Fatalf("迁移不得改动其余偏好: %+v", got)
 	}
 	// 新 ID 原样通过；缺 colorTheme 键的新文件直接用新默认。
@@ -218,88 +200,19 @@ func TestPreferencesMigrateCodeThemeSoft(t *testing.T) {
 	if v5follow.Appearance.CodeTheme != "" {
 		t.Fatalf("显式跟随文本应原样保留: %+v", v5follow.Appearance)
 	}
-	if got := Default(5).Appearance.CodeTheme; got != "soft" {
+	if got := Default().Appearance.CodeTheme; got != "soft" {
 		t.Fatalf("全新安装默认应为 soft: %q", got)
 	}
 }
 
-// TestPreferencesMigrateSingleBackupFolder 版本 6 起备份只有一个文件夹：
-// mirrorDir 平移为 backupDir 并成为唯一备份地址，gitMode 随 Git 自动化移除。
-func TestPreferencesMigrateSingleBackupFolder(t *testing.T) {
-	// v5 文件的 mirrorDir 原样迁移；gitMode 键被摘除后严格解码放行。
-	v5, err := Decode([]byte(`{"version":5,"backup":{"mirrorDir":"/tmp/bak","gitMode":"commitPush"}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v5.Version != CurrentVersion {
-		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, v5.Version)
-	}
-	if v5.Backup.BackupDir != "/tmp/bak" {
-		t.Fatalf("mirrorDir 应迁移为备份文件夹: %+v", v5.Backup)
-	}
-	// 只有 gitMode 没有 mirrorDir 的文件也能解码：迁移结果为未选择。
-	v5git, err := Decode([]byte(`{"version":5,"backup":{"gitMode":"commit"}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v5git.Backup.BackupDir != "" {
-		t.Fatalf("无目录时迁移后应未选择: %+v", v5git.Backup)
-	}
-	// v6 文件直接用新键，旧键按未知字段拒绝。
-	v6, err := Decode([]byte(`{"version":6,"backup":{"backupDir":"/tmp/new"}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v6.Backup.BackupDir != "/tmp/new" || v6.Version != CurrentVersion {
-		t.Fatalf("v6 备份值应原样保留并升版: %+v 版本 %d", v6.Backup, v6.Version)
-	}
-	if _, err := Decode([]byte(`{"version":6,"backup":{"mirrorDir":"/tmp/old"}}`), testAccel); err == nil {
-		t.Fatal("v6 文件出现旧键 mirrorDir 必须拒绝")
-	}
-	if _, err := Decode([]byte(`{"version":6,"backup":{"gitMode":"commit"}}`), testAccel); err == nil {
-		t.Fatal("v6 文件出现旧键 gitMode 必须拒绝")
-	}
-}
-
-// TestPreferencesMigrateGitAutomation 版本 9 起备份文件夹支持 Git 自动化：
-// 旧文件从未写过这两个键，迁移补默认（关、默认推送间隔），不替用户开启推送；
-// 版本 9 文件的显式值原样保留。
-func TestPreferencesMigrateGitAutomation(t *testing.T) {
-	// v8 文件缺 Git 键：迁移后保持关闭，间隔补默认。
-	v8, err := Decode([]byte(`{"version":8,"backup":{"backupDir":"/tmp/repo"}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v8.Version != CurrentVersion || v8.Backup.GitAutoPush {
-		t.Fatalf("旧文件迁移后 Git 自动化应默认关闭: %+v 版本 %d", v8.Backup, v8.Version)
-	}
-	if v8.Backup.GitPushMinutes != defaultGitPushMinutes {
-		t.Fatalf("缺推送间隔应补默认 %d: %d", defaultGitPushMinutes, v8.Backup.GitPushMinutes)
-	}
-	// v9 文件显式开启或关闭：原样保留，不受迁移影响。
-	v9off, err := Decode([]byte(`{"version":9,"backup":{"gitAutoPush":false,"gitPushMinutes":30}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v9off.Backup.GitAutoPush || v9off.Backup.GitPushMinutes != 30 {
-		t.Fatalf("v9 显式值应原样保留: %+v", v9off.Backup)
-	}
-	v9on, err := Decode([]byte(`{"version":9,"backup":{"gitAutoPush":true}}`), testAccel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !v9on.Backup.GitAutoPush {
-		t.Fatalf("v9 显式开启应原样保留: %+v", v9on.Backup)
-	}
-	// 全新安装默认关闭且间隔为默认值。
-	if d := Default(5); d.Backup.GitAutoPush || d.Backup.GitPushMinutes != defaultGitPushMinutes {
-		t.Fatalf("默认偏好 Git 键错误: %+v", d.Backup)
-	}
-	// 推送间隔超出 1–1440 拒绝。
-	bad := Default(5)
-	bad.Backup.GitPushMinutes = 1441
-	if err := bad.Validate(testAccel); err == nil {
-		t.Fatal("gitPushMinutes 超范围必须拒绝")
+func TestPreferencesRejectBackup(t *testing.T) {
+	for _, version := range []string{"1", "3", "5", "6", "8", "9", "11", "12"} {
+		for _, backup := range []string{`{}`, `{"mirrorDir":"/old","gitMode":"commitPush"}`, `{"backupDir":"/old"}`, `{"intervalMinutes":5,"keep":20,"onLaunch":true,"gitAutoPush":true,"gitPushMinutes":10}`} {
+			raw := `{"version":` + version + `,"backup":` + backup + `}`
+			if _, err := Decode([]byte(raw), nil); err == nil || !strings.Contains(err.Error(), `unknown field "backup"`) {
+				t.Fatalf("旧 backup 必须按未知字段拒绝: %s: %v", raw, err)
+			}
+		}
 	}
 }
 
@@ -351,7 +264,7 @@ func TestPreferencesMigrateSketchStyle(t *testing.T) {
 		{"都不是", "paper", "book", StyleStandard, "paper", "book"},
 	}
 	for _, tc := range cases {
-		raw := `{"version":9,"appearance":{"colorTheme":"` + tc.color + `","markdownTheme":"` + tc.layout + `","bodyFont":"hand"},"backup":{"keep":7}}`
+		raw := `{"version":9,"appearance":{"colorTheme":"` + tc.color + `","markdownTheme":"` + tc.layout + `","bodyFont":"hand"}}`
 		got, err := Decode([]byte(raw), testAccel)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
@@ -360,7 +273,7 @@ func TestPreferencesMigrateSketchStyle(t *testing.T) {
 		if got.Version != CurrentVersion || ap.Style != tc.wantStyle || ap.ColorTheme != tc.wantC || ap.MarkdownTheme != tc.wantMD {
 			t.Fatalf("%s: 迁移结果 %+v", tc.name, ap)
 		}
-		if ap.BodyFont != "hand" || got.Backup.Keep != 7 {
+		if ap.BodyFont != "hand" {
 			t.Fatalf("%s: 迁移不得改动其余偏好: %+v", tc.name, got)
 		}
 		wantEffC, wantEffMD := tc.wantC, tc.wantMD
@@ -400,7 +313,7 @@ func TestPreferencesMigrateWindowGrid(t *testing.T) {
 		{"自定义", `{"version":10,"advanced":{"windowWidth":560,"windowHeight":700}}`, 32, 23},
 		{"字号覆盖", `{"version":10,"appearance":{"bodySize":20,"lineHeight":2},"advanced":{"windowWidth":560,"windowHeight":700}}`, 26, 14},
 		{"只有宽", `{"version":10,"advanced":{"windowWidth":560}}`, 32, 16},
-		{"缺键", `{"version":10,"advanced":{"autosaveDelayMs":900}}`, 22, 16},
+		{"缺键", `{"version":10,"advanced":{}}`, 22, 16},
 		{"很早的版本", `{"version":4,"advanced":{"windowWidth":4096,"windowHeight":4096}}`, MaxWindowColumns, MaxWindowRows},
 	}
 	for _, tc := range cases {

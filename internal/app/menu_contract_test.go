@@ -64,7 +64,7 @@ func TestMenuStructureNoConfigEntries(t *testing.T) {
 				}
 			}
 			joined := strings.Join(labels, ",")
-			for _, want := range []string{"立即备份", "新建标签"} {
+			for _, want := range []string{"保存", "新建标签"} {
 				if !strings.Contains(joined, want) {
 					t.Fatalf("文件菜单缺少 %s：%s", want, joined)
 				}
@@ -336,7 +336,7 @@ func TestSettingsWindowLifecycleState(t *testing.T) {
 func TestSettingsViewRendersPages(t *testing.T) {
 	a := newTestApp(t)
 	a.winOpen = true
-	for _, page := range []string{pageGeneral, pageBackup, pageKeymap} {
+	for _, page := range []string{pageGeneral, pageStorage, pageKeymap} {
 		a.settingsPage = page
 		a.settingsUI.syncDraftFromPrefs(a.prefs)
 		tt := ui.NewTester(a.settingsView, 760, 600)
@@ -365,12 +365,15 @@ func TestSettingsViewRendersPages(t *testing.T) {
 			if !tt.HasText("标签形状") || !tt.HasText("标签标题最大宽度") || !tt.HasText("毛玻璃回退强度") {
 				t.Fatalf("外观页缺少顶栏设置: %v", tt.Texts())
 			}
-		case pageBackup:
-			if !tt.HasText("打开文件夹") || !tt.HasText("显示数据位置") {
-				t.Fatalf("备份页缺少操作: %v", tt.Texts())
+		case pageStorage:
+			if !tt.HasText("笔记文件") || !tt.HasText("显示文件") || !tt.HasText("更换位置…") {
+				t.Fatalf("保存页缺少文件信息: %v", tt.Texts())
 			}
-			if tt.HasText("立即备份") || tt.HasText("Git 自动化") {
-				t.Fatalf("备份页不应再有立即备份或 Git 自动化: %v", tt.Texts())
+			if !tt.HasText("尚未保存") {
+				t.Fatalf("保存页应显示保存状态: %v", tt.Texts())
+			}
+			if tt.HasText("立即备份") || tt.HasText("备份文件夹") {
+				t.Fatalf("保存页不应再有备份概念: %v", tt.Texts())
 			}
 		case pageKeymap:
 			if !tt.HasText("全局显示/隐藏主窗口") || !tt.HasText("加粗") {

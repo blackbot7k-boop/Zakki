@@ -1,9 +1,10 @@
 package app
 
 // 查找替换与跨标签查找：替换进撤销事务、跨标签跳转保留查找状态、
-// 跨标签全部替换先做安全备份，备份失败不动任何标签。
+// 跨标签全部替换只更新同一笔记文件，不生成副本。
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -107,38 +108,60 @@ func TestFindAllTabsStepsAcrossTabs(t *testing.T) {
 	}
 }
 
-func TestReplaceAllTabsBacksUpFirst(t *testing.T) {
-	t.Run("成功", func(t *testing.T) {
-		a := newTestApp(t)
-		t.Cleanup(a.shutdown)
-		a.tabs[0].Text, a.tabs[1].Text, a.tabs[2].Text = "甲", "无关", "甲甲"
-		a.resyncLive(-1) // 直接改了文本：焦点块草稿跟上，替换前提交草稿才不会写回旧内容
-		a.openFind(true, true)
-		if n := a.replaceAllTabsNow("甲", "乙"); n != 3 {
-			t.Fatalf("跨标签替换数量 = %d, want 3", n)
+func TestReplaceAllTabsSavesSingleFile(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.tabs[0].Text, a.tabs[1].Text, a.tabs[2].Text = "甲", "无关", "甲甲"
+	a.resyncLive(-1)
+	a.openFind(true, true)
+	if n := a.replaceAllTabsNow("甲", "乙"); n != 3 {
+		t.Fatalf("跨标签替换数量 = %d, want 3", n)
+	}
+	if a.tabs[0].Text != "乙" || a.tabs[1].Text != "无关" || a.tabs[2].Text != "乙乙" {
+		t.Fatalf("跨标签替换结果错误: %q %q %q", a.tabs[0].Text, a.tabs[1].Text, a.tabs[2].Text)
+	}
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	f := persistReadSaved(t, a.notes.DataPath())
+	if len(f.Tabs) != len(a.tabs) {
+		t.Fatalf("标签数量丢失: %d", len(f.Tabs))
+	}
+	for i := range a.tabs {
+		if f.Tabs[i].Text != a.tabs[i].Text {
+			t.Fatalf("标签 %d 未写回: %q", i, f.Tabs[i].Text)
 		}
-		if a.tabs[0].Text != "乙" || a.tabs[1].Text != "无关" || a.tabs[2].Text != "乙乙" {
-			t.Fatalf("跨标签替换结果错误: %q %q %q", a.tabs[0].Text, a.tabs[1].Text, a.tabs[2].Text)
-		}
-		if a.lastBackupTime().IsZero() {
-			t.Fatal("跨标签替换前应先做安全备份")
-		}
-	})
-	t.Run("备份失败不替换", func(t *testing.T) {
-		a := newTestApp(t)
-		t.Cleanup(a.shutdown)
-		blocker := a.notes.BackupDir() + "-blocked"
-		persistWrite(t, blocker, "普通文件")
-		a.notes.SetBackupDir(blocker)
-		a.tabs[0].Text, a.tabs[2].Text = "甲", "甲"
-		a.resyncLive(-1)
-		if n := a.replaceAllTabsNow("甲", "乙"); n != 0 {
-			t.Fatalf("备份失败不应替换: %d", n)
-		}
-		if a.tabs[0].Text != "甲" || a.tabs[2].Text != "甲" || a.notice == "" {
-			t.Fatalf("备份失败应保留原文并提示: %q %q notice=%q", a.tabs[0].Text, a.tabs[2].Text, a.notice)
-		}
-	})
+	}
+	assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()), "zakki.json")
+	a.undoLive(false)
+	if a.tabs[0].Text != "甲" || a.tabs[1].Text != "无关" || a.tabs[2].Text != "乙乙" {
+		t.Fatalf("跨标签替换应保留活动标签撤销事务: %q", tabTexts(a))
+	}
+}
+
+func TestReplaceAllTabsDoesNotDependOnLegacyBackupDirectory(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	dir := filepath.Dir(a.notes.DataPath())
+	persistWrite(t, filepath.Join(dir, "backups"), "旧备份位置不可用")
+	a.tabs[0].Text, a.tabs[2].Text = "甲", "甲"
+	a.resyncLive(-1)
+	if n := a.replaceAllTabsNow("甲", "乙"); n != 2 {
+		t.Fatalf("替换不应依赖旧备份目录: %d", n)
+	}
+	if a.tabs[0].Text != "乙" || a.tabs[2].Text != "乙" {
+		t.Fatalf("替换内容错误: %q", tabTexts(a))
+	}
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	if got := persistReadSaved(t, a.notes.DataPath()); got.Tabs[0].Text != "乙" || got.Tabs[2].Text != "乙" {
+		t.Fatalf("替换未保存: %+v", got.Tabs)
+	}
+	if got := string(persistReadRaw(t, filepath.Join(dir, "backups"))); got != "旧备份位置不可用" {
+		t.Fatalf("旧位置不应改动: %q", got)
+	}
+	assertOnlyStorageFiles(t, dir, "zakki.json", "backups")
 }
 
 func TestFindBarReplaceRowAndEscape(t *testing.T) {

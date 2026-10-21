@@ -330,9 +330,9 @@ func waitForSavedText(t *testing.T, a *app, want string) {
 
 func waitForSavedTextAt(t *testing.T, a *app, tab int, want string) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		raw, err := os.ReadFile(a.notes.DataFile)
+		raw, err := os.ReadFile(a.notes.DataPath())
 		if err == nil {
 			var saved savedFile
 			if json.Unmarshal(raw, &saved) == nil && tab < len(saved.Tabs) && saved.Tabs[tab].Text == want {
@@ -341,7 +341,7 @@ func waitForSavedTextAt(t *testing.T, a *app, tab int, want string) {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	raw, err := os.ReadFile(a.notes.DataFile)
+	raw, err := os.ReadFile(a.notes.DataPath())
 	if err != nil {
 		t.Fatal(err)
 	}

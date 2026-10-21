@@ -2,14 +2,15 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
-// preferences.json 是用户偏好的唯一来源；迁移一次性完成，旧文件原样保留。
+// preferences.json 是用户偏好的唯一来源；全新安装直接写默认值，
+// 不再导入旧 config.toml / config.json。
 
 func prefsReadRaw(t *testing.T, path string) []byte {
 	t.Helper()
@@ -30,144 +31,46 @@ func persistWriteRaw(t *testing.T, path string, raw string) {
 	}
 }
 
-func TestPrefsMigrateFromTOMLHasPriority(t *testing.T) {
-	for _, tc := range []struct {
-		name, toml, jsonBlob string
-		check                func(*testing.T, *app, error)
-	}{
-		{
-			name:     "TOML 显式值覆盖笔记旧设置",
-			toml:     "# 用户已编辑\n[appearance]\nbodySize = 23\n",
-			jsonBlob: `{"appearance":{"bodySize":24}}`,
-			check: func(t *testing.T, a *app, err error) {
-				if err != nil {
-					t.Fatal(err)
-				}
-				if a.prefs.Appearance.BodySize != 23 {
-					t.Fatalf("TOML 必须优先于旧 JSON 与笔记设置: %+v", a.prefs.Appearance)
-				}
-			},
-		},
-		{
-			name:     "损坏 TOML 报错且不导入",
-			toml:     "[bad",
-			jsonBlob: `{"appearance":{"bodySize":24}}`,
-			check: func(t *testing.T, a *app, err error) {
-				if err == nil {
-					t.Fatal("损坏 TOML 必须报错")
-				}
-				if a.prefs.Appearance.BodySize != 19 {
-					t.Fatalf("报错时只用笔记旧设置，不导入损坏 TOML 或旧 JSON: %+v", a.prefs.Appearance)
-				}
-				if a.currentPrefsIssue().Kind != prefsIssueLegacyBroken {
-					t.Fatalf("应进入待确认状态: %+v", a.currentPrefsIssue())
-				}
-				if _, statErr := os.Stat(a.preferencesPath()); !os.IsNotExist(statErr) {
-					t.Fatalf("待确认状态不得写 preferences.json: %v", statErr)
-				}
-				// 用户确认「使用已有偏好继续」后建立新设置文件。
-				if err := a.confirmContinueWithoutLegacyConfig(); err != nil {
-					t.Fatal(err)
-				}
-				if _, statErr := os.Stat(a.preferencesPath()); statErr != nil {
-					t.Fatalf("确认后应写出偏好文件: %v", statErr)
-				}
-				if a.currentPrefsIssue().Kind != prefsIssueNone {
-					t.Fatalf("确认后应清除待确认状态: %+v", a.currentPrefsIssue())
-				}
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			a := newTestApp(t)
-			a.cfg.BodySize = 19 // 笔记内旧设置
-			dir := filepath.Dir(a.notes.DataFile)
-			if tc.toml != "" {
-				persistWriteRaw(t, filepath.Join(dir, "config.toml"), tc.toml)
-			}
-			if tc.jsonBlob != "" {
-				persistWriteRaw(t, filepath.Join(dir, "config.json"), tc.jsonBlob)
-			}
-			err := a.loadPreferences()
-			tc.check(t, a, err)
-		})
-	}
-}
-
-func TestPrefsMigrateFromLegacyJSON(t *testing.T) {
+// TestPrefsFreshInstallIgnoresLegacyConfig 缺失 preferences.json 时写默认值；
+// 同目录残留的旧 config 文件原样保留且不被读取。
+func TestPrefsFreshInstallIgnoresLegacyConfig(t *testing.T) {
 	a := newTestApp(t)
-	a.cfg.ThemeSource, a.cfg.BodySize, a.cfg.Source = "light", 19, true
-	a.tabs[0].Text = "配置迁移不能改变笔记"
-	if err := a.saveNow(); err != nil {
-		t.Fatal(err)
-	}
-	dataBefore := string(prefsReadRaw(t, a.notes.DataFile))
-	legacy := `{"appearance":{"theme":"dark","bodySize":24,"markdownTheme":"tot"},"window":{"hideOnEscape":false,"rememberBounds":false},"storage":{"backupKeep":35,"backupIntervalMinutes":9},"shortcuts":{"toggleWindow":""}}`
-	dir := filepath.Dir(a.notes.DataFile)
-	persistWriteRaw(t, filepath.Join(dir, "config.json"), legacy)
+	dir := filepath.Dir(a.notes.DataPath())
+	legacyTOML := "[appearance]\ncolorTheme = \"paper\"\nbodySize = 24\n"
+	legacyJSON := `{"appearance":{"theme":"dark"},"storage":{"backupKeep":35}}`
+	persistWriteRaw(t, filepath.Join(dir, "config.toml"), legacyTOML)
+	persistWriteRaw(t, filepath.Join(dir, "config.json"), legacyJSON)
 
 	if err := a.loadPreferences(); err != nil {
 		t.Fatal(err)
 	}
-	if a.prefs.Appearance.AppearanceMode != "dark" || a.prefs.Appearance.BodySize != 24 {
-		t.Fatalf("显式值应迁移: %+v", a.prefs.Appearance)
+	if a.currentPrefsIssue().Kind != prefsIssueNone {
+		t.Fatalf("全新安装不应有异常状态: %+v", a.currentPrefsIssue())
 	}
-	if a.prefs.Appearance.MarkdownTheme != "note" {
-		t.Fatalf("Sonnet/Tot 应映射为同名排版主题: %+v", a.prefs.Appearance)
+	if a.prefs.Appearance != defaultPreferences().Appearance {
+		t.Fatalf("应使用默认外观，不导入旧配置: %+v", a.prefs.Appearance)
 	}
-	if a.prefs.Window.HideOnEscape || a.prefs.Window.RememberBounds {
-		t.Fatalf("显式 false 必须保留: %+v", a.prefs.Window)
+	if string(prefsReadRaw(t, filepath.Join(dir, "config.toml"))) != legacyTOML ||
+		string(prefsReadRaw(t, filepath.Join(dir, "config.json"))) != legacyJSON {
+		t.Fatal("旧配置文件必须原样保留")
 	}
-	if a.prefs.Backup.Keep != 35 || a.prefs.Backup.IntervalMinutes != 9 {
-		t.Fatalf("备份策略应迁移: %+v", a.prefs.Backup)
-	}
-	if over, ok := a.prefs.Keymap.Overrides[cmdToggleWindow]; !ok || over != "" {
-		t.Fatalf("显式空热键应解除绑定: %q %v", over, ok)
-	}
-	if a.cfg.Source != true {
-		t.Fatal("编辑会话状态（源码模式）属于笔记文件，不被偏好迁移覆盖")
-	}
-	// 笔记数据不变；旧 JSON 原样保留。
-	if string(prefsReadRaw(t, a.notes.DataFile)) != dataBefore {
-		t.Fatal("迁移不得修改笔记数据")
-	}
-	if string(prefsReadRaw(t, filepath.Join(dir, "config.json"))) != legacy {
-		t.Fatal("迁移不得改写旧配置")
-	}
-	// preferences.json 落盘且可读回。
+	// preferences.json 落盘且为当前版本。
 	prefs, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
-	if err != nil || prefs.Appearance.BodySize != 24 {
-		t.Fatalf("迁移结果必须原子落盘: %+v, %v", prefs, err)
-	}
-	// 二次启动：直接读取 preferences.json，不再读旧配置。
-	if err := a.loadPreferences(); err != nil {
-		t.Fatal(err)
-	}
-	if a.prefs.Appearance.BodySize != 24 {
-		t.Fatalf("重复启动应读偏好文件: %+v", a.prefs.Appearance)
+	if err != nil || prefs.Version != currentPreferencesVersion {
+		t.Fatalf("默认偏好应原子落盘: %+v, %v", prefs, err)
 	}
 }
 
-func TestPrefsNotesSettingsUsedWhenNoConfig(t *testing.T) {
-	a := newTestApp(t)
-	a.cfg.ThemeSource, a.cfg.BodySize, a.cfg.MarkdownTheme, a.cfg.BodyFont = "dark", 21, "tot", "songti"
-	if err := a.loadPreferences(); err != nil {
-		t.Fatal(err)
-	}
-	if a.prefs.Appearance.AppearanceMode != "dark" || a.prefs.Appearance.BodySize != 21 ||
-		a.prefs.Appearance.MarkdownTheme != "note" || a.prefs.Appearance.BodyFont != "songti" {
-		t.Fatalf("笔记内旧设置应成为迁移基线: %+v", a.prefs.Appearance)
-	}
-	if a.prefs.Appearance.LatinFont != "" {
-		t.Fatalf("选过中文字体的旧用户英文应保持跟随中文: %q", a.prefs.Appearance.LatinFont)
-	}
-	// 全新安装（无笔记设置、无旧配置）用默认值。
-	b := newTestApp(t)
-	if err := b.loadPreferences(); err != nil {
-		t.Fatal(err)
-	}
-	if b.prefs.Appearance != defaultPreferences().Appearance {
-		t.Fatalf("全新安装应保持默认外观: %+v", b.prefs.Appearance)
+// TestPrefsOldBackupFieldsRejected 旧版本的 backup / autosaveDelayMs 字段
+// 按未知字段拒绝，不静默映射或丢弃。
+func TestPrefsOldBackupFieldsRejected(t *testing.T) {
+	for _, raw := range []string{
+		`{"version":11,"backup":{"intervalMinutes":5,"keep":20}}`,
+		`{"version":11,"advanced":{"autosaveDelayMs":800}}`,
+	} {
+		if _, err := decodePreferences([]byte(raw)); err == nil {
+			t.Fatalf("应拒绝旧字段: %s", raw)
+		}
 	}
 }
 
@@ -211,7 +114,7 @@ func TestPrefsBrokenFileRecovery(t *testing.T) {
 	if prefs.Appearance.ColorTheme != "paper" {
 		t.Fatalf("恢复写盘应包含会话中的修改: %+v", prefs.Appearance)
 	}
-	entries, err := os.ReadDir(filepath.Dir(a.notes.DataFile))
+	entries, err := os.ReadDir(filepath.Dir(a.notes.DataPath()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,16 +139,14 @@ func TestPrefsVersionTooNewBlocked(t *testing.T) {
 	if a.currentPrefsIssue().Kind != prefsIssuePrefsBroken {
 		t.Fatalf("应进入待恢复状态: %+v", a.currentPrefsIssue())
 	}
-	// 不退回旧 TOML：即使存在 config.toml 也不读。
-	persistWriteRaw(t, filepath.Join(filepath.Dir(a.notes.DataFile), "config.toml"), "[appearance]\ncolorTheme = \"paper\"\n")
 	if a.prefs.Appearance.ColorTheme != "classic" {
-		t.Fatal("超前版本不得退回旧 TOML")
+		t.Fatalf("超前版本用默认值运行: %+v", a.prefs.Appearance)
 	}
 	if err := a.confirmRecoverPreferences(); err != nil {
 		t.Fatal(err)
 	}
 	if a.prefs.Appearance.ColorTheme != "classic" {
-		t.Fatalf("恢复默认不读旧配置: %+v", a.prefs.Appearance)
+		t.Fatalf("恢复后仍是默认值: %+v", a.prefs.Appearance)
 	}
 }
 
@@ -292,22 +193,28 @@ func TestPrefsUpdateRejectsInvalid(t *testing.T) {
 	}
 }
 
-func TestPrefsLegacyHotkeyMigration(t *testing.T) {
+func TestPrefsStorageFieldsApplyAndPersist(t *testing.T) {
 	a := newTestApp(t)
-	dir := filepath.Dir(a.notes.DataFile)
-	persistWriteRaw(t, filepath.Join(dir, "config.toml"), "shortcuts.toggleWindow = \"Super+Alt+Space\"\n")
 	if err := a.loadPreferences(); err != nil {
 		t.Fatal(err)
 	}
-	acc := a.prefs.Keymap.Overrides[cmdToggleWindow]
-	if acc == "" {
-		t.Fatal("旧热键应迁移")
+	if err := a.updatePreferences(func(p *preferences) {
+		p.Storage.SaveIntervalMS = 1500
+		p.Git.AutoCommit = true
+	}); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := parseAccelerator(acc); err != nil {
-		t.Fatalf("迁移后的热键必须是规范化 accelerator: %q %v", acc, err)
+	if a.saveInterval() != 1500*time.Millisecond {
+		t.Fatalf("保存间隔未生效: %v", a.saveInterval())
 	}
-	if acc != "CmdOrCtrl+Alt+Space" {
-		t.Fatalf("Super/Cmd 书写应规范化为 CmdOrCtrl: %q", acc)
+	a.shutdownPreferences()
+	prefs, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
+	if err != nil || prefs.Storage.SaveIntervalMS != 1500 || !prefs.Git.AutoCommit || prefs.Git.AutoPush {
+		t.Fatalf("存储偏好应持久化: %+v, %v", prefs, err)
+	}
+	// AutoPush 依赖 AutoCommit：单独打开推送必须拒绝。
+	if err := a.updatePreferences(func(p *preferences) { p.Git.AutoCommit = false; p.Git.AutoPush = true }); err == nil {
+		t.Fatal("无自动提交时打开自动推送必须拒绝")
 	}
 }
 
@@ -392,48 +299,7 @@ func TestPrefsReadErrorRecoveryRemainsExplicit(t *testing.T) {
 	}
 }
 
-func TestLegacyConfigIssueBlocksFirstWriteAndFailedConfirmation(t *testing.T) {
-	a := newTestApp(t)
-	dir := filepath.Dir(a.notes.DataFile)
-	persistWriteRaw(t, filepath.Join(dir, "config.toml"), "[broken")
-	if err := a.loadPreferences(); err == nil {
-		t.Fatal("损坏 legacy 配置必须上报")
-	}
-	if err := a.updatePreferences(func(p *preferences) { p.Appearance.ColorTheme = "paper" }); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.savePreferencesNow(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(a.preferencesPath()); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("确认前首次写入必须被门控: %v", err)
-	}
-
-	originalPath := a.prefsStore.Path
-	blocker := filepath.Join(dir, "not-a-directory")
-	persistWriteRaw(t, blocker, "preserve")
-	a.prefsStore.Path = filepath.Join(blocker, "preferences.json")
-	if err := a.confirmContinueWithoutLegacyConfig(); err == nil {
-		t.Fatal("确认写入失败必须返回错误")
-	}
-	if a.currentPrefsIssue().Kind != prefsIssueLegacyBroken {
-		t.Fatal("确认写入失败不得清除 legacy 写门")
-	}
-	a.prefsStore.Path = originalPath
-	if err := a.confirmContinueWithoutLegacyConfig(); err != nil {
-		t.Fatalf("修复写入路径后应可重试确认: %v", err)
-	}
-	raw := prefsReadRaw(t, originalPath)
-	var saved preferences
-	if err := json.Unmarshal(raw, &saved); err != nil {
-		t.Fatal(err)
-	}
-	if got := saved.Appearance.ColorTheme; got != "paper" {
-		t.Fatalf("确认写入应包含门控期间的用户修改: %q", got)
-	}
-}
-
-func TestPrefsMigrationKeepsNormalizedNoteThemeFromRealNotesLoad(t *testing.T) {
+func TestPrefsNoteThemeStaysInNotesFile(t *testing.T) {
 	a := newTestApp(t)
 	a.cfg.MarkdownTheme = "note"
 	if err := a.saveNow(); err != nil {
@@ -441,17 +307,25 @@ func TestPrefsMigrationKeepsNormalizedNoteThemeFromRealNotesLoad(t *testing.T) {
 	}
 
 	b := newTestApp(t)
-	b.notes = newNotesStore(a.notes.DataFile, a.notes.BackupDir(), b.now)
+	b.notes.Close()
+	b.notes = newNotesStore(a.notes.DataPath(), b.now)
 	if err := b.load(); err != nil {
 		t.Fatal(err)
 	}
 	if b.cfg.MarkdownTheme != "note" {
-		t.Fatalf("笔记载入应先得到规范化 note，实际 %q", b.cfg.MarkdownTheme)
+		t.Fatalf("笔记载入应得到 note: %q", b.cfg.MarkdownTheme)
 	}
 	if err := b.loadPreferences(); err != nil {
 		t.Fatal(err)
 	}
-	if b.prefs.Appearance.MarkdownTheme != "note" {
-		t.Fatalf("note 基线迁入 preferences 后不得回退 sonnet: %q", b.prefs.Appearance.MarkdownTheme)
+	if b.prefs.Appearance.MarkdownTheme != "sonnet" {
+		t.Fatalf("笔记里的排版主题不影响偏好默认: %+v", b.prefs.Appearance)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(prefsReadRaw(t, b.preferencesPath()), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["backup"]; ok {
+		t.Fatal("偏好文件不应再写出 backup 字段")
 	}
 }

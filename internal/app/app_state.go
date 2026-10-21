@@ -201,12 +201,13 @@ type desktopRefs struct {
 
 // prefsRuntimeState 内存中的偏好及其一次性迁移结果。
 type prefsRuntimeState struct {
-	fonts          fontRuntimeState
-	prefs          preferences
-	prefsMigration migrationResult
+	fonts fontRuntimeState
+	prefs preferences
 	// appliedLocale 已应用到 MyGo 的界面语言：与 prefs.Appearance.Language
 	// 比对，避免每次偏好更新都重复 SetLocale。
 	appliedLocale string
+	storageMoving bool
+	storageError  string
 }
 
 // settingsWindowState 设置窗口与草稿 UI。

@@ -76,15 +76,15 @@ func TestSettingsViewCardLayout(t *testing.T) {
 		t.Fatalf("外观页不应再有页面级预览栏: %v", tt.Texts())
 	}
 
-	a.settingsPage = pageBackup
+	a.settingsPage = pageStorage
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt = ui.NewTester(a.settingsView, 900, 620)
 	tt.Frame()
-	if !tt.HasText(a.notes.BackupDir()) || !tt.HasText("打开文件夹") {
-		t.Fatalf("备份页缺少路径: %v", tt.Texts())
+	if !tt.HasText("笔记文件") || !tt.HasText(a.notes.DataPath()) {
+		t.Fatalf("保存页缺少文件路径: %v", tt.Texts())
 	}
-	if tt.HasText("立即备份") || tt.HasText("Git 自动化") {
-		t.Fatalf("备份页不应再有立即备份或 Git 自动化: %v", tt.Texts())
+	if tt.HasText("立即备份") || tt.HasText("备份文件夹") {
+		t.Fatalf("保存页不应再有备份概念: %v", tt.Texts())
 	}
 }
 
@@ -286,8 +286,8 @@ func TestSettingsGeneralResetScope(t *testing.T) {
 		p.Appearance.BodySize = 22
 		p.Advanced.WindowColumns = 30
 		p.Advanced.WindowRows = 20
-		p.Advanced.AutosaveDelayMS = 1200
-		p.Backup.Keep = 3
+		p.Storage.SaveIntervalMS = 5000
+		p.Git.AutoCommit = true
 		p.Keymap.Overrides["format.bold"] = "Alt+Shift+B"
 	}); err != nil {
 		t.Fatal(err)
@@ -300,9 +300,9 @@ func TestSettingsGeneralResetScope(t *testing.T) {
 		a.prefs.Advanced.WindowColumns != defaults.Advanced.WindowColumns || a.prefs.Advanced.WindowRows != defaults.Advanced.WindowRows {
 		t.Fatalf("通用页重置未同时恢复窗口和外观: %+v", a.prefs)
 	}
-	if a.prefs.Backup != before.Backup || a.prefs.Keymap.Overrides["format.bold"] != "Alt+Shift+B" ||
-		a.prefs.Advanced.AutosaveDelayMS != before.Advanced.AutosaveDelayMS || a.tabs[0].Text != text {
-		t.Fatal("通用页重置不应影响备份、快捷键、自动保存间隔或笔记内容")
+	if a.prefs.Storage != before.Storage || a.prefs.Git != before.Git || a.prefs.Keymap.Overrides["format.bold"] != "Alt+Shift+B" ||
+		a.tabs[0].Text != text {
+		t.Fatal("通用页重置不应影响存储、Git、快捷键或笔记内容")
 	}
 	if a.settingsUI.draft.Appearance != a.prefs.Appearance || a.settingsUI.draft.Window != a.prefs.Window {
 		t.Fatal("通用页重置后草稿未同步")

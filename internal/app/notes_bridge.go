@@ -34,6 +34,6 @@ func notesMigrateOptions() notes.MigrateOptions {
 	}
 }
 
-func newNotesStore(dataFile, defaultBackupDir string, now func() time.Time) *notes.Store {
-	return notes.NewStore(dataFile, defaultBackupDir, now, notesMigrateOptions())
+func newNotesStore(dataFile string, now func() time.Time) *notes.Store {
+	return notes.NewStore(dataFile, now, notesMigrateOptions())
 }

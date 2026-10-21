@@ -6,6 +6,7 @@ package app
 import (
 	"fmt"
 	"image/color"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -57,7 +58,7 @@ func TestTabAddLimitAndFocus(t *testing.T) {
 	}
 }
 
-func TestTabDeleteMinAndBackup(t *testing.T) {
+func TestTabDeleteMinAndSingleFile(t *testing.T) {
 	t.Run("至少保留一个标签", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
@@ -74,7 +75,7 @@ func TestTabDeleteMinAndBackup(t *testing.T) {
 		}
 	})
 
-	t.Run("有内容的标签先备份后删除", func(t *testing.T) {
+	t.Run("有内容的标签删除后只保存一个文件", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
 		a.tabs[1].Text = "要被删除的内容"
@@ -89,28 +90,46 @@ func TestTabDeleteMinAndBackup(t *testing.T) {
 				t.Fatal("内容还在标签里")
 			}
 		}
-		names := persistBackupNames(t, a.notes.BackupDir())
-		if len(names) != 1 {
-			t.Fatalf("备份 = %v, want 1 份", names)
+		if err := a.saveNow(); err != nil {
+			t.Fatal(err)
 		}
-		if bak := persistReadSaved(t, a.notes.BackupDir()+"/"+names[0]); bak.Tabs[1].Text != "要被删除的内容" {
-			t.Fatalf("备份不含被删内容: %+v", bak.Tabs)
+		f := persistReadSaved(t, a.notes.DataPath())
+		if len(f.Tabs) != DefaultTabCount-1 {
+			t.Fatalf("删除结果未落盘: %+v", f.Tabs)
 		}
+		for _, tb := range f.Tabs {
+			if tb.Text == "要被删除的内容" {
+				t.Fatal("磁盘上仍保留被删标签")
+			}
+		}
+		assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()), "zakki.json")
 	})
 
-	t.Run("备份失败取消删除", func(t *testing.T) {
+	t.Run("删除不依赖旧备份目录", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
-		blocker := a.notes.BackupDir() + "-blocked"
-		persistWrite(t, blocker, "普通文件")
-		a.notes.SetBackupDir(blocker) // 选择的备份文件夹不可写
-		a.tabs[1].Text = "备份失败要保留"
-		if a.deleteTabNow(1) {
-			t.Fatal("备份失败应取消删除")
+		dir := filepath.Dir(a.notes.DataPath())
+		persistWrite(t, filepath.Join(dir, "backups"), "旧备份目录被普通文件占用")
+		a.tabs[1].Text = "删除不需要备份"
+		deletedID := a.tabs[1].ID
+		if !a.deleteTabNow(1) {
+			t.Fatal("旧备份目录不可用不应阻止删除")
 		}
-		if len(a.tabs) != DefaultTabCount || a.tabs[1].Text != "备份失败要保留" {
-			t.Fatalf("删除未被取消: %+v", a.tabs)
+		if len(a.tabs) != DefaultTabCount-1 || a.tabIndexByID(deletedID) >= 0 {
+			t.Fatalf("目标标签未删除: %+v", a.tabs)
 		}
+		if err := a.saveNow(); err != nil {
+			t.Fatal(err)
+		}
+		for _, tb := range persistReadSaved(t, a.notes.DataPath()).Tabs {
+			if tb.ID == deletedID {
+				t.Fatal("删除未持久化")
+			}
+		}
+		if got := string(persistReadRaw(t, filepath.Join(dir, "backups"))); got != "旧备份目录被普通文件占用" {
+			t.Fatalf("不得改动旧备份位置: %q", got)
+		}
+		assertOnlyStorageFiles(t, dir, "zakki.json", "backups")
 	})
 
 	t.Run("删除修正 active", func(t *testing.T) {

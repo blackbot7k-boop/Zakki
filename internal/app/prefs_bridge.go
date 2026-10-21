@@ -3,31 +3,27 @@ package app
 import (
 	"time"
 
-	"zakki/internal/legacyconfig"
 	"zakki/internal/prefs"
 )
 
 type preferences = prefs.Preferences
 type appearancePrefs = prefs.Appearance
 type windowPrefs = prefs.Window
-type backupPrefs = prefs.Backup
 type keymapPrefs = prefs.Keymap
 type advancedPrefs = prefs.Advanced
-type migrationResult = prefs.MigrationResult
 type prefsIssue = prefs.Issue
 type prefsIssueKind = prefs.IssueKind
 
 const (
-	prefsIssueNone         = prefs.IssueNone
-	prefsIssueLegacyBroken = prefs.IssueLegacyBroken
-	prefsIssuePrefsBroken  = prefs.IssuePrefsBroken
+	prefsIssueNone        = prefs.IssueNone
+	prefsIssuePrefsBroken = prefs.IssuePrefsBroken
 
 	styleStandard = prefs.StyleStandard
 	styleSketch   = prefs.StyleSketch
 )
 
 func defaultPreferences() preferences {
-	return prefs.Default(int(backupInterval / time.Minute))
+	return prefs.Default()
 }
 
 func validatePrefsAccel(acc string) error {
@@ -44,20 +40,6 @@ func clonePrefs(p preferences) preferences { return p.Clone() }
 
 func decodePreferences(raw []byte) (preferences, error) {
 	return prefs.Decode(raw, validatePrefsAccel)
-}
-
-func notesBaselineFromSettings(s settings) legacyconfig.NotesBaseline {
-	return legacyconfig.NotesBaseline{
-		ThemeSource: s.ThemeSource, MarkdownTheme: s.MarkdownTheme,
-		BodyFont: s.BodyFont, MonoFont: s.MonoFont,
-		BodySize: s.BodySize, LineHeight: s.LineHeight,
-		AlwaysOnTop: s.AlwaysOnTop, HideOnEscape: s.HideOnEscape,
-	}
-}
-
-func migrateLegacyConfig(dir string, base settings) (preferences, migrationResult) {
-	return prefs.MigrateLegacy(dir, notesBaselineFromSettings(base),
-		int(backupInterval/time.Minute), cmdToggleWindow, migrateToggleWindow)
 }
 
 func newPrefsStore(prefsPath string) *prefs.Store {

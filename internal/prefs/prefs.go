@@ -7,11 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
+	"strings"
 
 	"zakki/internal/fonts"
-	"zakki/internal/legacyconfig"
 )
 
 // CurrentVersion 是当前程序读写的偏好版本。
@@ -34,7 +33,8 @@ import (
 // colorTheme / markdownTheme 不再取 "sketch"，只记标准风格下的选择，切回标准时原样恢复。
 // 版本 11 把 advanced.windowWidth / windowHeight（像素）换成 windowColumns /
 // windowRows（每行字数 × 行数），开窗时按当时的字号换算；旧像素值按默认排版换算。
-const CurrentVersion = 11
+// 版本 12 以 storage / git 取代备份策略，不接受旧 backup 与 autosaveDelayMs。
+const CurrentVersion = 12
 
 // 整体风格：手账风格下颜色与排版由风格决定，colorTheme / markdownTheme 保留不动。
 const (
@@ -45,15 +45,13 @@ const (
 // AccelValidator 校验 keymap 覆盖中的 accelerator 字符串。
 type AccelValidator func(acc string) error
 
-// ToggleMigrator 把旧 config 里的全局热键迁移为规范化 accelerator。
-type ToggleMigrator func(raw string) (canonical string, err error)
-
 // Preferences 是 preferences.json 的磁盘模型。
 type Preferences struct {
 	Version    int        `json:"version"`
 	Appearance Appearance `json:"appearance"`
 	Window     Window     `json:"window"`
-	Backup     Backup     `json:"backup"`
+	Storage    Storage    `json:"storage"`
+	Git        Git        `json:"git"`
 	Keymap     Keymap     `json:"keymap"`
 	Advanced   Advanced   `json:"advanced"`
 }
@@ -87,20 +85,18 @@ type Window struct {
 	RememberBounds bool `json:"rememberBounds"`
 }
 
-type Backup struct {
-	IntervalMinutes int  `json:"intervalMinutes"`
-	Keep            int  `json:"keep"`
-	OnLaunch        bool `json:"onLaunch"`
-	// BackupDir 是备份文件夹：唯一的备份存储地址，每次备份直写这里。
-	// 空串 = 未选择，写入内置目录（应用数据 backups/）。可选云盘同步
-	// 文件夹（iCloud、坚果云等），即云备份。
-	BackupDir string `json:"backupDir"`
-	// GitAutoPush 是备份文件夹为 git 仓库时是否自动提交并推送。提交随每次
-	// 备份进行，推送按 GitPushMinutes 节流。GitAutoPush 只在该文件夹真的是
-	// git 仓库时生效。
-	GitAutoPush bool `json:"gitAutoPush"`
-	// GitPushMinutes 是两次自动推送尝试之间的最小间隔（分钟）。
-	GitPushMinutes int `json:"gitPushMinutes"`
+// Storage 是笔记数据路径与保存间隔；空路径由应用层解析为固定数据目录。
+type Storage struct {
+	DataFile       string `json:"dataFile"`
+	SaveIntervalMS int    `json:"saveIntervalMs"`
+}
+
+// Git 是独立的自动提交与推送策略，推送必须同时开启自动提交。
+type Git struct {
+	AutoCommit    bool `json:"autoCommit"`
+	AutoPush      bool `json:"autoPush"`
+	CommitMinutes int  `json:"commitMinutes"`
+	PushMinutes   int  `json:"pushMinutes"`
 }
 
 type Keymap struct {
@@ -108,17 +104,13 @@ type Keymap struct {
 }
 
 type Advanced struct {
-	AutosaveDelayMS int `json:"autosaveDelayMs"`
 	// WindowColumns / WindowRows 是新建主窗口的默认大小：每行字数 × 行数。
 	WindowColumns int `json:"windowColumns"`
 	WindowRows    int `json:"windowRows"`
 }
 
-// defaultGitPushMinutes 是 Git 自动推送间隔的默认值（分钟）。
-const defaultGitPushMinutes = 10
-
 // Default 全新安装的默认值。
-func Default(backupIntervalMinutes int) Preferences {
+func Default() Preferences {
 	return Preferences{
 		Version: CurrentVersion,
 		Appearance: Appearance{
@@ -130,13 +122,13 @@ func Default(backupIntervalMinutes int) Preferences {
 			CodeIndent:     "space2",
 			LatinFont:      "jetbrains",
 		},
-		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
-		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitAutoPush: false, GitPushMinutes: defaultGitPushMinutes},
-		Keymap: Keymap{Overrides: map[string]string{}},
+		Window:  Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
+		Storage: Storage{SaveIntervalMS: 2000},
+		Git:     Git{CommitMinutes: 1, PushMinutes: 10},
+		Keymap:  Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
-			AutosaveDelayMS: 800,
-			WindowColumns:   22,
-			WindowRows:      16,
+			WindowColumns: 22,
+			WindowRows:    16,
 		},
 	}
 }
@@ -201,16 +193,23 @@ func (p Preferences) Validate(v AccelValidator) error {
 		name          string
 		value, lo, hi int
 	}{
-		{"backup.intervalMinutes", p.Backup.IntervalMinutes, 1, 1440},
-		{"backup.keep", p.Backup.Keep, 1, 1000},
-		{"backup.gitPushMinutes", p.Backup.GitPushMinutes, 1, 1440},
-		{"advanced.autosaveDelayMs", p.Advanced.AutosaveDelayMS, 100, 10000},
+		{"storage.saveIntervalMs", p.Storage.SaveIntervalMS, 100, 60000},
+		{"git.commitMinutes", p.Git.CommitMinutes, 1, 1440},
+		{"git.pushMinutes", p.Git.PushMinutes, 1, 1440},
 		{"advanced.windowColumns", p.Advanced.WindowColumns, MinWindowColumns, MaxWindowColumns},
 		{"advanced.windowRows", p.Advanced.WindowRows, MinWindowRows, MaxWindowRows},
 	} {
 		if field.value < field.lo || field.value > field.hi {
 			return fmt.Errorf("%s 必须在 %d–%d 之间", field.name, field.lo, field.hi)
 		}
+	}
+	if path := p.Storage.DataFile; path != "" {
+		if strings.TrimSpace(path) != path || strings.ContainsRune(path, '\x00') || !filepath.IsAbs(path) {
+			return errors.New("storage.dataFile 必须是合法的非空白绝对路径（空串表示默认路径）")
+		}
+	}
+	if p.Git.AutoPush && !p.Git.AutoCommit {
+		return errors.New("git.autoPush 要求开启 git.autoCommit")
 	}
 	if v != nil {
 		for id, acc := range p.Keymap.Overrides {
@@ -237,12 +236,11 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if err := rejectJSONNull(value, "preferences"); err != nil {
 		return Preferences{}, err
 	}
-	legacyMirrorDir, hasLegacy := stripLegacyBackupKeys(value)
 	legacyW, legacyH, hasLegacyWindow, err := stripLegacyWindowKeys(value)
 	if err != nil {
 		return Preferences{}, err
 	}
-	if hasLegacy || hasLegacyWindow {
+	if hasLegacyWindow {
 		// 严格解码不认旧键；重新编回 JSON 再解码。map 编码只影响键序，
 		// 不改变取值，原文件保持原样。
 		sanitized, err := json.Marshal(value)
@@ -264,11 +262,7 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		return Preferences{}, fmt.Errorf("偏好版本 %d 高于当前支持的 %d（文件保持原样）", p.Version, CurrentVersion)
 	}
 	p = migrate(p)
-	if hasLegacy {
-		// 版本 6 起备份文件夹是唯一备份地址：旧 mirrorDir 平移为新键。
-		p.Backup.BackupDir = legacyMirrorDir
-	}
-	def := Default(5)
+	def := Default()
 	if p.Appearance.AppearanceMode == "" {
 		p.Appearance.AppearanceMode = def.Appearance.AppearanceMode
 	}
@@ -290,19 +284,21 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Appearance.CodeIndent == "" {
 		p.Appearance.CodeIndent = def.Appearance.CodeIndent
 	}
-	if p.Backup.IntervalMinutes == 0 {
-		p.Backup.IntervalMinutes = def.Backup.IntervalMinutes
-	}
-	if p.Backup.Keep == 0 {
-		p.Backup.Keep = def.Backup.Keep
-	}
-	// gitPushMinutes 缺键（含版本 9 之前的文件）补默认；0 本身不合法，
-	// 由 Validate 拒绝，不会与显式值混淆。
-	if p.Backup.GitPushMinutes == 0 {
-		p.Backup.GitPushMinutes = def.Backup.GitPushMinutes
-	}
-	if p.Advanced.AutosaveDelayMS == 0 {
-		p.Advanced.AutosaveDelayMS = def.Advanced.AutosaveDelayMS
+	// 新字段仅缺键时补默认；显式 0 仍交给 Validate 拒绝。
+	root := value.(map[string]any)
+	for _, field := range []struct {
+		section, key string
+		target       *int
+		fallback     int
+	}{
+		{"storage", "saveIntervalMs", &p.Storage.SaveIntervalMS, def.Storage.SaveIntervalMS},
+		{"git", "commitMinutes", &p.Git.CommitMinutes, def.Git.CommitMinutes},
+		{"git", "pushMinutes", &p.Git.PushMinutes, def.Git.PushMinutes},
+	} {
+		fields, _ := root[field.section].(map[string]any)
+		if _, exists := fields[field.key]; !exists {
+			*field.target = field.fallback
+		}
 	}
 	if hasLegacyWindow {
 		// 版本 11 之前的像素尺寸：缺的一边按旧默认 400 × 540 补齐后换算。
@@ -325,12 +321,9 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // 西文当时取自同一套字体栈，因此升级后 latinFont 留空（跟随中文字体），
 // 渲染结果与升级前完全一致。版本 4 把更名前的主题 ID（"tot"）映射到新 ID
 // （"classic" / "note"），主题取值不变、只换名字。版本 5 给从未设置过代码
-// 配色的旧文件补默认方案 soft；带值文件原样保留。版本 6 的 mirrorDir →
-// backupDir 键更名发生在严格解码前（见 Decode），这里只承载版本号提升。
+// 配色的旧文件补默认方案 soft；带值文件原样保留。
 // 版本 7 给从未写过 codeIndent 的旧文件补默认 2 空格。
 // 版本 8 仅扩展字体键取值，保留字体值与此前迁移行为。
-// 版本 9 的 Git 键由默认值补齐（gitAutoPush 关、间隔 10 分钟）：自动推送会把
-// 笔记送到远端，只能由用户在设置页显式开启，迁移不替用户打开。
 // 版本 10 把颜色「手绘」+ 排版「手账」的整套组合迁为手账风格，颜色与排版回到
 // 标准默认；只有一项是手绘/手账的半套组合迁为标准风格，那一项回到默认。
 func migrate(p Preferences) Preferences {
@@ -355,7 +348,7 @@ func migrate(p Preferences) Preferences {
 		p.Appearance.CodeIndent = "space2"
 	}
 	if p.Version < 10 {
-		def := Default(5).Appearance
+		def := Default().Appearance
 		p.Appearance.Style = StyleStandard
 		if p.Appearance.ColorTheme == StyleSketch && p.Appearance.MarkdownTheme == StyleSketch {
 			p.Appearance.Style = StyleSketch
@@ -390,31 +383,6 @@ func (a Appearance) EffectiveMarkdownTheme() string {
 // legacyThemeTot 是主题 ID 更名前旧文件里的写法；仅用于识别旧值并映射新 ID。
 const legacyThemeTot = "tot"
 
-// stripLegacyBackupKeys 从已解码的偏好映射里摘除版本 6 移除的旧备份键，
-// 返回旧 mirrorDir 的值与是否摘除了键；gitMode 随 Git 自动化移除，直接丢弃。
-// 版本 6 及以上的文件不应再出现旧键，保持原样交给严格解码拒绝。
-func stripLegacyBackupKeys(value any) (string, bool) {
-	m, ok := value.(map[string]any)
-	if !ok {
-		return "", false
-	}
-	if ver, _ := m["version"].(float64); ver >= 6 {
-		return "", false
-	}
-	b, ok := m["backup"].(map[string]any)
-	if !ok {
-		return "", false
-	}
-	dir, hasDir := b["mirrorDir"].(string)
-	_, hasGit := b["gitMode"]
-	if !hasDir && !hasGit {
-		return "", false
-	}
-	delete(b, "mirrorDir")
-	delete(b, "gitMode")
-	return dir, true
-}
-
 func rejectJSONNull(value any, path string) error {
 	if value == nil {
 		return fmt.Errorf("%s 不允许 null", path)
@@ -427,96 +395,4 @@ func rejectJSONNull(value any, path string) error {
 		}
 	}
 	return nil
-}
-
-// MigrationResult 记录一次性迁移的结论。
-type MigrationResult struct {
-	From    string
-	Applied bool
-	Err     error
-}
-
-// FromNotes 用笔记内旧设置补默认偏好。
-func FromNotes(b legacyconfig.NotesBaseline, backupIntervalMinutes int) Preferences {
-	p := Default(backupIntervalMinutes)
-	if v := b.ThemeSource; v != "" {
-		p.Appearance.AppearanceMode = v
-	}
-	switch b.MarkdownTheme {
-	case legacyThemeTot, "note":
-		p.Appearance.MarkdownTheme = "note"
-	case "":
-		// 保持默认值。
-	default:
-		p.Appearance.MarkdownTheme = "sonnet"
-	}
-	p.Appearance.BodyFont, p.Appearance.MonoFont = b.BodyFont, b.MonoFont
-	if b.BodyFont != "" {
-		// 旧版没有单独的英文字体：选过中文字体的用户保持跟随中文字体，渲染与升级前一致。
-		p.Appearance.LatinFont = ""
-	}
-	p.Appearance.BodySize, p.Appearance.LineHeight = b.BodySize, b.LineHeight
-	p.Window.AlwaysOnTop = b.AlwaysOnTop
-	p.Window.HideOnEscape = b.HideOnEscape
-	return p
-}
-
-// MergeFileConfig 把旧配置叠加到已有偏好上。
-func MergeFileConfig(cfg legacyconfig.Config, base Preferences, cmdToggleWindow string, migrateToggle ToggleMigrator) Preferences {
-	p := base
-	p.Appearance.AppearanceMode = cfg.Appearance.Theme
-	switch cfg.Appearance.MarkdownTheme {
-	case legacyThemeTot:
-		p.Appearance.MarkdownTheme = "note"
-	case "":
-	default:
-		p.Appearance.MarkdownTheme = "sonnet"
-	}
-	p.Appearance.BodyFont, p.Appearance.MonoFont = cfg.Appearance.BodyFont, cfg.Appearance.MonoFont
-	p.Appearance.BodySize, p.Appearance.LineHeight = cfg.Appearance.BodySize, cfg.Appearance.LineHeight
-	p.Window.AlwaysOnTop = cfg.Window.AlwaysOnTop
-	p.Window.HideOnEscape = cfg.Window.HideOnEscape
-	p.Window.RememberBounds = cfg.Window.RememberBounds
-	p.Advanced.WindowColumns, p.Advanced.WindowRows = WindowGrid(cfg.Window.Width, cfg.Window.Height, legacyWindowMetrics(p.Appearance))
-	p.Backup.IntervalMinutes, p.Backup.Keep, p.Backup.OnLaunch =
-		cfg.Storage.BackupIntervalMinutes, cfg.Storage.BackupKeep, cfg.Storage.BackupOnLaunch
-	p.Advanced.AutosaveDelayMS = cfg.Storage.AutosaveDelayMS
-	if cfg.Shortcuts.ToggleWindow != "" {
-		if migrateToggle != nil {
-			if acc, err := migrateToggle(cfg.Shortcuts.ToggleWindow); err == nil {
-				p.Keymap.Overrides[cmdToggleWindow] = acc
-			}
-		}
-	} else {
-		p.Keymap.Overrides[cmdToggleWindow] = ""
-	}
-	p.Version = CurrentVersion
-	return p
-}
-
-// MigrateLegacy 读取旧配置目录并迁移为偏好。
-func MigrateLegacy(dir string, baseline legacyconfig.NotesBaseline, backupIntervalMinutes int, cmdToggle string, migrateToggle ToggleMigrator) (Preferences, MigrationResult) {
-	p := FromNotes(baseline, backupIntervalMinutes)
-	def := legacyconfig.Default(baseline, backupIntervalMinutes)
-	tomlPath := filepath.Join(dir, "config.toml")
-	if raw, err := os.ReadFile(tomlPath); err == nil {
-		cfg, err := legacyconfig.DecodeTOML(raw, def)
-		if err != nil {
-			return p, MigrationResult{From: "config.toml", Err: fmt.Errorf("配置文件 config.toml 无效: %w", err)}
-		}
-		return MergeFileConfig(cfg, p, cmdToggle, migrateToggle), MigrationResult{From: "config.toml", Applied: true}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return p, MigrationResult{From: "config.toml", Err: fmt.Errorf("读取配置文件 config.toml: %w", err)}
-	}
-	jsonPath := filepath.Join(dir, "config.json")
-	if raw, err := os.ReadFile(jsonPath); err == nil {
-		cfg, err := legacyconfig.DecodeJSON(raw, def)
-		if err != nil {
-			return p, MigrationResult{From: "config.json", Err: fmt.Errorf("旧配置 config.json 无法迁移: %w", err)}
-		}
-		return MergeFileConfig(cfg, p, cmdToggle, migrateToggle), MigrationResult{From: "config.json", Applied: true}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return p, MigrationResult{From: "config.json", Err: fmt.Errorf("读取旧配置 config.json: %w", err)}
-	}
-	return p, MigrationResult{}
 }

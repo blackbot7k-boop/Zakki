@@ -1,165 +1,201 @@
 package notes
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
-	"log/slog"
 	"time"
-
-	"zakki/internal/atomicfile"
 )
 
-// SaveNow 同步写入快照；直接保存会取代排队的防抖快照。
+type pendingSave struct {
+	revision uint64
+	file     File
+	interval time.Duration
+	after    func()
+	ready    bool
+}
+
+func cloneFile(f File) File {
+	f.Tabs = append([]Tab(nil), f.Tabs...)
+	f.Dots = append([]string(nil), f.Dots...)
+	return f
+}
+
+func (s *Store) acceptLocked(f File) *pendingSave {
+	s.saveRevision++
+	return &pendingSave{revision: s.saveRevision, file: f}
+}
+
+// SaveNow 同步保存；更新请求仍可在慢写期间排队。
 func (s *Store) SaveNow(f File) error {
+	f = cloneFile(f)
 	s.mu.Lock()
 	if s.stopped {
 		s.mu.Unlock()
 		return nil
 	}
-	s.saveRevision++
-	revision := s.saveRevision
+	req := s.acceptLocked(f)
 	s.pending = nil
+	s.stopTimerLocked()
 	s.mu.Unlock()
-
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	s.mu.Lock()
-	if s.stopped {
-		s.mu.Unlock()
+	stopped := s.stopped
+	s.mu.Unlock()
+	if stopped {
 		return nil
 	}
-	// 等写锁时可以接受新请求；不能清掉后来排队的快照或覆盖先完成的新版本。
-	if revision <= s.saveCompleted {
-		err := s.saveResult
-		s.mu.Unlock()
-		return err
-	}
-	target := s.currentDataPathLocked()
-	s.mu.Unlock()
-	err := s.writeFile(target, f)
-	s.completeSave(revision, err)
-	s.ReportPersist("保存失败", err)
-	return err
+	return s.saveRequest(req)
 }
 
-// ScheduleDebounced 防抖保存：delay 内无新改动才落盘，必要时顺带周期备份。
-func (s *Store) ScheduleDebounced(f File, delay, backupInterval time.Duration, backupKeep int, after func()) {
+// ScheduleSave 从首笔改动开始计时，后续输入只替换快照，不延长期限。
+// interval 非正数表示立即保存；应用通常传入两秒。
+func (s *Store) ScheduleSave(f File, interval time.Duration, after func()) {
+	f = cloneFile(f)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.stopped {
+	if s.stopped || s.closed {
 		return
 	}
-	s.saveRevision++
-	req := &pendingSave{revision: s.saveRevision, file: f, backupInterval: backupInterval, backupKeep: backupKeep, after: after}
+	ready := s.pending != nil && s.pending.ready
+	req := s.acceptLocked(f)
+	req.interval, req.after, req.ready = interval, after, ready
 	s.pending = req
-	if s.saveTimer != nil {
-		s.saveTimer.Stop()
+	if s.saveTimer == nil && !ready {
+		s.armSaveLocked(interval)
 	}
-	s.saveTimer = time.AfterFunc(delay, func() { s.flushPending(req) })
 }
 
-func (s *Store) flushPending(req *pendingSave) {
+func (s *Store) armSaveLocked(delay time.Duration) {
+	s.timerGen++
+	gen := s.timerGen
+	s.saveTimer = time.AfterFunc(delay, func() { s.flushPending(gen) })
+}
+
+func (s *Store) flushPending(gen uint64) {
 	s.mu.Lock()
-	if s.stopped || s.pending != req {
+	if gen != s.timerGen || s.stopped || s.closed || s.pending == nil {
 		s.mu.Unlock()
 		return
 	}
-	req.ready = true
+	s.saveTimer = nil
+	s.pending.ready = true
 	if s.saveRunning {
 		s.mu.Unlock()
 		return
 	}
 	s.saveRunning = true
 	s.mu.Unlock()
-
-	// 慢盘期间只有一个保存 worker；到期的新快照由它补跑，不积累等写锁的 goroutine。
 	for {
 		s.writeMu.Lock()
 		s.mu.Lock()
-		req = s.pending
-		if s.stopped || req == nil || !req.ready {
+		req := s.pending
+		if s.stopped || s.closed || req == nil || !req.ready {
 			s.saveRunning = false
 			s.mu.Unlock()
 			s.writeMu.Unlock()
 			return
 		}
 		s.pending = nil
-		target := s.currentDataPathLocked()
 		s.mu.Unlock()
-		err := s.writeFile(target, req.file)
-		s.completeSave(req.revision, err)
-		if err != nil {
-			s.ReportPersist("保存失败", err)
+		err := s.saveRequest(req)
+		s.mu.Lock()
+		if err != nil && s.pending == nil && !s.stopped && !s.closed {
+			req.ready = false
+			s.pending = req
+			delay := req.interval
+			if delay <= 0 {
+				delay = 2 * time.Second
+			}
+			s.armSaveLocked(delay)
 		}
+		s.mu.Unlock()
 		s.writeMu.Unlock()
-		if err != nil {
-			continue
-		}
-		if err := s.maybeWritePeriodicBackup(req.backupInterval, req.backupKeep); err != nil {
-			s.ReportPersist("备份失败", err)
-		}
 		if req.after != nil {
 			req.after()
 		}
 	}
 }
 
-// StopSaveTimer 取消防抖定时器（退出前调用）。
-func (s *Store) StopSaveTimer() {
+func (s *Store) saveRequest(req *pendingSave) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.saveTimer != nil {
-		s.saveTimer.Stop()
-		s.saveTimer = nil
-	}
-}
-
-// Shutdown 退出最终保存：拒绝新请求，等待在途写入，再写最终快照。
-func (s *Store) Shutdown(f File) error {
-	s.shutdownMu.Lock()
-	defer s.shutdownMu.Unlock()
-	s.mu.Lock()
-	if s.stopped {
+	if req.revision < s.saveCompleted || req.revision == s.saveCompleted && s.saveResult == nil {
+		err := s.saveResult
 		s.mu.Unlock()
-		return nil
+		return err
 	}
-	if s.saveTimer != nil {
-		s.saveTimer.Stop()
-		s.saveTimer = nil
-	}
-	s.stopped, s.pending = true, nil
-	s.saveRevision++
-	revision := s.saveRevision
 	s.mu.Unlock()
-
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	s.mu.Lock()
-	target := s.currentDataPathLocked()
-	s.mu.Unlock()
-	err := s.writeFile(target, f)
-	s.completeSave(revision, err)
-	if err != nil {
-		slog.Error("退出前最终保存失败", "error", err)
-	}
+	err := s.writeFile(req.file)
+	s.completeSave(req.revision, err)
+	s.ReportPersist("保存失败", err)
 	return err
 }
 
-// completeSave 只在持有写锁时发布结果；失败也淘汰更旧请求，避免旧写入掩盖新失败。
+// completeSave 在写锁内发布，失败也淘汰旧请求，防止旧成功掩盖新失败。
 func (s *Store) completeSave(revision uint64, err error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.saveCompleted, s.saveResult = revision, err
-	s.mu.Unlock()
+	if err == nil {
+		s.saveSaved = revision
+		s.armGitLocked()
+	}
 }
 
-// writeFile 由 writeMu 串行化，调用时不持状态锁，慢磁盘不影响 UI 查询和排队。
-func (s *Store) writeFile(target string, f File) error {
+func (s *Store) writeFile(f File) error {
 	raw, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
 	}
-	write := s.stateWrite
-	if write == nil {
-		write = atomicfile.WriteBytes
+	if err = s.verifyDisk(); err != nil {
+		return err
 	}
-	return write(target, raw)
+	s.mu.Lock()
+	same := bytes.Equal(raw, s.savedContent) && s.diskExists
+	path := s.dataPath
+	s.mu.Unlock()
+	if same {
+		return nil
+	}
+	if err = s.stateWrite(path, raw); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.diskKnown, s.diskExists = true, true
+	s.diskHash, s.savedContent = sha256.Sum256(raw), raw
+	s.lastSaveTime = s.now()
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *Store) stopTimerLocked() {
+	s.timerGen++
+	if s.saveTimer != nil {
+		s.saveTimer.Stop()
+		s.saveTimer = nil
+	}
+}
+
+// StopSaveTimer 取消尚未开始的定时保存，不丢弃未保存状态。
+func (s *Store) StopSaveTimer() { s.mu.Lock(); s.stopTimerLocked(); s.mu.Unlock() }
+
+// Shutdown 等待在途写入并保存最终快照；失败后可重试，不提前报告退出成功。
+func (s *Store) Shutdown(f File) error {
+	s.shutdownMu.Lock()
+	defer s.shutdownMu.Unlock()
+	f = cloneFile(f)
+	s.mu.Lock()
+	if s.stopped && s.saveResult == nil && s.saveSaved == s.saveRevision {
+		s.mu.Unlock()
+		return nil
+	}
+	s.stopTimerLocked()
+	s.stopped = true
+	s.pending = nil
+	req := s.acceptLocked(f)
+	s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	return s.saveRequest(req)
 }

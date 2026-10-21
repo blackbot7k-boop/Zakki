@@ -128,7 +128,7 @@ func (a *app) obNotes(c *ui.Context) {
 			ui.Button(c.Key("ob-plus"), "+").Label(locales.OnboardMoreTabs()).Disabled(ob.tabCount >= MaxTabCount).OnClick(func() { a.setTabCount(ob.tabCount + 1) })
 		})
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
-			ui.Text(c, locales.OnboardChooseBackupTitle()).Bold()
+			ui.Text(c, locales.StorageChooseTitle()).Bold()
 			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(14).Children(func() {
 				ui.Text(c, ob.dirDraft).FontSize(12).Grow(1)
 				ui.Button(c, locales.CommonChange()).OnClick(a.obPickFolder)

@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -258,11 +257,6 @@ func (a *app) replaceAll() {
 // replaceAllTabsNow 跨标签全部替换的执行体（主线程）；查询与替换文本是
 // 对话框弹出前捕获的不可变值，期间改了查找框也按确认时的内容执行。
 func (a *app) replaceAllTabsNow(query, with string) int {
-	if err := a.backupNow(); err != nil {
-		slog.Error("跨标签替换前备份失败，已取消替换", "error", err)
-		a.notice = locales.FindReplaceBackupFailed()
-		return 0
-	}
 	total := a.replaceAllCurrentTab(query, with)
 	for i := range a.tabs {
 		if i == a.active {

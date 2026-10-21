@@ -94,7 +94,7 @@ func TestSettingsGeneralScrollAllSections(t *testing.T) {
 
 func TestSettingsLayoutRender(t *testing.T) {
 	for _, size := range [][2]int{{900, 620}, {760, 520}} {
-		for _, page := range []string{pageGeneral, pageBackup, pageKeymap} {
+		for _, page := range []string{pageGeneral, pageStorage, pageKeymap} {
 			a := newTestApp(t)
 			a.openSettings(page)
 			tt := ui.NewTester(a.settingsView, size[0], size[1])

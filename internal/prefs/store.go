@@ -13,7 +13,6 @@ type IssueKind int
 
 const (
 	IssueNone IssueKind = iota
-	IssueLegacyBroken
 	IssuePrefsBroken
 )
 

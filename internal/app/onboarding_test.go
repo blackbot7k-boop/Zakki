@@ -25,21 +25,20 @@ func TestFirstRunDetection(t *testing.T) {
 	}
 }
 
-// TestDefaultBackupDir 默认备份文件夹固定在 ~/Documents/Zakki 备份，
-// 且永远非空（取不到主目录时由向导退化成"必须手选"，但取值函数本身有兜底）。
-func TestDefaultBackupDir(t *testing.T) {
-	got := defaultBackupDir()
-	if got == "" {
-		t.Fatal("默认备份目录不应为空")
+// 默认值必须来自注入的数据目录，不能触达真实用户 Documents。
+func TestOnboardingDefaultStorageDirIsCurrentDataDir(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.initOnboarding()
+	if got, want := a.onboarding.dirDraft, filepath.Dir(a.notes.DataPath()); got != want {
+		t.Fatalf("向导默认目录 = %q, want 当前数据目录 %q", got, want)
 	}
-	if filepath.Base(got) != "Zakki 备份" || filepath.Base(filepath.Dir(got)) != "Documents" {
-		t.Fatalf("默认备份目录应为 ~/Documents/Zakki 备份: %q", got)
-	}
+	assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()))
 }
 
 func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	a := newTestApp(t)
-	folder := filepath.Join(filepath.Dir(a.notes.DataFile), "wizard-backup")
+	folder := filepath.Join(filepath.Dir(a.notes.DataPath()), "wizard-storage")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -49,9 +48,17 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 
 	a.finishOnboarding(true)
 
-	// 偏好：备份文件夹落盘，它是唯一备份地址。
-	if a.prefs.Backup.BackupDir != folder {
-		t.Fatalf("向导配置未写入偏好: %+v", a.prefs.Backup)
+	// 位置必须持久化为实际业务文件路径。
+	wantPath := filepath.Join(folder, "zakki.json")
+	if a.prefs.Storage.DataFile != wantPath || a.notes.DataPath() != wantPath {
+		t.Fatalf("向导配置未写入偏好: %+v path=%q", a.prefs.Storage, a.notes.DataPath())
+	}
+	p, err := decodePreferences(persistReadRaw(t, a.preferencesPath()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Storage.DataFile != wantPath {
+		t.Fatalf("偏好未持久化: %+v", p.Storage)
 	}
 	// 数据：3 个标签，第 1 个含欢迎文本，其余为空；文件已落盘。
 	if len(a.tabs) != 3 {
@@ -79,13 +86,26 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	if a.nextTabID <= 3 {
 		t.Fatalf("nextTabID = %d, 应大于现有最大 ID", a.nextTabID)
 	}
-	if _, err := os.Stat(a.notes.DataFile); err != nil {
+	if _, err := os.Stat(a.notes.DataPath()); err != nil {
 		t.Fatalf("数据文件应已写入: %v", err)
 	}
-	// 备份文件夹应立刻出现第一份备份。
+	// 初始标签只保存到一个业务文件，不创建备份。
 	names := dirJSONNames(t, folder)
-	if len(names) != 1 {
-		t.Fatalf("向导完成后备份文件夹应有 1 份备份: %v", names)
+	if len(names) != 1 || names[0] != "zakki.json" {
+		t.Fatalf("向导完成后应只有 zakki.json: %v", names)
+	}
+	assertOnlyStorageFiles(t, folder, "zakki.json")
+	assertOnlyStorageFiles(t, filepath.Dir(a.preferencesPath()), "preferences.json", "wizard-storage")
+	b := newAppAt(filepath.Dir(a.preferencesPath()))
+	t.Cleanup(b.shutdown)
+	if err := b.loadPreferences(); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.openConfiguredNotes(); err != nil {
+		t.Fatal(err)
+	}
+	if b.notes.DataPath() != wantPath || len(b.tabs) != 3 || b.tabs[0].Text != a.tabs[0].Text || b.firstRun() {
+		t.Fatalf("重启应沿用向导文件与标签: path=%q tabs=%+v", b.notes.DataPath(), b.tabs)
 	}
 	// 向导标记结束（OnClosed 在真实窗口关闭时清理状态）。
 	if !a.onboarding.finished {
@@ -95,56 +115,54 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 
 func TestOnboardingSkipBlocksWhenDataSaveFails(t *testing.T) {
 	a := newTestApp(t)
-	// 跳过会把默认备份文件夹写进偏好，注入临时路径保证测试不触达真实主目录。
-	oldDef := defaultBackupDir
-	t.Cleanup(func() { defaultBackupDir = oldDef })
-	tmpDef := filepath.Join(t.TempDir(), "默认备份")
-	defaultBackupDir = func() string { return tmpDef }
-
-	dir := filepath.Dir(a.notes.DataFile)
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Skip("无法 chmod 测试目录:", err)
+	t.Cleanup(a.shutdown)
+	// 用目录占据目标文件路径，跨平台稳定触发写入失败。
+	if err := os.Mkdir(a.notes.DataPath(), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
-
 	a.finishOnboarding(false)
 	if a.onboarding.finished {
-		t.Fatal("落盘失败时不应结束向导")
+		t.Fatal("落盘失败不应结束向导")
 	}
 	if a.onboarding.dirErr == "" {
 		t.Fatal("应提示数据写入失败")
 	}
-	if _, err := os.Stat(a.notes.DataFile); !os.IsNotExist(err) {
-		t.Fatalf("落盘失败时不应产生数据文件: %v", err)
+	info, err := os.Stat(a.notes.DataPath())
+	if err != nil || !info.IsDir() {
+		t.Fatalf("失败不得替换原目标: %v %v", info, err)
 	}
+	assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()), "zakki.json")
 }
 
-func TestOnboardingSkipAppliesDefaultBackupDir(t *testing.T) {
+func TestOnboardingSkipKeepsCurrentStoragePath(t *testing.T) {
 	a := newTestApp(t)
-	// 跳过等同接受默认：备份文件夹落默认路径。
-	oldDef := defaultBackupDir
-	t.Cleanup(func() { defaultBackupDir = oldDef })
-	tmpDef := filepath.Join(t.TempDir(), "默认备份")
-	defaultBackupDir = func() string { return tmpDef }
-
+	t.Cleanup(a.shutdown)
+	path := a.notes.DataPath()
+	a.onboarding.dirDraft = t.TempDir()
 	a.finishOnboarding(false)
-	if a.prefs.Backup.BackupDir != tmpDef {
-		t.Fatalf("跳过应写入默认备份文件夹: %+v", a.prefs.Backup)
+	if !a.onboarding.finished {
+		t.Fatalf("跳过应完成默认初始化: %s", a.onboarding.dirErr)
+	}
+	if a.notes.DataPath() != path {
+		t.Fatalf("跳过不应迁文件: %q", a.notes.DataPath())
 	}
 	if len(a.tabs) != DefaultTabCount {
-		t.Fatalf("跳过后应保持默认标签数 %d, got %d", DefaultTabCount, len(a.tabs))
+		t.Fatalf("跳过应保留默认标签数: %d", len(a.tabs))
 	}
-	if _, err := os.Stat(a.notes.DataFile); err != nil {
-		t.Fatalf("跳过向导后应写入初始数据文件，避免下次启动重复向导: %v", err)
+	f := persistReadSaved(t, path)
+	if len(f.Tabs) != DefaultTabCount || f.Tabs[0].Text != welcomeTextFor(DefaultTabCount) {
+		t.Fatalf("默认内容未保存: %+v", f)
 	}
 	if a.firstRun() {
-		t.Fatal("数据文件落盘后不应再判定为全新安装")
+		t.Fatal("下次启动不应重复向导")
 	}
+	assertOnlyStorageFiles(t, filepath.Dir(path), "zakki.json", "preferences.json")
+	assertOnlyStorageFiles(t, a.onboarding.dirDraft)
 }
 
 func TestObApplyFolderValidates(t *testing.T) {
 	a := newTestApp(t)
-	base := filepath.Dir(filepath.Dir(a.notes.DataFile))
+	base := t.TempDir()
 
 	plain := filepath.Join(base, "plain")
 	if err := os.MkdirAll(plain, 0o755); err != nil {
@@ -159,7 +177,9 @@ func TestObApplyFolderValidates(t *testing.T) {
 		t.Fatalf("合法目录应原样记录: %+v", a.onboarding)
 	}
 	// 非法目录：记录错误且不改草稿。
-	a.obApplyFolder(filepath.Dir(a.notes.DataFile))
+	blocker := filepath.Join(base, "not-a-dir")
+	persistWrite(t, blocker, "普通文件")
+	a.obApplyFolder(blocker)
 	if a.onboarding.dirErr == "" || a.onboarding.dirDraft != wantPlain {
 		t.Fatalf("非法目录应报错且不改草稿: %+v", a.onboarding)
 	}
@@ -168,7 +188,7 @@ func TestObApplyFolderValidates(t *testing.T) {
 func TestOnboardingViewRendersSteps(t *testing.T) {
 	a := newTestApp(t)
 	a.onboarding.tabCount = 7
-	folder := filepath.Join(filepath.Dir(filepath.Dir(a.notes.DataFile)), "view-folder")
+	folder := filepath.Join(t.TempDir(), "view-folder")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +201,7 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 		wants []string
 	}{
 		{1, []string{"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "英文字体"}},
-		{2, []string{"笔记与备份", "初始标签数量", "备份文件夹", folder, "完成设置"}},
+		{2, []string{"笔记与保存", "初始标签数量", "保存位置", folder, "完成设置"}},
 	}
 	for _, s := range steps {
 		a.onboarding.step = s.step
@@ -266,7 +286,7 @@ func TestOnboardingTabCountInput(t *testing.T) {
 func TestOnboardingSketchStyle(t *testing.T) {
 	a := newTestApp(t)
 	a.initOnboarding()
-	folder := filepath.Join(filepath.Dir(a.notes.DataFile), "wizard-style")
+	folder := filepath.Join(filepath.Dir(a.notes.DataPath()), "wizard-style")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}

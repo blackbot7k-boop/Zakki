@@ -31,9 +31,8 @@ zakki/
 │   ├── app/                  # 唯一可依赖 MyGo 的 internal 包
 │   ├── markdown/             # 解析、格式、表格纯函数
 │   ├── codehl/               # 围栏代码块词法着色
-│   ├── notes/                # zakki.json、备份、镜像调度
+│   ├── notes/                # 唯一笔记文件 zakki.json、定时保存与 Git 同步
 │   ├── prefs/                # preferences.json
-│   ├── legacyconfig/         # 旧 config 严格解码（迁移）
 │   ├── fonts/                # 可选字体远程目录、校验与按需下载
 │   └── atomicfile/           # tmp+rename 原子写
 ├── resources/  docs/  patches/  vendor/
@@ -51,7 +50,6 @@ flowchart TD
     hlPkg["internal/codehl"]
     notesPkg["internal/notes"]
     prefsPkg["internal/prefs"]
-    legacyPkg["internal/legacyconfig"]
     fontsPkg["internal/fonts"]
     atomicPkg["internal/atomicfile"]
     entry --> appPkg
@@ -60,7 +58,6 @@ flowchart TD
     appPkg --> notesPkg
     appPkg --> prefsPkg
     appPkg --> fontsPkg
-    prefsPkg --> legacyPkg
     prefsPkg --> atomicPkg
     prefsPkg --> fontsPkg
     notesPkg --> atomicPkg
@@ -73,18 +70,16 @@ flowchart TD
 
    | 包 | 允许依赖的 internal 包 |
    |---|---|
-   | `app` | `markdown`、`codehl`、`notes`、`prefs`、`legacyconfig`、`atomicfile`、`fonts` |
+   | `app` | `markdown`、`codehl`、`notes`、`prefs`、`atomicfile`、`fonts` |
    | `markdown` | 无 |
    | `codehl` | 无 |
    | `atomicfile` | 无 |
    | `fonts` | 无 |
-   | `legacyconfig` | 无 |
    | `notes` | `atomicfile` |
-   | `prefs` | `legacyconfig`、`atomicfile`、`fonts` |
+   | `prefs` | `atomicfile`、`fonts` |
 
 3. 新增包或依赖边：同一次提交更新本节与 `Makefile` 的 `ARCH_RULES`，并跑 `make arch-check`。
-4. 第三方依赖新增须在提交说明写明理由；当前仅 `github.com/egoist/mygo` 与
-   `github.com/pelletier/go-toml/v2`（后者仅 `legacyconfig`）。
+4. 第三方依赖新增须在提交说明写明理由；当前仅 `github.com/egoist/mygo`。
 
 机械校验：`make arch-check`（实现见根目录 `Makefile`，已纳入 `make check` 与 CI）。
 

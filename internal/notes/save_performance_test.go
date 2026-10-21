@@ -31,7 +31,7 @@ func TestSlowSaveLeavesStateResponsive(t *testing.T) {
 			started, release := pauseStateWriter(s)
 			saved := make(chan struct{})
 			file := File{Version: CurrentDataVersion, Tabs: defaultTabs("待保存内容")}
-			s.ScheduleDebounced(file, 0, time.Hour, 20, func() { close(saved) })
+			s.ScheduleSave(file, 0, func() { close(saved) })
 			<-started
 			defer func() {
 				release()
@@ -42,9 +42,9 @@ func TestSlowSaveLeavesStateResponsive(t *testing.T) {
 			go func() {
 				if operation == "status" {
 					s.LastSaveError()
-					s.LastBackupTime()
+					s.LastSaveTime()
 				} else {
-					s.ScheduleDebounced(file, time.Hour, time.Hour, 20, nil)
+					s.ScheduleSave(file, time.Hour, nil)
 				}
 				close(done)
 			}()
@@ -69,15 +69,15 @@ func BenchmarkSaveContention(b *testing.B) {
 				b.StopTimer()
 				started, release := pauseStateWriter(s)
 				saved := make(chan struct{})
-				s.ScheduleDebounced(file, 0, time.Hour, 20, func() { close(saved) })
+				s.ScheduleSave(file, 0, func() { close(saved) })
 				<-started
 				timer := time.AfterFunc(150*time.Millisecond, release)
 				b.StartTimer()
 				if operation == "status" {
 					s.LastSaveError()
-					s.LastBackupTime()
+					s.LastSaveTime()
 				} else {
-					s.ScheduleDebounced(file, time.Hour, time.Hour, 20, nil)
+					s.ScheduleSave(file, time.Hour, nil)
 				}
 				b.StopTimer()
 				<-saved

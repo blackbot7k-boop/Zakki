@@ -10,17 +10,17 @@ import (
 )
 
 func TestFontPreferencesVersion7RoundTrip(t *testing.T) {
-	if CurrentVersion != 11 {
-		t.Fatalf("CurrentVersion = %d, want 11", CurrentVersion)
+	if CurrentVersion != 12 {
+		t.Fatalf("CurrentVersion = %d, want 12", CurrentVersion)
 	}
-	want := Default(5)
+	want := Default()
 	want.Appearance.BodyFont = "songti"
 	want.Appearance.LatinFont = "bradley"
 	want.Appearance.MonoFont = "sfmono"
 	want.Appearance.CodeIndent = "space4"
 	want.Appearance.CodeTheme = ""
 	want.Appearance.BodySize = 19
-	want.Backup.BackupDir = "/custom/backup"
+	want.Storage.DataFile = filepath.Join(t.TempDir(), "zakki.json")
 	want.Keymap.Overrides["format.bold"] = "CmdOrCtrl+B"
 	old := want.Clone()
 	old.Version = 7
@@ -39,7 +39,7 @@ func TestFontPreferencesVersion7RoundTrip(t *testing.T) {
 }
 
 func TestFontPreferencesLocalSave(t *testing.T) {
-	p := Default(5)
+	p := Default()
 	p.Appearance.BodyFont = "local:Dank Mono"
 	p.Appearance.LatinFont = "local:Dank Mono"
 	p.Appearance.MonoFont = "local:Dank Mono"
@@ -57,7 +57,7 @@ func TestFontPreferencesRejectInvalidKeys(t *testing.T) {
 			"local:" + strings.Repeat("字", 67),
 		} {
 			t.Run(field+"/"+key, func(t *testing.T) {
-				p := Default(5)
+				p := Default()
 				setFontPreference(&p, field, key)
 				if err := p.Validate(nil); err == nil {
 					t.Fatalf("Validate accepted %s = %q", field, key)
@@ -75,7 +75,7 @@ func TestFontPreferencesRejectInvalidKeys(t *testing.T) {
 }
 
 func TestFontPreferencesFira(t *testing.T) {
-	p := Default(5)
+	p := Default()
 	p.Appearance.LatinFont, p.Appearance.MonoFont = "fira", "fira"
 	assertFontPreferencesSaved(t, p)
 	p.Appearance.BodyFont = "fira"
@@ -88,7 +88,7 @@ func TestFontPreferencesExistingCombinations(t *testing.T) {
 	for _, body := range []string{"", "kai", "sonnet", "pingfang", "songti", "hand", "hannotate"} {
 		for _, latin := range []string{"", "jetbrains", "system", "noteworthy", "bradley"} {
 			for _, mono := range []string{"", "jbm", "sonnet", "sfmono", "menlo"} {
-				p := Default(5)
+				p := Default()
 				p.Appearance.BodyFont, p.Appearance.LatinFont, p.Appearance.MonoFont = body, latin, mono
 				if err := p.Validate(nil); err != nil {
 					t.Fatalf("existing fonts %q/%q/%q rejected: %v", body, latin, mono, err)
@@ -107,7 +107,7 @@ func TestFontPreferencesLocalKeysDoNotRelaxOtherEnums(t *testing.T) {
 		func(p *Preferences) { p.Appearance.CodeTheme = "local:Dank Mono" },
 		func(p *Preferences) { p.Appearance.CodeIndent = "local:Dank Mono" },
 	} {
-		p := Default(5)
+		p := Default()
 		mutate(&p)
 		if err := p.Validate(nil); err == nil {
 			t.Fatalf("non-font enum accepted local key: %+v", p.Appearance)

@@ -9,7 +9,6 @@ package app
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 
@@ -218,8 +217,7 @@ func (a *app) addTab() bool {
 	return true
 }
 
-// deleteTabNow 删除第 i 个标签。有内容的标签先走现有安全备份，
-// 备份失败取消删除；至少保留一个标签。
+// deleteTabNow 删除已确认的标签；至少保留一个，统一保存到当前笔记文件。
 func (a *app) deleteTabNow(i int) bool {
 	if len(a.tabs) <= 1 {
 		a.notice = locales.TabKeepOne()
@@ -227,13 +225,6 @@ func (a *app) deleteTabNow(i int) bool {
 	}
 	if i < 0 || i >= len(a.tabs) {
 		return false
-	}
-	if strings.TrimSpace(a.tabs[i].Text) != "" {
-		if err := a.backupNow(); err != nil {
-			slog.Error("删除标签前备份失败，已取消删除", "error", err)
-			a.notice = locales.TabBackupBeforeDeleteFailed()
-			return false
-		}
 	}
 	removed := a.tabs[i].ID
 	activeID := a.tabs[a.active].ID

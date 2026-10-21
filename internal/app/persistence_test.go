@@ -1,11 +1,7 @@
 package app
 
-// 应用层持久化回归：载入后的标签/配置映射、欢迎文本、清空前备份。
-// 保存、备份、写保护与退出闸门在 internal/notes。
-// 全部经 newTestApp 注入 t.TempDir() 与固定时钟，绝不碰真实数据目录。
-//
-// 仍留在本文件：载入映射、欢迎文本、清空标签、防抖与 app 状态的竞态。
-// 版本拒绝、损坏隔离、原子保存、备份节流/裁剪/同秒文件名、退出闸门见 internal/notes。
+// 应用层持久化回归：载入映射、欢迎文本、单文件保存与清空标签。
+// 全部经 newTestApp 注入临时目录与固定时钟。
 
 import (
 	"encoding/json"
@@ -48,23 +44,22 @@ func persistReadSaved(t *testing.T, path string) savedFile {
 	return f
 }
 
-func persistBackupNames(t *testing.T, dir string) []string {
+// assertOnlyStorageFiles 拒绝副本、暂存、备份目录和遗留探针。
+func assertOnlyStorageFiles(t *testing.T, dir string, names ...string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		t.Fatalf("读取备份目录 %s 失败: %v", dir, err)
+		t.Fatal(err)
 	}
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
-			names = append(names, e.Name())
-		}
+	var got []string
+	for _, entry := range entries {
+		got = append(got, entry.Name())
 	}
+	sort.Strings(got)
 	sort.Strings(names)
-	return names
+	if !reflect.DeepEqual(got, names) {
+		t.Fatalf("目录 %s = %v, want 仅 %v", dir, got, names)
+	}
 }
 
 // tabTexts 取内存里全部标签文本（断言用）。
@@ -110,7 +105,7 @@ func TestPersistenceLoadMissingFile(t *testing.T) {
 	if a.cfg.ThemeSource != "system" {
 		t.Fatalf("默认 themeSource = %q, want system", a.cfg.ThemeSource)
 	}
-	if _, err := os.Stat(a.notes.DataFile); !os.IsNotExist(err) {
+	if _, err := os.Stat(a.notes.DataPath()); !os.IsNotExist(err) {
 		t.Fatalf("load 不应创建数据文件, stat err = %v", err)
 	}
 }
@@ -216,7 +211,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := newTestApp(t)
 			t.Cleanup(a.shutdown)
-			persistWrite(t, a.notes.DataFile, tc.raw)
+			persistWrite(t, a.notes.DataPath(), tc.raw)
 
 			if err := a.load(); err != nil {
 				t.Fatalf("load 报错: %v", err)
@@ -257,7 +252,7 @@ func TestPersistenceMigrateSavedFile(t *testing.T) {
 	t.Run("load 旧文件后保存升到 version 2 且只写 tabs", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
-		persistWrite(t, a.notes.DataFile, `{"active":99,"dots":["x"],"settings":{"preview":true}}`)
+		persistWrite(t, a.notes.DataPath(), `{"active":99,"dots":["x"],"settings":{"preview":true}}`)
 
 		if err := a.load(); err != nil {
 			t.Fatalf("load 报错: %v", err)
@@ -274,7 +269,7 @@ func TestPersistenceMigrateSavedFile(t *testing.T) {
 		if err := a.saveNow(); err != nil {
 			t.Fatalf("saveNow 报错: %v", err)
 		}
-		f := persistReadSaved(t, a.notes.DataFile)
+		f := persistReadSaved(t, a.notes.DataPath())
 		if f.Version != currentDataVersion {
 			t.Fatalf("保存后 version = %d, want %d", f.Version, currentDataVersion)
 		}
@@ -289,7 +284,7 @@ func TestPersistenceMigrateSavedFile(t *testing.T) {
 	t.Run("v2 缺失的 ID/颜色在 load 后补齐且计数器就位", func(t *testing.T) {
 		a := newTestApp(t)
 		t.Cleanup(a.shutdown)
-		persistWrite(t, a.notes.DataFile, `{"version":2,"active":0,"tabs":[{"text":"a"},{"id":4,"text":"b","color":"#00a3b4"}]}`)
+		persistWrite(t, a.notes.DataPath(), `{"version":2,"active":0,"tabs":[{"text":"a"},{"id":4,"text":"b","color":"#00a3b4"}]}`)
 		if err := a.load(); err != nil {
 			t.Fatalf("load 报错: %v", err)
 		}
@@ -315,7 +310,7 @@ func TestPersistenceMigrateSavedFile(t *testing.T) {
 	})
 }
 
-// ---- 10. 防抖落盘期间持续改状态（-race 回归） ----
+// ---- 固定截止保存期间持续改状态（-race 回归） ----
 
 func TestPersistenceScheduleSaveRace(t *testing.T) {
 	a := newTestApp(t)
@@ -334,7 +329,7 @@ func TestPersistenceScheduleSaveRace(t *testing.T) {
 		a.tabs[i%len(a.tabs)].Text = fmt.Sprintf("mut-%d", i)
 		a.active = i % len(a.tabs)
 		if !landed {
-			if _, err := os.Stat(a.notes.DataFile); err == nil {
+			if _, err := os.Stat(a.notes.DataPath()); err == nil {
 				landed = true
 				// 落盘后继续改一小段时间，与后台收尾重叠，给 -race 留抓窗口。
 				overlapUntil = time.Now().Add(200 * time.Millisecond)
@@ -345,10 +340,10 @@ func TestPersistenceScheduleSaveRace(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	if !landed {
-		t.Fatal("防抖定时器 5 秒内未落盘")
+		t.Fatal("保存定时器 5 秒内未落盘")
 	}
 
-	f := persistReadSaved(t, a.notes.DataFile) // 不是合法 JSON 会在这里判失败
+	f := persistReadSaved(t, a.notes.DataPath()) // 不是合法 JSON 会在这里判失败
 	want := []string{"seed-0", "seed-1", "seed-2", "seed-3", "seed-4", "seed-5", "seed-6"}
 	got := make([]string, len(f.Tabs))
 	for i := range f.Tabs {
@@ -365,46 +360,73 @@ func TestPersistenceScheduleSaveRace(t *testing.T) {
 // ---- 11. clearDot ----
 
 func TestPersistenceClearDot(t *testing.T) {
-	t.Run("先备份后清空", func(t *testing.T) {
-		a := newTestApp(t)
-		t.Cleanup(a.shutdown)
-		a.active = 2
-		a.tabs[2].Text = "清空前应进备份"
-		a.tabs[0].Text = "其他点不动"
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.active = 2
+	a.tabs[2].Text = "清空前内容"
+	a.tabs[0].Text = "其他点不动"
+	a.resyncLive(-1)
+	a.clearActiveTab()
+	if a.tabs[2].Text != "" {
+		t.Fatalf("当前标签未清空: %q", a.tabs[2].Text)
+	}
+	if a.tabs[0].Text != "其他点不动" {
+		t.Fatalf("其他标签被误改: %q", a.tabs[0].Text)
+	}
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	f := persistReadSaved(t, a.notes.DataPath())
+	if len(f.Tabs) != DefaultTabCount || f.Tabs[2].Text != "" || f.Tabs[0].Text != "其他点不动" {
+		t.Fatalf("清空结果未完整保存: %+v", f.Tabs)
+	}
+	assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()), "zakki.json")
+}
 
-		a.clearActiveTab()
+func TestPersistenceSaveCurrentWritesAllTabsWithoutCopies(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	for i := range a.tabs {
+		a.tabs[i].Text = fmt.Sprintf("标签-%d", i)
+	}
+	a.active = 3
+	a.saveCurrent()
+	f := persistReadSaved(t, a.notes.DataPath())
+	if len(f.Tabs) != len(a.tabs) || f.Active != a.active {
+		t.Fatalf("快照不完整: %+v", f)
+	}
+	for i := range f.Tabs {
+		if f.Tabs[i].Text != a.tabs[i].Text {
+			t.Fatalf("标签 %d = %q", i, f.Tabs[i].Text)
+		}
+	}
+	assertOnlyStorageFiles(t, filepath.Dir(a.notes.DataPath()), "zakki.json")
+}
 
-		if a.tabs[2].Text != "" {
-			t.Fatalf("当前点未被清空: %q", a.tabs[2].Text)
+func TestPersistenceScheduleSaveUsesFixedDeadline(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if got := defaultPreferences().Storage.SaveIntervalMS; got != 2000 {
+		t.Fatalf("默认保存间隔 = %d, want 2000", got)
+	}
+	a.prefs.Storage.SaveIntervalMS = 300
+	start := time.Now()
+	a.tabs[0].Text = "首次编辑"
+	a.scheduleSave()
+	deadline := start.Add(3 * time.Second)
+	for i := 0; time.Now().Before(deadline); i++ {
+		a.tabs[0].Text = fmt.Sprintf("持续编辑-%d", i)
+		a.scheduleSave()
+		if _, err := os.Stat(a.notes.DataPath()); err == nil {
+			if elapsed := time.Since(start); elapsed < 250*time.Millisecond {
+				t.Fatalf("300ms 截止前提前保存: %v", elapsed)
+			}
+			if f := persistReadSaved(t, a.notes.DataPath()); !strings.HasPrefix(f.Tabs[0].Text, "持续编辑-") {
+				t.Fatalf("到期应保存最新快照: %+v", f.Tabs)
+			}
+			return
 		}
-		if a.tabs[0].Text != "其他点不动" {
-			t.Fatalf("其他点被误改: %q", a.tabs[0].Text)
-		}
-		names := persistBackupNames(t, a.notes.BackupDir())
-		if len(names) != 1 {
-			t.Fatalf("备份 = %v, want 1 份", names)
-		}
-		if raw := string(persistReadRaw(t, filepath.Join(a.notes.BackupDir(), names[0]))); !strings.Contains(raw, "清空前应进备份") {
-			t.Fatalf("备份不含清空前内容（应先备份后清空）: %q", raw)
-		}
-	})
-
-	t.Run("备份失败取消清空", func(t *testing.T) {
-		a := newTestApp(t)
-		t.Cleanup(a.shutdown)
-		blocker := filepath.Join(filepath.Dir(a.notes.DataFile), "blocked")
-		persistWrite(t, blocker, "我是普通文件，MkdirAll 必须失败")
-		a.notes.SetBackupDir(blocker) // 选择的备份文件夹不可写
-		a.active = 3
-		a.tabs[3].Text = "备份失败要保留"
-
-		a.clearActiveTab()
-
-		if a.tabs[3].Text != "备份失败要保留" {
-			t.Fatalf("备份失败仍被清空: %q", a.tabs[3].Text)
-		}
-		if !strings.Contains(a.saveError(), "备份失败") {
-			t.Fatalf("备份失败未上报: saveError = %q", a.saveError())
-		}
-	})
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("连续编辑不应重置最初 2 秒的保存截止时间")
 }

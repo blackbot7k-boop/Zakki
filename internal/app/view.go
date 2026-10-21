@@ -479,8 +479,8 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 		stats := locales.StatsLinesWordsChars(lines, words, chars)
 		ui.Text(c, stats).FontSize(12).TextColor(fg).SingleLine().MinWidth(0).Tooltip(stats)
 		ui.Box(c).Width(1).Height(16).Background(fg.Mix(bg, 0.55)).Shrink(0)
-		backup := a.backupLabel()
-		ui.Text(c, backup).FontSize(12).TextColor(fg).SingleLine().MinWidth(0).Tooltip(backup)
+		saved := a.saveLabel()
+		ui.Text(c, saved).FontSize(12).TextColor(fg).SingleLine().MinWidth(0).Tooltip(saved)
 		// 保存/载入异常要在界面上可见（完整内容在日志里）；它比统计更重要，最后才截断。
 		if warn := a.statusWarn(); warn != "" {
 			ui.Text(c, warn).FontSize(12).TextColor(fg).Bold().SingleLine().MinWidth(0).Shrink(0.2).Tooltip(warn)

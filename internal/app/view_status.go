@@ -5,8 +5,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"zakki/locales"
 )
 
 // statusWarn 状态栏警示文案：持久化错误优先，其次载入提示。
@@ -49,24 +47,8 @@ func countLines(s string) int {
 	return strings.Count(s, "\n") + 1
 }
 
-// backupLabel 把最近备份时间转成人性化短句。
-func (a *app) backupLabel() string {
-	last := a.lastBackupTime()
-	if last.IsZero() {
-		return locales.StatusNeverBackedUp()
-	}
-	d := a.now().Sub(last)
-	switch {
-	case d < time.Minute:
-		return locales.StatusBackedUpJustNow()
-	case d < time.Hour:
-		return locales.StatusBackedUpMinutes(int(d.Minutes()))
-	case d < 24*time.Hour:
-		return locales.StatusBackedUpHours(int(d.Hours()))
-	default:
-		return locales.StatusBackedUpAt(last.Format("01-02 15:04"))
-	}
-}
+// saveLabel 展示唯一笔记文件的保存状态。
+func (a *app) saveLabel() string { return a.storageStatus() }
 
 // statsDebounce 长文档连续输入时底栏统计的最短重算间隔；停手后补一帧算准。
 const statsDebounce = 250 * time.Millisecond

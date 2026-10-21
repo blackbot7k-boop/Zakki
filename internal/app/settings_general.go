@@ -76,22 +76,9 @@ func (a *app) languageRow(c *ui.Context) {
 	})
 }
 
-// migrationStatus 一次性迁移结果与偏好恢复入口。
+// migrationStatus 偏好文件异常的恢复入口；全新安装不再有旧配置导入。
 func (a *app) migrationStatus(c *ui.Context) {
-	switch a.currentPrefsIssue().Kind {
-	case prefsIssueLegacyBroken:
-		ui.Column(c).FillWidth().Gap(6).Padding(10, 12).Radius(8).
-			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Warning).Children(func() {
-			ui.Text(c, locales.LegacyConfigFailed()).Bold()
-			ui.Text(c, a.currentPrefsIssue().Message).FontSize(12).TextColor(tMuted(c))
-			if ui.Button(c, locales.UseExistingPrefs()).Clicked() {
-				if err := a.confirmContinueWithoutLegacyConfig(); err != nil {
-					a.settingsUI.keyErr = err.Error()
-				}
-				a.settingsUI.syncDraftFromPrefs(a.prefs)
-			}
-		})
-	case prefsIssuePrefsBroken:
+	if a.currentPrefsIssue().Kind == prefsIssuePrefsBroken {
 		ui.Column(c).FillWidth().Gap(6).Padding(10, 12).Radius(8).
 			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Danger).Children(func() {
 			ui.Text(c, locales.PrefsNeedRecovery()).Bold()
@@ -103,10 +90,6 @@ func (a *app) migrationStatus(c *ui.Context) {
 				a.settingsUI.syncDraftFromPrefs(a.prefs)
 			}
 		})
-	default:
-		if a.prefsMigration.From != "" {
-			ui.Text(c, locales.PrefsMigrationLine(a.prefsMigration.From)).FontSize(12).TextColor(tMuted(c))
-		}
 	}
 }
 

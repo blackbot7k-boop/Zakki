@@ -88,8 +88,8 @@ func (a *app) runFixedShortcut(key string) {
 		a.cycleTab(-1)
 	case "nextTab":
 		a.cycleTab(1)
-	case "backupNow":
-		a.backupNow()
+	case "save":
+		a.saveCurrent()
 	case "copyTabText":
 		a.copyTabTextToClipboard()
 	case "settings":

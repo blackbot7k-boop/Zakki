@@ -1,7 +1,6 @@
 package app
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,14 +14,6 @@ import (
 )
 
 const onboardingLastStep = 2
-
-var defaultBackupDir = func() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ""
-	}
-	return filepath.Join(home, "Documents", "Zakki 备份")
-}
 
 type onboardingState struct {
 	obWin                                *mygo.Window
@@ -39,14 +30,17 @@ type onboardingState struct {
 }
 
 func (a *app) firstRun() bool {
-	_, err := os.Stat(a.notes.DataFile)
+	if a.notes.SaveBlocked() {
+		return false
+	}
+	_, err := os.Stat(a.notes.DataPath())
 	return os.IsNotExist(err)
 }
 
 func (a *app) initOnboarding() {
 	ap := a.prefs.Appearance
 	ap.BodyFont, ap.LatinFont = "pingfang", "jetbrains"
-	a.onboarding = onboardingState{step: 1, tabCount: DefaultTabCount, tabCountText: strconv.Itoa(DefaultTabCount), dirDraft: defaultBackupDir(), appearance: ap}
+	a.onboarding = onboardingState{step: 1, tabCount: DefaultTabCount, tabCountText: strconv.Itoa(DefaultTabCount), dirDraft: filepath.Dir(a.notes.DataPath()), appearance: ap}
 	if mygo.App.Locale() == "zh-Hans" {
 		a.onboarding.languageIndex = 1
 	}
@@ -86,12 +80,6 @@ func (a *app) openOnboarding() {
 
 func (a *app) abandonOnboarding() { a.onboarding.preparation.stop(); a.finishOnboarding(false) }
 
-func (a *app) applyDefaultBackupDir() {
-	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir = defaultBackupDir() }); err != nil {
-		a.notice = locales.OnboardSaveErr(err.Error())
-	}
-}
-
 // 下载与注册成功只进入就绪页，必须由开始按钮显式提交。
 func (a *app) submitOnboarding() {
 	ob := &a.onboarding
@@ -99,7 +87,7 @@ func (a *app) submitOnboarding() {
 		return
 	}
 	a.commitTabCountText()
-	dir, err := a.validateBackupDir(ob.dirDraft)
+	dir, err := a.validateStorageDir(ob.dirDraft)
 	if err != nil {
 		ob.dirErr = err.Error()
 		return
@@ -132,37 +120,28 @@ func (a *app) finishOnboarding(configured bool) {
 	if ob.phase == "saving" || (configured && ob.phase != "ready") {
 		return
 	}
-	n := DefaultTabCount
-	ap := a.prefs.Appearance
-	dir := defaultBackupDir()
+	n, ap, dir := DefaultTabCount, a.prefs.Appearance, filepath.Dir(a.notes.DataPath())
 	if configured {
-		n = ob.tabCount
-		ap = ob.appearance
-		dir = ob.dirDraft
-		// 未经过 initOnboarding 的零值草稿（测试直调）按默认枚举补齐，
-		// 字体键保持空串语义（默认栈 / 跟随中文字体）。
-		if ap.AppearanceMode == "" {
-			ap.AppearanceMode = "system"
-		}
-		if ap.Style == "" {
-			ap.Style = styleStandard
-		}
-		if ap.ColorTheme == "" {
-			ap.ColorTheme = "classic"
-		}
-		if ap.MarkdownTheme == "" {
-			ap.MarkdownTheme = "sonnet"
-		}
-		if ap.CodeTheme == "" {
-			ap.CodeTheme = "soft"
-		}
-		if ap.CodeIndent == "" {
-			ap.CodeIndent = "space2"
-		}
+		n, ap, dir = ob.tabCount, ob.appearance, ob.dirDraft
 	}
-	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir = dir; p.Appearance = ap }); err != nil {
-		ob.dirErr = locales.OnboardSaveErr(err.Error())
-		return
+	defaults := defaultPreferences().Appearance
+	if ap.AppearanceMode == "" {
+		ap.AppearanceMode = defaults.AppearanceMode
+	}
+	if ap.Style == "" {
+		ap.Style = defaults.Style
+	}
+	if ap.ColorTheme == "" {
+		ap.ColorTheme = defaults.ColorTheme
+	}
+	if ap.MarkdownTheme == "" {
+		ap.MarkdownTheme = defaults.MarkdownTheme
+	}
+	if ap.CodeTheme == "" {
+		ap.CodeTheme = defaults.CodeTheme
+	}
+	if ap.CodeIndent == "" {
+		ap.CodeIndent = defaults.CodeIndent
 	}
 	if n < 1 {
 		n = 1
@@ -173,33 +152,36 @@ func (a *app) finishOnboarding(configured bool) {
 	if a.firstRun() {
 		a.rebuildInitialTabs(n)
 	}
-	ob.phase = "saving"
-	prefsSnapshot := clonePrefs(a.prefs)
-	notesSnapshot := a.snapshotFile()
-	prefStore, noteStore := a.prefsStore, a.notes
-	persist := func() (error, error) {
-		if err := prefStore.SaveNow(prefsSnapshot); err != nil {
-			return err, nil
-		}
-		if err := noteStore.SaveNow(notesSnapshot); err != nil {
-			return err, nil
-		}
-		if dir != "" {
-			return nil, noteStore.BackupNow(prefsSnapshot.Backup.Keep)
-		}
-		return nil, nil
-	}
-	savingPhase := ob.phase
-	complete := func(err, backupErr error) {
+	next := clonePrefs(a.prefs)
+	next.Appearance = ap
+	snapshot, store, prefStore := a.snapshotFile(), a.notes, a.prefsStore
+	ob.phase, a.storageMoving = "saving", true
+	persist := func() error {
+		abs, err := validateStorageDir(dir)
 		if err != nil {
-			ob.phase = savingPhase
+			return err
+		}
+		next.Storage.DataFile = filepath.Join(abs, dataFileName)
+		if err := validatePrefs(next); err != nil {
+			return err
+		}
+		if next.Storage.DataFile == store.DataPath() {
+			if err := store.SaveNow(snapshot); err != nil {
+				return err
+			}
+			return prefStore.SaveNow(next)
+		}
+		return store.Relocate(next.Storage.DataFile, snapshot, func() error { return prefStore.SaveNow(next) })
+	}
+	complete := func(err error) {
+		a.storageMoving = false
+		if err != nil {
+			ob.phase = "ready"
 			ob.dirErr = locales.OnboardWriteErr(err.Error())
 			return
 		}
-		if backupErr != nil {
-			slog.Warn("向导首次备份失败", "error", backupErr)
-			a.notice = locales.OnboardFirstBackupErr(backupErr.Error())
-		}
+		a.prefs = next
+		a.applyPreferencesToRuntime()
 		ob.finished = true
 		if win := ob.obWin; win != nil {
 			win.Close()
@@ -208,16 +190,15 @@ func (a *app) finishOnboarding(configured bool) {
 	}
 	if win := ob.obWin; win != nil && a.ready {
 		go func() {
-			err, backupErr := persist()
+			err := persist()
 			win.Update(func() {
 				if a.onboarding.obWin == win {
-					complete(err, backupErr)
+					complete(err)
 				}
 			})
 		}()
 	} else {
-		err, backupErr := persist()
-		complete(err, backupErr)
+		complete(persist())
 	}
 }
 
@@ -225,7 +206,6 @@ func (a *app) enterMainFromOnboarding() {
 	if a.ready {
 		a.createWindow()
 	}
-	a.syncMenus()
 }
 
 func (a *app) rebuildInitialTabs(n int) {
@@ -240,9 +220,9 @@ func (a *app) rebuildInitialTabs(n int) {
 	a.resyncLive(utf8.RuneCountInString(text))
 }
 
-func (a *app) obPickFolder() { a.chooseBackupDirAsync(a.onboarding.obWin, a.obApplyFolder) }
+func (a *app) obPickFolder() { a.chooseStorageDirAsync(a.onboarding.obWin, a.obApplyFolder) }
 func (a *app) obApplyFolder(path string) {
-	abs, err := a.validateBackupDir(path)
+	abs, err := a.validateStorageDir(path)
 	if err != nil {
 		a.onboarding.dirErr = err.Error()
 		return

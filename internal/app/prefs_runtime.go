@@ -15,12 +15,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 
+	"zakki/internal/notes"
 	"zakki/internal/prefs"
 	"zakki/locales"
 )
@@ -39,27 +39,10 @@ func (a *app) loadPreferences() error {
 	raw, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		prefs, mr := migrateLegacyConfig(filepath.Dir(a.notes.DataFile), a.cfg)
-		a.prefsMigration = mr
-		if mr.Err != nil {
-			a.prefs = prefs
-			a.setPrefsIssue(prefsIssue{
-				Kind:    prefsIssueLegacyBroken,
-				Message: mr.Err.Error(),
-			})
-			a.applyPreferencesToRuntime()
-			return mr.Err
-		}
-		if err := a.prefsStore.WriteInitial(prefs); err != nil {
-			a.prefs = prefs
-			a.applyPreferencesToRuntime()
+		a.prefs = defaultPreferences()
+		if err := a.prefsStore.WriteInitial(a.prefs); err != nil {
 			a.setPrefsSaveError(err)
-			return fmt.Errorf("%s: %w", locales.PrefsWriteErr(path), err)
-		}
-		a.prefs = prefs
-		a.applyPreferencesToRuntime()
-		if mr.Applied {
-			slog.Info("已从旧配置迁移偏好", "from", mr.From)
+			return err
 		}
 		return nil
 	case err != nil:
@@ -120,22 +103,6 @@ func (a *app) retryPreferencesSave() {
 	}
 }
 
-// confirmContinueWithoutLegacyConfig 用户确认放弃损坏的旧配置导入。
-func (a *app) confirmContinueWithoutLegacyConfig() error {
-	if a.currentPrefsIssue().Kind != prefsIssueLegacyBroken {
-		return nil
-	}
-	// WriteInitial 是确认动作专用写入；异常门在写成功前保持，防止恢复
-	// 失败后定时保存或 shutdown 覆盖旧配置对应的迁移机会。
-	if err := a.prefsStore.WriteInitial(a.prefs); err != nil {
-		a.setPrefsSaveError(err)
-		return err
-	}
-	a.setPrefsIssue(prefsIssue{})
-	a.prefsStore.BumpRev()
-	return nil
-}
-
 // confirmRecoverPreferences 用户确认后另存原件并恢复默认设置写盘。
 func (a *app) confirmRecoverPreferences() error {
 	if a.currentPrefsIssue().Kind != prefsIssuePrefsBroken {
@@ -173,6 +140,9 @@ func (a *app) shutdownPreferences() error {
 
 // updatePreferences 统一变更入口：校验 → 应用运行时 → 同步菜单/窗口/热键 → 保存。
 func (a *app) updatePreferences(mutate func(p *preferences)) error {
+	if a.storageMoving {
+		return errors.New(locales.StorageMoving())
+	}
 	next := clonePrefs(a.prefs)
 	mutate(&next)
 	if err := validatePrefs(next); err != nil {
@@ -201,8 +171,7 @@ func (a *app) applyPreferencesToRuntime() {
 	a.cfg.BodySize, a.cfg.LineHeight = p.Appearance.BodySize, p.Appearance.LineHeight
 	a.cfg.AlwaysOnTop = p.Window.AlwaysOnTop
 	a.cfg.HideOnEscape = p.Window.HideOnEscape
-	a.notes.SetBackupDir(p.Backup.BackupDir)
-	a.notes.SetGitAutoPush(p.Backup.GitAutoPush, a.gitPushInterval())
+	a.configureGit()
 	if a.ready {
 		applyTheme(p.Appearance.AppearanceMode)
 	}
@@ -214,15 +183,15 @@ func (a *app) applyPreferencesToRuntime() {
 	a.applyAlwaysOnTop()
 }
 
-func (a *app) autosaveDelay() time.Duration {
-	return time.Duration(a.prefs.Advanced.AutosaveDelayMS) * time.Millisecond
+func (a *app) saveInterval() time.Duration {
+	return time.Duration(a.prefs.Storage.SaveIntervalMS) * time.Millisecond
 }
 
-func (a *app) backupIntervalDuration() time.Duration {
-	return time.Duration(a.prefs.Backup.IntervalMinutes) * time.Minute
-}
-
-// gitPushInterval Git 自动推送的最小间隔（偏好，分钟）。
-func (a *app) gitPushInterval() time.Duration {
-	return time.Duration(a.prefs.Backup.GitPushMinutes) * time.Minute
+func (a *app) configureGit() {
+	p := a.prefs.Git
+	a.notes.ConfigureGit(notes.GitConfig{
+		AutoCommit: p.AutoCommit, AutoPush: p.AutoPush,
+		CommitInterval: time.Duration(p.CommitMinutes) * time.Minute,
+		PushInterval:   time.Duration(p.PushMinutes) * time.Minute,
+	}, a.storageRefresh())
 }

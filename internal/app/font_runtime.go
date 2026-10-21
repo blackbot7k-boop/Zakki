@@ -53,7 +53,7 @@ func (s *fontPreparation) stop() {
 }
 
 func (a *app) fontStore() fonts.Store {
-	return fonts.Store{Dir: filepath.Join(filepath.Dir(a.notes.DataFile), "fonts")}
+	return fonts.Store{Dir: filepath.Join(filepath.Dir(a.preferencesPath()), "fonts")}
 }
 
 func hasFontFamily(families []ui.FontFamily, name string) bool {

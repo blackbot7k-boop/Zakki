@@ -456,7 +456,7 @@ func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
 		{"Shift+CmdOrCtrl+D", "deleteTab"},
 		{"Alt+CmdOrCtrl+Left", "prevTab"},
 		{"Alt+CmdOrCtrl+Right", "nextTab"},
-		{"CmdOrCtrl+S", "backupNow"},
+		{"CmdOrCtrl+S", "save"},
 		{"Shift+CmdOrCtrl+C", "copyTabText"},
 		{"CmdOrCtrl+Z", "undo"},
 		{"Shift+CmdOrCtrl+Z", "redo"},
@@ -524,8 +524,8 @@ func fixedBindingName(key string) string {
 		return locales.FixedPrevTab()
 	case "nextTab":
 		return locales.FixedNextTab()
-	case "backupNow":
-		return locales.FixedBackupNow()
+	case "save":
+		return locales.FixedSave()
 	case "copyTabText":
 		return locales.FixedCopyTabText()
 	case "undo":
