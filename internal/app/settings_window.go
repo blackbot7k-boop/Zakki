@@ -390,8 +390,8 @@ func (a *app) resetPageDefaults(page string) {
 		switch page {
 		case pageGeneral:
 			p.Window = defaults.Window
-			p.Advanced.WindowWidth = defaults.Advanced.WindowWidth
-			p.Advanced.WindowHeight = defaults.Advanced.WindowHeight
+			p.Advanced.WindowColumns = defaults.Advanced.WindowColumns
+			p.Advanced.WindowRows = defaults.Advanced.WindowRows
 		case pageAppearance:
 			p.Appearance = defaults.Appearance
 		case pageBackup:

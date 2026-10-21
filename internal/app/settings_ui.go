@@ -30,24 +30,7 @@ func (a *app) generalPage(c *ui.Context, t *ui.Theme, dark bool) {
 						a.pushWindow()
 					}
 				})
-				widthF := float64(a.settingsUI.draft.Advanced.WindowWidth)
-				heightF := float64(a.settingsUI.draft.Advanced.WindowHeight)
-				settingsRow(c, locales.DefaultWindowWidth(), locales.DefaultWindowSizeHint(), func() {
-					if ui.NumberInput(c, &widthF, 300, 4096, 10).Changed() {
-						a.settingsUI.draft.Advanced.WindowWidth = int(widthF)
-						_ = a.updatePreferences(func(p *preferences) {
-							p.Advanced.WindowWidth = int(widthF)
-						})
-					}
-				})
-				settingsRow(c, locales.DefaultWindowHeight(), "", func() {
-					if ui.NumberInput(c, &heightF, 340, 4096, 10).Changed() {
-						a.settingsUI.draft.Advanced.WindowHeight = int(heightF)
-						_ = a.updatePreferences(func(p *preferences) {
-							p.Advanced.WindowHeight = int(heightF)
-						})
-					}
-				})
+				a.windowSizeRows(c)
 				sectionDivider(c)
 				a.cardResetFooter(c, "general", pageGeneral)
 			})

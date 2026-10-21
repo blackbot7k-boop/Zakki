@@ -60,7 +60,7 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 | 窗口置顶 | 即时生效（与 ⌥⌘T、工具栏置顶按钮同源） |
 | 按 Esc 隐藏窗口 | 即时生效 |
 | 记忆主窗口位置与尺寸 | 从**下次创建主窗口**起生效（关闭窗口后重新打开即应用），无需重启应用 |
-| 默认宽度 / 默认高度 | 新建主窗口时的尺寸（宽 300–4096，默认 400；高 340–4096，默认 540）。已记住位置的窗口仍用上次的大小 |
+| 每行字数 / 行数 | 新建主窗口的大小，按汉字计（每行 10–160 字，默认 22；4–120 行，默认 16），下方显示按当前字号换算的像素。开窗时按当时生效的正文字号、行高与排版内边距换算，改字号后新窗口跟着变，不小于最小窗口 300 × 340。已记住位置的窗口仍用上次的大小 |
 
 页内同时显示一次性迁移结果，以及偏好文件/旧配置异常时的恢复入口。
 
@@ -163,6 +163,10 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 颜色与排版回到标准默认（经典 / Sonnet，切回标准时用）；只有一项是手绘 / 手账的半套组合
 迁为标准风格，那一项回到默认、另一项原样保留。版本 10 起 `colorTheme` / `markdownTheme`
 不再接受 `sketch`。
+版本 11 把 `advanced.windowWidth` / `windowHeight`（像素）换成 `windowColumns` / `windowRows`
+（每行字数 × 行数）：旧像素值按默认 Sonnet 排版（16 / 1.6、内边距 24、顶栏 38 + 状态栏 36）
+换算并四舍五入，有字号 / 行高覆盖时按覆盖值算，误差在一个字、一行以内（旧默认 400 × 540
+→ 22 × 16）；缺一边按旧默认补齐，非法旧值照旧拒绝。
 
 ### 快捷键
 
@@ -239,7 +243,7 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 
 ```json
 {
-  "version": 10,
+  "version": 11,
   "appearance": {
     "appearanceMode": "system",
     "language": "",
@@ -257,7 +261,7 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
   "window": { "alwaysOnTop": false, "hideOnEscape": true, "rememberBounds": true },
   "backup": { "intervalMinutes": 5, "keep": 20, "onLaunch": true, "backupDir": "" },
   "keymap": { "overrides": { "format.bold": "CmdOrCtrl+Alt+U" } },
-  "advanced": { "autosaveDelayMs": 800, "windowWidth": 400, "windowHeight": 540 }
+  "advanced": { "autosaveDelayMs": 800, "windowColumns": 22, "windowRows": 16 }
 }
 ```
 

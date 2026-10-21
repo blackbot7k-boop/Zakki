@@ -2,6 +2,7 @@ package prefs
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +32,9 @@ import (
 // 这两个键，迁移时统一补默认；无破坏性变更。
 // 版本 10 新增 appearance.style（"standard" / "sketch"）：手账是整体风格，
 // colorTheme / markdownTheme 不再取 "sketch"，只记标准风格下的选择，切回标准时原样恢复。
-const CurrentVersion = 10
+// 版本 11 把 advanced.windowWidth / windowHeight（像素）换成 windowColumns /
+// windowRows（每行字数 × 行数），开窗时按当时的字号换算；旧像素值按默认排版换算。
+const CurrentVersion = 11
 
 // 整体风格：手账风格下颜色与排版由风格决定，colorTheme / markdownTheme 保留不动。
 const (
@@ -106,8 +109,9 @@ type Keymap struct {
 
 type Advanced struct {
 	AutosaveDelayMS int `json:"autosaveDelayMs"`
-	WindowWidth     int `json:"windowWidth"`
-	WindowHeight    int `json:"windowHeight"`
+	// WindowColumns / WindowRows 是新建主窗口的默认大小：每行字数 × 行数。
+	WindowColumns int `json:"windowColumns"`
+	WindowRows    int `json:"windowRows"`
 }
 
 // defaultGitPushMinutes 是 Git 自动推送间隔的默认值（分钟）。
@@ -131,8 +135,8 @@ func Default(backupIntervalMinutes int) Preferences {
 		Keymap: Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
 			AutosaveDelayMS: 800,
-			WindowWidth:     400,
-			WindowHeight:    540,
+			WindowColumns:   22,
+			WindowRows:      16,
 		},
 	}
 }
@@ -201,8 +205,8 @@ func (p Preferences) Validate(v AccelValidator) error {
 		{"backup.keep", p.Backup.Keep, 1, 1000},
 		{"backup.gitPushMinutes", p.Backup.GitPushMinutes, 1, 1440},
 		{"advanced.autosaveDelayMs", p.Advanced.AutosaveDelayMS, 100, 10000},
-		{"advanced.windowWidth", p.Advanced.WindowWidth, 300, 4096},
-		{"advanced.windowHeight", p.Advanced.WindowHeight, 340, 4096},
+		{"advanced.windowColumns", p.Advanced.WindowColumns, MinWindowColumns, MaxWindowColumns},
+		{"advanced.windowRows", p.Advanced.WindowRows, MinWindowRows, MaxWindowRows},
 	} {
 		if field.value < field.lo || field.value > field.hi {
 			return fmt.Errorf("%s 必须在 %d–%d 之间", field.name, field.lo, field.hi)
@@ -234,7 +238,11 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 		return Preferences{}, err
 	}
 	legacyMirrorDir, hasLegacy := stripLegacyBackupKeys(value)
-	if hasLegacy {
+	legacyW, legacyH, hasLegacyWindow, err := stripLegacyWindowKeys(value)
+	if err != nil {
+		return Preferences{}, err
+	}
+	if hasLegacy || hasLegacyWindow {
 		// 严格解码不认旧键；重新编回 JSON 再解码。map 编码只影响键序，
 		// 不改变取值，原文件保持原样。
 		sanitized, err := json.Marshal(value)
@@ -296,11 +304,16 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if p.Advanced.AutosaveDelayMS == 0 {
 		p.Advanced.AutosaveDelayMS = def.Advanced.AutosaveDelayMS
 	}
-	if p.Advanced.WindowWidth == 0 {
-		p.Advanced.WindowWidth = def.Advanced.WindowWidth
+	if hasLegacyWindow {
+		// 版本 11 之前的像素尺寸：缺的一边按旧默认 400 × 540 补齐后换算。
+		legacyW, legacyH = cmp.Or(legacyW, 400), cmp.Or(legacyH, 540)
+		p.Advanced.WindowColumns, p.Advanced.WindowRows = WindowGrid(legacyW, legacyH, legacyWindowMetrics(p.Appearance))
 	}
-	if p.Advanced.WindowHeight == 0 {
-		p.Advanced.WindowHeight = def.Advanced.WindowHeight
+	if p.Advanced.WindowColumns == 0 {
+		p.Advanced.WindowColumns = def.Advanced.WindowColumns
+	}
+	if p.Advanced.WindowRows == 0 {
+		p.Advanced.WindowRows = def.Advanced.WindowRows
 	}
 	if err := p.Validate(v); err != nil {
 		return Preferences{}, err
@@ -464,7 +477,7 @@ func MergeFileConfig(cfg legacyconfig.Config, base Preferences, cmdToggleWindow 
 	p.Window.AlwaysOnTop = cfg.Window.AlwaysOnTop
 	p.Window.HideOnEscape = cfg.Window.HideOnEscape
 	p.Window.RememberBounds = cfg.Window.RememberBounds
-	p.Advanced.WindowWidth, p.Advanced.WindowHeight = cfg.Window.Width, cfg.Window.Height
+	p.Advanced.WindowColumns, p.Advanced.WindowRows = WindowGrid(cfg.Window.Width, cfg.Window.Height, legacyWindowMetrics(p.Appearance))
 	p.Backup.IntervalMinutes, p.Backup.Keep, p.Backup.OnLaunch =
 		cfg.Storage.BackupIntervalMinutes, cfg.Storage.BackupKeep, cfg.Storage.BackupOnLaunch
 	p.Advanced.AutosaveDelayMS = cfg.Storage.AutosaveDelayMS

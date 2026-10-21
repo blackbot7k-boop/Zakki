@@ -1,6 +1,45 @@
 package app
 
-import "github.com/egoist/mygo/ui"
+import (
+	"runtime"
+
+	"github.com/egoist/mygo/ui"
+
+	"zakki/internal/prefs"
+)
+
+// 主窗口最小尺寸；默认尺寸换算出的像素不会小于它。
+const (
+	minWindowWidth  = 300
+	minWindowHeight = 340
+)
+
+// windowMetrics 当前生效排版下列数 × 行数与窗口像素的换算量：正文字号与行高
+// 取覆盖值或排版主题默认，顶栏按平台（mac 38，Windows 隐藏标题栏 32）加状态栏。
+func windowMetrics(ap appearancePrefs, goos string) prefs.WindowMetrics {
+	layout := markdownLayoutByID(ap.EffectiveMarkdownTheme())
+	header := tabTrackHeight
+	if goos == "windows" {
+		header = 32
+	}
+	m := prefs.WindowMetrics{
+		BodySize: layout.bodySize, LineHeight: layout.lineHeight,
+		PadX: layout.padX, PadY: layout.padY, Chrome: header + statusBarHeight,
+	}
+	if ap.BodySize > 0 {
+		m.BodySize = ap.BodySize
+	}
+	if ap.LineHeight > 0 {
+		m.LineHeight = ap.LineHeight
+	}
+	return m
+}
+
+// defaultWindowSize 新建主窗口的像素尺寸：按当前字号换算偏好里的每行字数 × 行数。
+func defaultWindowSize(p preferences) (int, int) {
+	w, h := prefs.WindowPixels(p.Advanced.WindowColumns, p.Advanced.WindowRows, windowMetrics(p.Appearance, runtime.GOOS))
+	return max(w, minWindowWidth), max(h, minWindowHeight)
+}
 
 // resetWindowUI 丢弃绑定旧窗口引擎的控件状态，保留文档、选区和撤销历史。
 func (a *app) resetWindowUI() {

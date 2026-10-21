@@ -185,12 +185,13 @@ func (a *app) windowOptions() mygo.WindowOptions {
 	if a.prefs.Window.RememberBounds {
 		stateKey = "main"
 	}
+	width, height := defaultWindowSize(a.prefs)
 	opts := mygo.WindowOptions{
 		Title:       locales.WindowTitle(appName),
-		Width:       a.prefs.Advanced.WindowWidth,
-		Height:      a.prefs.Advanced.WindowHeight,
-		MinWidth:    300,
-		MinHeight:   340,
+		Width:       width,
+		Height:      height,
+		MinWidth:    minWindowWidth,
+		MinHeight:   minWindowHeight,
 		StateKey:    stateKey, // 开启时，上次窗口状态优先于配置尺寸
 		Frameless:   true,     // Tot 同款：无红绿灯、无标题栏，圆角阴影保留，顶栏自绘可拖动
 		Transparent: true,     // 透明窗口：页面透明处透出系统材质

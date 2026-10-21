@@ -29,7 +29,7 @@
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护/Git 自动化）；`store.go` 负责载入与备份直写单一目的地，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责最近备份时间的后台恢复，`git_backup.go` 负责备份文件夹的 Git 自动提交与推送（探测、提交路径规范、推送节流，runner 可注入）。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，默认关，旧文件迁移不替用户开启）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。版本 10：`appearance.style`（标准 / 手账）；手账下生效的颜色与排版由 `Appearance.EffectiveColorTheme` / `EffectiveMarkdownTheme` 给出，渲染一律读这两个方法，`colorTheme` / `markdownTheme` 只记标准风格下的选择。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，默认关，旧文件迁移不替用户开启）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。版本 10：`appearance.style`（标准 / 手账）；手账下生效的颜色与排版由 `Appearance.EffectiveColorTheme` / `EffectiveMarkdownTheme` 给出，渲染一律读这两个方法，`colorTheme` / `markdownTheme` 只记标准风格下的选择。版本 11：`advanced.windowColumns` / `windowRows` 取代像素宽高，换算见 `window.go`（`WindowPixels` / `WindowGrid`，旧像素按默认排版迁移）。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），用每 rune 一位的占用位图判交，保留搜索优先与重叠候选整段拒绝；代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
@@ -40,10 +40,11 @@
 | `internal/app/live_format.go` | 格式命令执行（`execFormatCommand`）：标题/列表/引用/行内/代码块/插入在实时预览与源码模式共用；无选区切换「待输入格式」意图（`mdPending`，输入/粘贴/IME 确认时经 `pendingWrapFor` 生成有效 Markdown）；命令以独立撤销事务执行（`editCommand`）。 |
 | `internal/app/live_link.go` | 链接浮层 `linkTool`：打开、校验并写回链接。 |
 | `internal/app/settings_window.go` / `internal/app/settings_ui.go` / `internal/app/settings_backup.go` / `internal/app/settings_keymap.go` | 原生设置窗口：单实例非模态（`StateKey: "settings"`），五页导航与草稿绑定；变更经 `updatePreferences`；「备份与数据」页在 settings_backup.go（备份文件夹卡片按所选文件夹形态双形态展示，见下）；快捷键页点击徽标录键、冲突就地「改用到这里」（录键期间经 `setKeymapRecording` 临时摘除菜单与全局热键，退出时重建；校验与写入在 keymap_bindings.go），全局热键先注册新键再注销旧键。字段契约见 [configuration.md](configuration.md)。 |
+| `internal/app/settings_general.go` | 「常规」页的默认窗口大小行（每行字数 × 行数，附按当前字号换算的像素）。 |
 | `internal/app/settings_select.go` | 设置页下拉：`boundedSelect` 与 `ui.Select` 同外观与键盘行为，弹层限高 300 并在内部滚动（`ui.Select` 不限高，选项多时被窗口裁掉）；`selectTrigger` / `selectPanel` 供字体选择器共用。 |
 | `internal/app/view_theme.go` | 双层主题：`colorThemes`、`markdownLayouts`；经典颜色主题在主窗口与其他界面一样走中性调色板（`classicNeutralPalette`），`dotThemes` 只提供标签圆点、焦点 accent 与状态栏的标签色；`resolveStyle` 合并颜色 + 排版 + 用户覆盖，结果按（外观偏好、圆点、明暗、是否覆盖、本机字体列表身份）缓存最近 4 份（`fontRuntimeState.styles`），字体栈拼接与本机字体查找不再每帧重复；排版可带装饰尺寸（引用条宽、代码圆角/描边，手账主题使用）。字体栈在 Apple 字体之后列 Windows 回退（微软雅黑、宋体、Segoe UI、Consolas），macOS 渲染不变。 |
 | `internal/app/view_sketch.go` | 手账排版的手绘装饰：种子确定的抖动铅笔线（`sketchLine`/`sketchRect`）、波浪分隔线、荧光笔标题底（一/二级）与铅笔下划线（三级及以下）；标题装饰容器 `sketchHeadingFrame` 在预览态与编辑态共用。点阵纸与页边红线、马克笔引用条、手绘勾选框（`sketchCheckbox`，保留复选框语义）与列表小圈；表格格线与代码框为铅笔线；手绘颜色主题内容区不透明（`paperBackground`）。 |
-| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；创建主窗口时触发本机字体枚举（`loadFontFamilies`）；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
+| `internal/app/window.go` | 窗口显示与隐藏：`showWindow`、`toggleWindow`、`applyAlwaysOnTop`；`defaultWindowSize` 按当前生效排版（`windowMetrics`：正文字号 / 行高覆盖或排版默认、排版内边距、平台顶栏 + 状态栏）把偏好里的每行字数 × 行数换算成新建主窗口的像素；创建主窗口时触发本机字体枚举（`loadFontFamilies`）；`resetWindowUI` 在创建新原生窗口前清理旧 `ListState` 和剪贴板服务，并恢复编辑器选区同步，文档与撤销历史保留。 |
 | `internal/app/view_status.go` | 状态栏文案与字数统计：`statusWarn`、`countWords`、`backupLabel`；`docStats` 按文档串缓存，同一标签 32KB 以上的文档连续输入时每 250ms 至多重算一次，节流期沿用旧值并用 `time.AfterFunc` + `Window.Update` 预约一帧补算；切换标签立即重算。 |
 | `internal/app/app_state.go` | `app` 由领域子结构体匿名嵌入，另加 `cfg`、`ready`、`now` 与 `notes.Store` / `prefs.Store`。 |
 | `internal/app/state.go` | 笔记载入编排与搜索匹配；写盘委托 `notes.Store`。 |
@@ -213,7 +214,7 @@
 `preferences.json` 损坏或版本超前时进入待恢复状态：不退回旧配置、不覆盖原文件，
 设置页提供「另存原件并恢复默认」；旧配置损坏时保留原件并提示，
 「使用已有偏好继续」后以当前内存偏好建立新文件。
-偏好版本当前为 **10**（`prefs.CurrentVersion`）：版本 10 新增整体风格 `appearance.style`（手绘 + 手账整套迁为手账风格，见 configuration.md）；版本 9 补 Git 自动化默认。版本 8 仅扩展字体键（三个字体字段允许 `local:<真实家族名>`，`latinFont` / `monoFont` 另增 `fira`；不新增字段、不改默认、不触发下载）。版本 2 起 `appearance` 分开记录中文字体
+偏好版本当前为 **11**（`prefs.CurrentVersion`）：版本 11 把默认窗口尺寸改存每行字数 × 行数；版本 10 新增整体风格 `appearance.style`（手绘 + 手账整套迁为手账风格，见 configuration.md）；版本 9 补 Git 自动化默认。版本 8 仅扩展字体键（三个字体字段允许 `local:<真实家族名>`，`latinFont` / `monoFont` 另增 `fira`；不新增字段、不改默认、不触发下载）。版本 2 起 `appearance` 分开记录中文字体
 `bodyFont` 与西文字体 `latinFont`（空串 = 跟随中文字体）；版本 3 起 `backup` 记录
 外部备份目的地 `mirrorDir`；版本 4 把更名前的主题 ID 映射为 `classic` / `note`；
 版本 5 起代码块配色默认「柔和」，旧文件补默认，`codeTheme` 始终落盘（空串 = 显式跟随文本）；

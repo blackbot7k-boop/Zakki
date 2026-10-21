@@ -32,7 +32,7 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 	if p.Backup.BackupDir != "" {
 		t.Fatalf("全新安装不应预选备份文件夹: %+v", p.Backup)
 	}
-	if p.Advanced.AutosaveDelayMS != 800 || p.Advanced.WindowWidth != 400 || p.Advanced.WindowHeight != 540 {
+	if p.Advanced.AutosaveDelayMS != 800 || p.Advanced.WindowColumns != 22 || p.Advanced.WindowRows != 16 {
 		t.Fatalf("兼容参数默认值错误: %+v", p.Advanced)
 	}
 	for _, mutate := range []func(*Preferences){
@@ -48,8 +48,10 @@ func TestPreferencesDefaultsAndValidation(t *testing.T) {
 		func(p *Preferences) { p.Backup.IntervalMinutes = 1441 },
 		func(p *Preferences) { p.Backup.Keep = 1001 },
 		func(p *Preferences) { p.Advanced.AutosaveDelayMS = 99 },
-		func(p *Preferences) { p.Advanced.WindowWidth = 299 },
-		func(p *Preferences) { p.Advanced.WindowHeight = 339 },
+		func(p *Preferences) { p.Advanced.WindowColumns = MinWindowColumns - 1 },
+		func(p *Preferences) { p.Advanced.WindowColumns = MaxWindowColumns + 1 },
+		func(p *Preferences) { p.Advanced.WindowRows = MinWindowRows - 1 },
+		func(p *Preferences) { p.Advanced.WindowRows = MaxWindowRows + 1 },
 		func(p *Preferences) { p.Keymap.Overrides["format.bold"] = "not a key+" },
 	} {
 		bad := Default(5)
@@ -101,7 +103,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 10 {
+	if got.Version != CurrentVersion || CurrentVersion != 11 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -383,5 +385,58 @@ func TestPreferencesMigrateSketchStyle(t *testing.T) {
 	got, err := Decode([]byte(`{"version":10,"appearance":{"colorTheme":"paper"}}`), testAccel)
 	if err != nil || got.Appearance.Style != StyleStandard {
 		t.Fatalf("缺 style 应为标准风格: %+v %v", got.Appearance, err)
+	}
+}
+
+// TestPreferencesMigrateWindowGrid 版本 11：像素尺寸换算为每行字数 × 行数。
+// 旧默认 400 × 540 在默认排版下是 22 × 16；有字号 / 行高覆盖时按覆盖值换算；
+// 缺的一边按旧默认补齐；非法旧值照旧拒绝；版本 11 起像素键是未知字段。
+func TestPreferencesMigrateWindowGrid(t *testing.T) {
+	cases := []struct {
+		name, raw  string
+		cols, rows int
+	}{
+		{"旧默认", `{"version":10,"advanced":{"windowWidth":400,"windowHeight":540}}`, 22, 16},
+		{"自定义", `{"version":10,"advanced":{"windowWidth":560,"windowHeight":700}}`, 32, 23},
+		{"字号覆盖", `{"version":10,"appearance":{"bodySize":20,"lineHeight":2},"advanced":{"windowWidth":560,"windowHeight":700}}`, 26, 14},
+		{"只有宽", `{"version":10,"advanced":{"windowWidth":560}}`, 32, 16},
+		{"缺键", `{"version":10,"advanced":{"autosaveDelayMs":900}}`, 22, 16},
+		{"很早的版本", `{"version":4,"advanced":{"windowWidth":4096,"windowHeight":4096}}`, MaxWindowColumns, MaxWindowRows},
+	}
+	for _, tc := range cases {
+		got, err := Decode([]byte(tc.raw), testAccel)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got.Version != CurrentVersion || got.Advanced.WindowColumns != tc.cols || got.Advanced.WindowRows != tc.rows {
+			t.Fatalf("%s: 得到 %d × %d，期望 %d × %d", tc.name, got.Advanced.WindowColumns, got.Advanced.WindowRows, tc.cols, tc.rows)
+		}
+	}
+	for _, raw := range []string{
+		`{"version":10,"advanced":{"windowWidth":299}}`,
+		`{"version":10,"advanced":{"windowHeight":"540"}}`,
+		`{"version":10,"advanced":{"windowWidth":400.5}}`,
+		`{"version":11,"advanced":{"windowWidth":400}}`,
+	} {
+		if _, err := Decode([]byte(raw), testAccel); err == nil {
+			t.Fatalf("应拒绝: %s", raw)
+		}
+	}
+}
+
+// 列数 × 行数与像素互换：默认值往返一致，换算随字号变化。
+func TestWindowPixelsRoundTrip(t *testing.T) {
+	m := legacyWindowMetrics(Appearance{})
+	w, h := WindowPixels(22, 16, m)
+	if w != 400 || h != 532 {
+		t.Fatalf("22 × 16 应约为 400 × 532: %d × %d", w, h)
+	}
+	if c, r := WindowGrid(w, h, m); c != 22 || r != 16 {
+		t.Fatalf("往返应一致: %d × %d", c, r)
+	}
+	big := m
+	big.BodySize = 20
+	if bw, bh := WindowPixels(22, 16, big); bw <= w || bh <= h {
+		t.Fatalf("字号变大窗口应随之变大: %d × %d", bw, bh)
 	}
 }

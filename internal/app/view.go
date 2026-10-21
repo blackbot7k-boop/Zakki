@@ -119,8 +119,9 @@ func (a *app) chromeColor(base ui.Color, dark, vibrancy bool) ui.Color {
 // 左右内边距 + 关闭与置顶按钮（各 chromeHit），标签区可用宽度要扣掉它们。
 // 内边距加按钮内留白（(chromeHit-16)/2）仍是 14，图形位置与此前一致。
 const (
-	headerPadX     float32 = 14 - (chromeHit-16)/2
-	tabChromeWidth float32 = 2*headerPadX + 2*chromeHit
+	headerPadX      float32 = 14 - (chromeHit-16)/2
+	tabChromeWidth  float32 = 2*headerPadX + 2*chromeHit
+	statusBarHeight float32 = 36
 )
 
 // headerHeight 顶栏高度：无系统按钮带（mac Frameless，TitleBar 为零值）
@@ -470,7 +471,7 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 	bg := a.chromeColor(style.status, dark, c.Vibrancy())
 	fg := a.tabAccent(a.active, dark)
 	// 窄窗口里文字单行截断（悬停看全文），图标固定不被挤出。
-	ui.Row(c).Height(36).Background(bg).
+	ui.Row(c).Height(statusBarHeight).Background(bg).
 		Padding(0, headerPadX, 0, 14).Gap(8).AlignItems(ui.Center).Children(func() {
 		// 标签色小标识：不随标签换底色，只留这一点颜色。
 		ui.Box(c).Width(8).Height(8).Radius(999).Background(a.tabColor(a.active)).Shrink(0)

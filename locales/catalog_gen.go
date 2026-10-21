@@ -2318,34 +2318,44 @@ func (msgs Messages) RememberBoundsSwitch() string {
 	return Catalog.Format(msgs.locale, "rememberBoundsSwitch", nil)
 }
 
-// DefaultWindowWidth says "Default width"
-// in the language the app shows.
-func DefaultWindowWidth() string { return In(i18n.Locale()).DefaultWindowWidth() }
-
-// DefaultWindowWidth says "Default width"
-// in the language of msgs.
-func (msgs Messages) DefaultWindowWidth() string {
-	return Catalog.Format(msgs.locale, "defaultWindowWidth", nil)
-}
-
-// DefaultWindowHeight says "Default height"
-// in the language the app shows.
-func DefaultWindowHeight() string { return In(i18n.Locale()).DefaultWindowHeight() }
-
-// DefaultWindowHeight says "Default height"
-// in the language of msgs.
-func (msgs Messages) DefaultWindowHeight() string {
-	return Catalog.Format(msgs.locale, "defaultWindowHeight", nil)
-}
-
-// DefaultWindowSizeHint says "Used when a main window is created. A remembered window keeps its last size."
+// DefaultWindowSizeHint says "Size of a new main window, in Chinese characters per line and lines. A remembered window keeps its last size."
 // in the language the app shows.
 func DefaultWindowSizeHint() string { return In(i18n.Locale()).DefaultWindowSizeHint() }
 
-// DefaultWindowSizeHint says "Used when a main window is created. A remembered window keeps its last size."
+// DefaultWindowSizeHint says "Size of a new main window, in Chinese characters per line and lines. A remembered window keeps its last size."
 // in the language of msgs.
 func (msgs Messages) DefaultWindowSizeHint() string {
 	return Catalog.Format(msgs.locale, "defaultWindowSizeHint", nil)
+}
+
+// DefaultWindowColumns says "Characters per line"
+// in the language the app shows.
+func DefaultWindowColumns() string { return In(i18n.Locale()).DefaultWindowColumns() }
+
+// DefaultWindowColumns says "Characters per line"
+// in the language of msgs.
+func (msgs Messages) DefaultWindowColumns() string {
+	return Catalog.Format(msgs.locale, "defaultWindowColumns", nil)
+}
+
+// DefaultWindowRows says "Lines"
+// in the language the app shows.
+func DefaultWindowRows() string { return In(i18n.Locale()).DefaultWindowRows() }
+
+// DefaultWindowRows says "Lines"
+// in the language of msgs.
+func (msgs Messages) DefaultWindowRows() string {
+	return Catalog.Format(msgs.locale, "defaultWindowRows", nil)
+}
+
+// DefaultWindowPixels says "About {w, number} × {h, number} px at the current font size"
+// in the language the app shows.
+func DefaultWindowPixels(w int, h int) string { return In(i18n.Locale()).DefaultWindowPixels(w, h) }
+
+// DefaultWindowPixels says "About {w, number} × {h, number} px at the current font size"
+// in the language of msgs.
+func (msgs Messages) DefaultWindowPixels(w int, h int) string {
+	return Catalog.Format(msgs.locale, "defaultWindowPixels", map[string]any{"w": w, "h": h})
 }
 
 // CardLanguage says "Language"
