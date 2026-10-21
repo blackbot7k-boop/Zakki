@@ -300,7 +300,7 @@ func (p liveProjection) searchContent(c *ui.Context, t *ui.Theme, md resolvedSty
 
 func (p liveProjection) textRanges(query string, t *ui.Theme, md resolvedStyle) []ui.TextRange {
 	accent := md.accent
-	// 搜索只覆盖颜色与字重，保留字体、斜体、装饰和底色。
+	// 搜索命中覆盖颜色、字重与底色（见 searchHit），保留字体、斜体与装饰。
 	ranges := make([]ui.TextRange, len(p.units))
 	for _, s := range p.styles {
 		r := inlineTextRange(inlineStyle(s.kind, t, md))
@@ -310,7 +310,8 @@ func (p liveProjection) textRanges(query string, t *ui.Theme, md resolvedStyle) 
 	}
 	for _, m := range findMatches(p.text, query) {
 		for i := m.Start; i < m.End; i++ {
-			ranges[i].Color, ranges[i].Weight = accent, 700
+			hit := searchHit(0, 0, accent)
+			ranges[i].Color, ranges[i].Weight, ranges[i].Background = hit.Color, hit.Weight, hit.Background
 		}
 	}
 	var out []ui.TextRange

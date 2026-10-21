@@ -47,9 +47,22 @@ type findState struct {
 	query       string
 	matchIdx    int
 	jumpPending bool
-	findFocus   int
+	// findFocus 查找条焦点绑定：1 = 查找框，2 = 替换框。
+	findFocus int
 	// findComposing 查找框上一帧是否在输入法组合中：组合中的 Enter 归输入法。
-	findComposing bool
+	findComposing    bool
+	replaceOpen      bool
+	replaceText      string
+	replaceComposing bool
+	// findAllTabs 跨标签查找：计数覆盖全部标签，上/下一个越过当前标签末尾时切到下一个有命中的标签。
+	findAllTabs bool
+	// tabHits 按标签 ID 缓存非当前标签的命中数（文本与查询都没变就不重扫）。
+	tabHits map[uint64]tabHitCount
+}
+
+type tabHitCount struct {
+	doc, query string
+	n          int
 }
 
 // liveEditorState Typora 式实时预览编辑（live_edit.go / live_blocks.go）。
@@ -162,20 +175,22 @@ type sourceSession struct {
 
 // desktopRefs 窗口、菜单、托盘、全局热键与状态栏提示。
 type desktopRefs struct {
-	win          *mygo.Window
-	mainWindow   atomic.Pointer[mygo.Window]
-	winOpen      bool
-	hidden       bool
-	menu         *mygo.Menu
-	miPreview    *mygo.MenuItem
-	miFind       *mygo.MenuItem
-	miFindNext   *mygo.MenuItem
-	miFindPrev   *mygo.MenuItem
-	miTop        *mygo.MenuItem
-	hotkeyAcc    string
-	noticeHotkey string
-	notice       string
-	tray         *mygo.Tray
+	win           *mygo.Window
+	mainWindow    atomic.Pointer[mygo.Window]
+	winOpen       bool
+	hidden        bool
+	menu          *mygo.Menu
+	miPreview     *mygo.MenuItem
+	miFind        *mygo.MenuItem
+	miFindNext    *mygo.MenuItem
+	miFindPrev    *mygo.MenuItem
+	miFindReplace *mygo.MenuItem
+	miFindAllTabs *mygo.MenuItem
+	miTop         *mygo.MenuItem
+	hotkeyAcc     string
+	noticeHotkey  string
+	notice        string
+	tray          *mygo.Tray
 }
 
 // prefsRuntimeState 内存中的偏好及其一次性迁移结果。

@@ -34,7 +34,7 @@ func editorRangesScanOracle(text, query string, t *ui.Theme, accent ui.Color, cp
 	}
 
 	for _, m := range findMatches(text, query) {
-		add(ui.TextRange{Start: m.Start, End: m.End, Color: accent, Weight: 700})
+		add(searchHit(m.Start, m.End, accent))
 	}
 
 	runeOff := 0

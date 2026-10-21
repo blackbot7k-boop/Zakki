@@ -438,6 +438,8 @@ func commandDefByID(id string) (commandDef, bool) {
 func fixedBindingsForPlatform(goos string) []struct{ acc, key string } {
 	list := []struct{ acc, key string }{
 		{"CmdOrCtrl+F", "find"},
+		{"Alt+CmdOrCtrl+F", "findReplace"},
+		{"Shift+CmdOrCtrl+F", "findAllTabs"},
 		{"CmdOrCtrl+G", "findNext"},
 		{"Shift+CmdOrCtrl+G", "findPrev"},
 		{"Shift+CmdOrCtrl+P", "sourceMode"},
@@ -495,6 +497,10 @@ func fixedBindingName(key string) string {
 	switch key {
 	case "find":
 		return locales.FixedFind()
+	case "findReplace":
+		return locales.MenuFindReplace()
+	case "findAllTabs":
+		return locales.MenuFindAllTabs()
 	case "findNext":
 		return locales.FixedFindNext()
 	case "findPrev":

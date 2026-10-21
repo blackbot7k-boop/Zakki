@@ -25,7 +25,9 @@ var (
 	// 查找条：上一个 / 下一个 / 关闭（Lucide chevron-up、chevron-down、x）
 	iconChevronUp   = lucide(`<path d="m18 15-6-6-6 6"/>`)
 	iconChevronDown = lucide(`<path d="m6 9 6 6 6-6"/>`)
-	iconX           = lucide(`<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`)
+	// iconChevronRight 查找条：替换行折叠态（Lucide chevron-right）
+	iconChevronRight = lucide(`<path d="m9 18 6-6-6-6"/>`)
+	iconX            = lucide(`<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`)
 	// iconSearch 点内搜索（Lucide search）
 	iconSearch = lucide(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`)
 	// iconGear 设置侧栏：常规（Lucide settings）

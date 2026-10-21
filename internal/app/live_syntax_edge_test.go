@@ -253,7 +253,7 @@ func TestEditorRangesSearchOverridesCode(t *testing.T) {
 	got := editorRanges("```\nfoo\n```", "foo", edgeTheme(), edgeAccent)
 	want := []ui.TextRange{
 		{Start: 0, End: 3, Color: edgeMuted},
-		{Start: 4, End: 7, Color: edgeAccent, Weight: 700}, // 搜索命中覆盖整行
+		searchHit(4, 7, edgeAccent), // 搜索命中覆盖整行
 		{Start: 8, End: 11, Color: edgeMuted},
 	}
 	if !reflect.DeepEqual(got, want) {

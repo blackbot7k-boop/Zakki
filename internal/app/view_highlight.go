@@ -47,6 +47,12 @@ func (o editorRangeOccupancy) add(start, end int) bool {
 	return true
 }
 
+// searchHit 查找命中的着色：强调色加粗，并铺一层强调色淡底，像荧光笔一样
+// 在长文里一眼可见。
+func searchHit(start, end int, accent ui.Color) ui.TextRange {
+	return ui.TextRange{Start: start, End: end, Color: accent, Weight: 700, Background: withAlpha(accent, 0.22)}
+}
+
 // editorRanges 为编辑器生成互不重叠的着色区间：搜索命中优先，
 // 其次是行级结构（标题/引用/代码/列表/待办），再次是行内标记。
 // 可选 cp 非零时，围栏代码行按 token 上色，其余代码部分沿用 muted。
@@ -69,7 +75,7 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePa
 	}
 
 	for _, m := range findMatches(text, query) {
-		add(ui.TextRange{Start: m.Start, End: m.End, Color: accent, Weight: 700})
+		add(searchHit(m.Start, m.End, accent))
 	}
 
 	runeOff := 0

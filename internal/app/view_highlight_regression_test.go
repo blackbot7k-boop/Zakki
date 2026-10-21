@@ -94,7 +94,7 @@ func TestEditorRangesSearchRejectsWholeHeading(t *testing.T) {
 	text := "# 中文🙂\n# 次行"
 	query := "🙂\n#"
 	got := editorRanges(text, query, theme, accent, softCodePalette)
-	want := []ui.TextRange{{Start: 4, End: 7, Color: accent, Weight: 700}}
+	want := []ui.TextRange{searchHit(4, 7, accent)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
