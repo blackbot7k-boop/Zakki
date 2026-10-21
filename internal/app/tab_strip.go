@@ -348,18 +348,6 @@ func muteTabInk(ink ui.Color, dark bool) ui.Color {
 	return ink.Mix(base, 0.58)
 }
 
-// paintActiveHalo 当前圆点的外圈细晕：浅色调色板（粉、黄等）在浅色顶栏上
-// 对比不足，用主题文字色低透明度的细描边把当前标记从背景里托出来。
-func paintActiveHalo(p *ui.Painter, cx, cy float32, dark bool) {
-	ink := ui.RGB(28, 28, 30)
-	if dark {
-		ink = ui.RGB(235, 235, 235)
-	}
-	var path ui.Path
-	path.Circle(cx, cy, dotDiameter/2+2)
-	p.StrokePath(&path, 1.5, ink.Alpha(0.38))
-}
-
 func paintBody(p *ui.Painter, body tabBody, cy float32) {
 	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
 	p.FillPath(&path, body.color)
@@ -421,11 +409,9 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		return
 	}
 	if shape == tabDotShapeRing {
-		paintActiveHalo(p, body.cx, cy, dark)
 		paintTabDot(p, body.cx, cy, body.color, shape)
 		return
 	}
-	paintActiveHalo(p, body.cx, cy, dark)
 	paintBody(p, body, cy)
 }
 

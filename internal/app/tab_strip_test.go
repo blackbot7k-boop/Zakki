@@ -284,13 +284,8 @@ func TestTabDotShapesRender(t *testing.T) {
 		tt.Frame()
 		center := tabPixel(tt, cx, cy)
 		active := tabPixel(tt, activeX, cy)
-		if tabPixel(tt, cx, cy-8).A != 0 {
-			t.Fatalf("%s 非当前标记应与其他一样大，外侧 8px 不应有像素", shape)
-		}
-		// 当前标记带细晕：外缘约 8.75pt，8px 处应命中晕圈，10px 外应透明。
-		if tabPixel(tt, activeX, cy-8).A == 0 || tabPixel(tt, activeX, cy-10).A != 0 {
-			t.Fatalf("%s 当前标记应有细晕且不超出外缘: 8px=%+v 10px=%+v", shape,
-				tabPixel(tt, activeX, cy-8), tabPixel(tt, activeX, cy-10))
+		if tabPixel(tt, cx, cy-8).A != 0 || tabPixel(tt, activeX, cy-8).A != 0 {
+			t.Fatalf("%s 当前与其余标记应一样大，外侧 8px 不应有像素", shape)
 		}
 		if shape == "ring" {
 			if center.A != 0 || active.A != 0 {
