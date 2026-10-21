@@ -158,7 +158,6 @@ type sourceSession struct {
 	caret, selEnd            int
 	selSyncStart, selSyncEnd int
 	prev                     liveSnapshot
-	undo, redo               []liveEdit
 }
 
 // desktopRefs 窗口、菜单、托盘、全局热键与状态栏提示。

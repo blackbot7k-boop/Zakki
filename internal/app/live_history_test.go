@@ -221,29 +221,26 @@ func TestLiveHistoryContinuityAfterCompressedTop(t *testing.T) {
 	}
 }
 
-func TestLiveHistoryCompressedTabCopy(t *testing.T) {
+// TestLiveHistoryClearedOnTabSwitch 撤销历史不跨标签保留：切走再切回后
+// 撤销不再回到切换前的编辑，文本保持原样。
+func TestLiveHistoryClearedOnTabSwitch(t *testing.T) {
 	base := strings.Repeat("x", 1<<16)
 	a := historyTestApp(t, base)
 	historyTestEdit(a, base+"甲", 1, 1, editInput)
 	historyTestEdit(a, base+"甲乙", 2, 2, editIME)
-	original := a.liveUndo[0]
-	id := a.tabs[0].ID
 	a.switchTab(1)
-	if a.srcSessions[id].undo[0] != original {
-		t.Fatal("session did not copy immutable delta identity")
-	}
 	a.switchTab(0)
-	if a.liveUndo[0] != original {
-		t.Fatal("restored session changed delta identity")
+	if len(a.liveUndo) != 0 || len(a.liveRedo) != 0 {
+		t.Fatalf("切回后不应保留撤销历史: undo=%d redo=%d", len(a.liveUndo), len(a.liveRedo))
 	}
 	a.undoLive(false)
-	historyTestEdit(a, base+"甲丙", 2, 2, editInput)
-	if a.srcSessions[id].undo[0] != original || original.delta == nil {
-		t.Fatal("branch mutated saved session delta")
+	if a.tabs[0].Text != base+"甲乙" {
+		t.Fatal("无历史时撤销不得改动文本")
 	}
+	historyTestEdit(a, base+"甲乙丙", 3, 3, editInput)
 	a.undoLive(false)
-	if a.tabs[0].Text != base {
-		t.Fatal("copied compressed session failed undo")
+	if a.tabs[0].Text != base+"甲乙" {
+		t.Fatal("切回后的新编辑应能正常撤销")
 	}
 }
 
@@ -291,5 +288,26 @@ func TestLiveHistoryClonesByteFragments(t *testing.T) {
 	small := liveEdit{before: liveSnapshot{doc: "甲"}, after: liveSnapshot{doc: "乙"}}
 	if small.compressed() != small {
 		t.Fatal("small snapshot changed representation")
+	}
+}
+
+// TestLiveHistoryKeptWhenOtherTabsChange 删除其他标签或排序不改正在编辑的
+// 文档，撤销历史照常可用。
+func TestLiveHistoryKeptWhenOtherTabsChange(t *testing.T) {
+	a := historyTestApp(t, "甲")
+	a.cfg.Source = false
+	historyTestEdit(a, "甲乙", 2, 2, editInput)
+	if !a.deleteTabNow(len(a.tabs) - 1) {
+		t.Fatal("删除其他标签失败")
+	}
+	if !a.moveTab(0, 1) {
+		t.Fatal("移动当前标签失败")
+	}
+	if len(a.liveUndo) != 1 {
+		t.Fatalf("其他标签变化不应清空当前历史: %d", len(a.liveUndo))
+	}
+	a.undoLive(false)
+	if a.activeTab().Text != "甲" {
+		t.Fatalf("撤销应回到编辑前: %q", a.activeTab().Text)
 	}
 }

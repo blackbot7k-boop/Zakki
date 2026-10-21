@@ -59,7 +59,7 @@
 | `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
 | `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索仅覆盖颜色与字重，保留字体、斜体、装饰与底色；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
 | `internal/app/live_selection.go` | 文档级全选（`selectDocWide`/`menuSelectAll`）：跨块选区高亮与复制/剪切/删除/输入在 app 层处理；表格单元格内保留单元格原生全选。 |
-| `internal/app/live_history.go` | 大文档撤销差分：64KiB 起将非栈顶的小改动存为克隆的字节差分；整篇替换仍共享原快照，避免反向放大内存。撤销/重做各自栈顶保留完整快照做精确文本校验，用已验证的相邻事务展开下一个栈顶；不靠整文档 hash、不减少 200 条历史、不扩大输入合并范围。差分发布后不可变，标签会话可按值复制并共享；弹栈清零底层槽以释放全文引用。 |
+| `internal/app/live_history.go` | 大文档撤销差分：64KiB 起将非栈顶的小改动存为克隆的字节差分；整篇替换仍共享原快照，避免反向放大内存。撤销/重做各自栈顶保留完整快照做精确文本校验，用已验证的相邻事务展开下一个栈顶；不靠整文档 hash、不减少 200 条历史、不扩大输入合并范围。差分发布后不可变；弹栈清零底层槽以释放全文引用。撤销历史只属于当前标签的这段编辑：切换到别的标签（含新增标签、删除当前标签）即清空，不按标签保留，也不写盘；删除其他标签或排序不影响当前历史。源码模式的标签会话（`sourceSession`）只记光标与选区。 |
 | `internal/app/table_edit.go` | 表格编辑：`createTableOnEnter`、`navigateTable`、`tableEnter`。 |
 | `internal/app/table_actions.go` | 表格工具状态 `tableTools` 与行列增删。 |
 | `internal/app/table_toolbar.go` | 表格悬浮工具栏。 |

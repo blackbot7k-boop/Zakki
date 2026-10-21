@@ -577,7 +577,7 @@ func (a *app) iconStatusToggle(c *ui.Context, key string, svg *ui.SVG, label str
 // ---- 状态流转 ----
 
 // saveSourceSession 必须在 active 改变前调用；restoreSourceSession 在改变后调用。
-// 源码切换路径恢复后不能再清空 liveUndo/liveRedo，否则会丢失该标签会话。
+// 会话只记光标与选区：撤销历史只属于当前这段编辑，切换标签即清空，不按标签保留。
 func (a *app) saveSourceSession() {
 	if !a.cfg.Source || len(a.tabs) == 0 {
 		return
@@ -589,8 +589,6 @@ func (a *app) saveSourceSession() {
 		caret: a.srcCaret, selEnd: a.srcSelEnd,
 		selSyncStart: a.srcSelSyncStart, selSyncEnd: a.srcSelSyncEnd,
 		prev: a.srcPrev,
-		undo: append([]liveEdit(nil), a.liveUndo...),
-		redo: append([]liveEdit(nil), a.liveRedo...),
 	}
 }
 
@@ -599,13 +597,10 @@ func (a *app) restoreSourceSession() {
 	a.srcSelSyncStart, a.srcSelSyncEnd = -1, -1
 	a.srcPrev, a.srcComposeBefore = liveSnapshot{}, liveSnapshot{}
 	a.srcComposing = false
-	a.liveUndo, a.liveRedo = nil, nil
 	if session, ok := a.srcSessions[a.activeTab().ID]; ok {
 		a.srcCaret, a.srcSelEnd = session.caret, session.selEnd
 		a.srcSelSyncStart, a.srcSelSyncEnd = session.selSyncStart, session.selSyncEnd
 		a.srcPrev = session.prev
-		a.liveUndo = append([]liveEdit(nil), session.undo...)
-		a.liveRedo = append([]liveEdit(nil), session.redo...)
 	}
 }
 
@@ -619,9 +614,7 @@ func (a *app) toggleSourceMode() {
 	a.clearFenceDraft()
 	a.cfg.Source = !a.cfg.Source
 	if a.cfg.Source {
-		undo, redo := a.liveUndo, a.liveRedo
 		a.restoreSourceSession()
-		a.liveUndo, a.liveRedo = undo, redo
 		a.srcPrev = a.liveSnapshot()
 	} else {
 		a.resyncLive(-1)

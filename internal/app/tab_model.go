@@ -210,7 +210,7 @@ func (a *app) addTab() bool {
 	}
 	a.tabs = append(a.tabs, tab{ID: a.nextID(), Color: a.unusedTabColor()})
 	a.active = len(a.tabs) - 1
-	a.afterTabsChanged()
+	a.afterTabsChanged(true)
 	if a.cfg.Source {
 		a.restoreSourceSession()
 	}
@@ -255,7 +255,7 @@ func (a *app) deleteTabNow(i int) bool {
 	}
 	a.clampActive()
 	a.cancelMorphFor(removed)
-	a.afterTabsChanged()
+	a.afterTabsChanged(activeRemoved)
 	if a.cfg.Source {
 		a.restoreSourceSession()
 	}
@@ -366,7 +366,7 @@ func (a *app) reorderTab(i, to int) bool {
 			break
 		}
 	}
-	a.afterTabsChanged()
+	a.afterTabsChanged(false)
 	if a.cfg.Source {
 		a.restoreSourceSession()
 	}
@@ -502,14 +502,18 @@ func (a *app) cycleTab(dir int) {
 }
 
 // afterTabsChanged 标签增删/排序后的统一收尾：重置编辑会话、
-// 重建菜单、防抖保存、刷新设置窗口与主窗口。
-func (a *app) afterTabsChanged() {
+// 重建菜单、防抖保存、刷新设置窗口与主窗口。撤销历史只在当前标签换了
+// 之后清空：删别的标签或排序不改正在编辑的文档，撤销应照常可用。
+func (a *app) afterTabsChanged(activeChanged bool) {
 	a.endRename()
 	a.findOpen, a.query, a.matchIdx = false, "", 0
 	a.resyncLive(0)
 	a.mdActive, a.mdDraft, a.keyHint = -1, "", 0
 	a.mdVisible, a.mdProjection = "", liveProjection{}
-	a.liveUndo, a.liveRedo, a.liveUndoPending = nil, nil, 0
+	if activeChanged {
+		a.liveUndo, a.liveRedo = nil, nil
+	}
+	a.liveUndoPending = 0
 	a.tableTools = tableTools{}
 	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
 	a.closeLinkTool()

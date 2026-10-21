@@ -67,43 +67,38 @@ func TestRunOnMainDropsCallbackWithoutLiveWindow(t *testing.T) {
 	}
 }
 
-func TestSourceSessionsIsolateSelectionAndUndoHistory(t *testing.T) {
+// TestSourceSessionsIsolateSelectionNotHistory 源码会话按标签恢复光标与选区；
+// 撤销历史只属于当前这段编辑，切换标签即清空，切回也不带回旧历史。
+func TestSourceSessionsIsolateSelectionNotHistory(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	a.cfg.Source = true
 	a.tabs[0].Text, a.tabs[1].Text = "AAA", "BBB"
-	firstEdit := liveEdit{
+	a.srcCaret, a.srcSelEnd = 1, 3
+	a.srcSelSyncStart, a.srcSelSyncEnd = 1, 3
+	a.liveUndo = []liveEdit{{
 		before: liveSnapshot{doc: "AA", start: 2, end: 2},
 		after:  liveSnapshot{doc: "AAA", start: 3, end: 3},
 		kind:   editInput,
-	}
-	a.srcCaret, a.srcSelEnd = 1, 3
-	a.srcSelSyncStart, a.srcSelSyncEnd = 1, 3
-	a.liveUndo = []liveEdit{firstEdit}
-	a.saveSourceSession()
+	}}
 
-	a.active = 1
-	a.restoreSourceSession()
+	a.switchTab(1)
 	if a.srcCaret != 0 || a.srcSelEnd != 0 || len(a.liveUndo) != 0 {
 		t.Fatalf("新标签继承了源码会话: caret=%d end=%d undo=%d", a.srcCaret, a.srcSelEnd, len(a.liveUndo))
 	}
 	a.srcCaret, a.srcSelEnd = 2, 2
 	a.liveUndo = []liveEdit{{before: liveSnapshot{doc: "B"}, after: liveSnapshot{doc: "BBB"}, kind: editInput}}
-	a.saveSourceSession()
 
-	a.active = 0
-	a.restoreSourceSession()
+	a.switchTab(0)
 	if a.srcCaret != 1 || a.srcSelEnd != 3 {
 		t.Fatalf("标签一选区未恢复: %d..%d", a.srcCaret, a.srcSelEnd)
 	}
-	if len(a.liveUndo) != 1 || a.liveUndo[0] != firstEdit {
-		t.Fatalf("标签一撤销栈未恢复: %+v", a.liveUndo)
+	if len(a.liveUndo) != 0 || len(a.liveRedo) != 0 {
+		t.Fatalf("切回标签不应带回撤销历史: undo=%+v redo=%+v", a.liveUndo, a.liveRedo)
 	}
-	// 恢复结果必须是副本，不能反向污染保存的会话。
-	a.liveUndo[0].before.doc = "污染"
-	a.restoreSourceSession()
-	if got := a.liveUndo[0].before.doc; got != "AA" {
-		t.Fatalf("保存的源码撤销栈被外部修改: %q", got)
+	a.undoLive(false)
+	if a.tabs[0].Text != "AAA" {
+		t.Fatalf("无历史时撤销不得改动文本: %q", a.tabs[0].Text)
 	}
 }
 

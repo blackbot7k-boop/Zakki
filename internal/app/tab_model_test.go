@@ -177,8 +177,9 @@ func TestSourceSessionSurvivesAddAndCurrentDelete(t *testing.T) {
 	a.srcCaret, a.srcSelEnd = 7, 7
 	a.liveUndo = []liveEdit{{before: liveSnapshot{doc: "other"}, kind: editInput}}
 	a.switchTab(originalIndex)
-	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 1 || a.liveUndo[0] != originalUndo {
-		t.Fatalf("切回原标签未恢复源码会话: caret=%d end=%d undo=%+v", a.srcCaret, a.srcSelEnd, a.liveUndo)
+	// 光标与选区按标签恢复；撤销历史不跨标签保留。
+	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 0 {
+		t.Fatalf("切回原标签应只恢复选区: caret=%d end=%d undo=%+v", a.srcCaret, a.srcSelEnd, a.liveUndo)
 	}
 
 	if !a.addTab() {
@@ -192,7 +193,7 @@ func TestSourceSessionSurvivesAddAndCurrentDelete(t *testing.T) {
 		t.Fatalf("新标签继承了源码会话: caret=%d end=%d undo=%d", a.srcCaret, a.srcSelEnd, len(a.liveUndo))
 	}
 	saved := a.srcSessions[originalID]
-	if saved.caret != 2 || saved.selEnd != 5 || len(saved.undo) != 1 || saved.undo[0] != originalUndo {
+	if saved.caret != 2 || saved.selEnd != 5 {
 		t.Fatalf("新增前未保存原标签源码会话: %+v", saved)
 	}
 
@@ -207,7 +208,7 @@ func TestSourceSessionSurvivesAddAndCurrentDelete(t *testing.T) {
 	if _, ok := a.srcSessions[addedID]; ok {
 		t.Fatal("已删除标签的源码会话未清理")
 	}
-	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 1 || a.liveUndo[0] != originalUndo {
+	if a.srcCaret != 2 || a.srcSelEnd != 5 || len(a.liveUndo) != 0 {
 		t.Fatalf("删除当前标签后未恢复目标会话: caret=%d end=%d undo=%+v", a.srcCaret, a.srcSelEnd, a.liveUndo)
 	}
 }
