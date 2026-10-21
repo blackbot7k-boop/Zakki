@@ -5023,3 +5023,13 @@ func CommonChoose() string { return In(i18n.Locale()).CommonChoose() }
 func (msgs Messages) CommonChoose() string {
 	return Catalog.Format(msgs.locale, "commonChoose", nil)
 }
+
+// PrefsPausedForNotes says "Preferences file is unavailable, note saving is paused: {err}"
+// in the language the app shows.
+func PrefsPausedForNotes(err string) string { return In(i18n.Locale()).PrefsPausedForNotes(err) }
+
+// PrefsPausedForNotes says "Preferences file is unavailable, note saving is paused: {err}"
+// in the language of msgs.
+func (msgs Messages) PrefsPausedForNotes(err string) string {
+	return Catalog.Format(msgs.locale, "prefsPausedForNotes", map[string]any{"err": err})
+}

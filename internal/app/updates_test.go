@@ -152,10 +152,14 @@ func TestQuitBlockedWhileFileUnreadable(t *testing.T) {
 		t.Fatal("高版本文件必须载入失败")
 	}
 	a.tabs[0].Text = "无法保存的新编辑"
+	if err := a.saveNow(); err == nil {
+		t.Fatal("写保护期间保存必须失败")
+	}
+	// 退出必须始终放行：不写笔记文件，原件保持不变，未保存编辑随之放弃。
 	event := &mygo.QuitEvent{}
 	a.finishQuit(event)
-	if !event.DefaultPrevented() {
-		t.Fatal("原件不可写时必须取消退出")
+	if event.DefaultPrevented() {
+		t.Fatal("原件不可写时也必须允许退出")
 	}
 	raw, err := os.ReadFile(a.notes.DataPath())
 	if err != nil || string(raw) != string(original) {
@@ -169,9 +173,5 @@ func TestQuitBlockedWhileFileUnreadable(t *testing.T) {
 		if strings.HasSuffix(e.Name(), ".pending") || strings.Contains(e.Name(), ".corrupt-") {
 			t.Fatalf("不得生成暂存或隔离副本: %s", e.Name())
 		}
-	}
-	// 用户确认后仍不能解除：必须重新载入成功才恢复保存。
-	if err := a.saveNow(); err == nil {
-		t.Fatal("写保护期间保存必须失败")
 	}
 }

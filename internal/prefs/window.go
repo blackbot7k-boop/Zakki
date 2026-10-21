@@ -49,6 +49,32 @@ func legacyWindowMetrics(a Appearance) WindowMetrics {
 	return m
 }
 
+// stripLegacyStorageKeys 摘除版本 12 移除的旧备份与防抖键：backup 整节与
+// advanced.autosaveDelayMs。旧语义不迁移、不映射，只从待解码映射里删除，
+// 写回即为版本 12；版本 12 及以上的文件保持原样，交给严格解码拒绝。
+// 返回是否摘除了键。
+func stripLegacyStorageKeys(value any) bool {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return false
+	}
+	if ver, _ := m["version"].(float64); ver >= 12 {
+		return false
+	}
+	stripped := false
+	if _, has := m["backup"]; has {
+		delete(m, "backup")
+		stripped = true
+	}
+	if adv, ok := m["advanced"].(map[string]any); ok {
+		if _, has := adv["autosaveDelayMs"]; has {
+			delete(adv, "autosaveDelayMs")
+			stripped = true
+		}
+	}
+	return stripped
+}
+
 // stripLegacyWindowKeys 从已解码的偏好映射里摘除版本 11 移除的像素尺寸键，
 // 返回其值（缺键为 0）与是否摘除了键。旧键仍按原规则校验（整数、宽 300–4096、
 // 高 340–4096），非法旧值照旧拒绝而不是静默换成默认。版本 11 及以上的文件

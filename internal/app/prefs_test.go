@@ -61,16 +61,32 @@ func TestPrefsFreshInstallIgnoresLegacyConfig(t *testing.T) {
 	}
 }
 
-// TestPrefsOldBackupFieldsRejected 旧版本的 backup / autosaveDelayMs 字段
-// 按未知字段拒绝，不静默映射或丢弃。
-func TestPrefsOldBackupFieldsRejected(t *testing.T) {
-	for _, raw := range []string{
-		`{"version":11,"backup":{"intervalMinutes":5,"keep":20}}`,
-		`{"version":11,"advanced":{"autosaveDelayMs":800}}`,
-	} {
-		if _, err := decodePreferences([]byte(raw)); err == nil {
-			t.Fatalf("应拒绝旧字段: %s", raw)
-		}
+// TestPrefsOldBackupFieldsStripped 旧版本的 backup 整节与 autosaveDelayMs 在
+// 读取时静默摘除（不迁移语义），其余设置原样保留；版本 12 文件仍拒绝。
+func TestPrefsOldBackupFieldsStripped(t *testing.T) {
+	a := newTestApp(t)
+	raw := `{"version":11,"appearance":{"colorTheme":"mistTeal"},"backup":{"intervalMinutes":5,"keep":20},"advanced":{"autosaveDelayMs":800,"windowColumns":24,"windowRows":18}}`
+	persistWriteRaw(t, a.preferencesPath(), raw)
+	if err := a.loadPreferences(); err != nil {
+		t.Fatalf("旧备份键应摘除而不是拒绝: %v", err)
+	}
+	if a.prefs.Appearance.ColorTheme != "mistTeal" || a.prefs.Advanced.WindowColumns != 24 || a.prefs.Advanced.WindowRows != 18 {
+		t.Fatalf("非存储设置应保留: %+v", a.prefs)
+	}
+	def := defaultPreferences()
+	if a.prefs.Storage != def.Storage || a.prefs.Git != def.Git {
+		t.Fatalf("存储应用默认: %+v", a.prefs)
+	}
+	a.shutdownPreferences()
+	prefs, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
+	if err != nil || prefs.Version != currentPreferencesVersion {
+		t.Fatalf("应写回当前版本: %+v, %v", prefs, err)
+	}
+	if strings.Contains(string(prefsReadRaw(t, a.preferencesPath())), "backup") {
+		t.Fatal("写回应已去掉 backup 键")
+	}
+	if _, err := decodePreferences([]byte(`{"version":12,"backup":{}}`)); err == nil {
+		t.Fatal("版本 12 文件的 backup 仍应拒绝")
 	}
 }
 

@@ -544,5 +544,6 @@
   "storageNotSaved": "Not saved yet",
   "storageUnsaved": "Unsaved changes",
   "storageSavedAt": "Saved at {time}",
-  "commonChoose": "Choose"
+  "commonChoose": "Choose",
+  "prefsPausedForNotes": "Preferences file is unavailable, note saving is paused: {err}"
 }

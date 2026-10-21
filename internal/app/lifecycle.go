@@ -35,7 +35,7 @@ func Run() {
 
 	if err := a.loadPreferences(); err != nil {
 		a.notes.SetSaveBlocked(true)
-		a.notice = locales.StorageReadFailed(err.Error())
+		a.notice = locales.PrefsPausedForNotes(err.Error())
 		slog.Error("偏好不可用，已暂停笔记保存", "error", err)
 	} else {
 		if err := a.openConfiguredNotes(); err != nil {

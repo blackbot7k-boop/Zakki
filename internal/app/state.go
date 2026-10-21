@@ -248,6 +248,17 @@ func (a *app) shutdownForQuit() error {
 	if a.storageMoving {
 		return errors.New(locales.StorageMoving())
 	}
+	// 写保护期间无法写笔记文件：保留原件并放行退出，不能把用户困在应用里。
+	if a.notes.SaveBlocked() {
+		slog.Warn("笔记处于写保护，退出不写笔记文件，原件保持不变")
+		a.notes.SetStopped(true)
+		if err := a.shutdownPreferences(); err != nil {
+			a.notes.SetStopped(false)
+			return err
+		}
+		a.notes.Close()
+		return nil
+	}
 	if err := a.notes.Shutdown(a.snapshotFile()); err != nil {
 		a.notes.SetStopped(false)
 		return err

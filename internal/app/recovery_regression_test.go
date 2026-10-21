@@ -27,13 +27,14 @@ func TestLoadInvalidFilePreservesOriginalAndRefusesSave(t *testing.T) {
 			if err := a.saveNow(); err == nil {
 				t.Fatal("写保护期间保存必须失败")
 			}
-			if err := a.shutdownForQuit(); err == nil {
-				t.Fatal("写保护期间应拒绝退出")
+			// 退出必须始终放行：不写笔记文件，原件保持不变，未保存编辑随之放弃。
+			if err := a.shutdownForQuit(); err != nil {
+				t.Fatalf("写保护期间也应允许退出: %v", err)
 			}
 			if got := string(persistReadRaw(t, path)); got != raw {
 				t.Fatalf("原件被改写: %q", got)
 			}
-			assertOnlyStorageFiles(t, filepath.Dir(path), "zakki.json")
+			assertOnlyStorageFiles(t, filepath.Dir(path), "zakki.json", "preferences.json")
 		})
 	}
 }

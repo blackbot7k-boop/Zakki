@@ -22,7 +22,6 @@ func TestStorageGitDecodeStrict(t *testing.T) {
 		`{"git":{"commitMinutes":0}}`, `{"git":{"commitMinutes":1441}}`,
 		`{"git":{"pushMinutes":0}}`, `{"git":{"pushMinutes":1441}}`,
 		`{"git":{"autoPush":true}}`,
-		`{"version":11,"advanced":{"autosaveDelayMs":800}}`,
 		`{"version":12,"advanced":{"autosaveDelayMs":800}}`,
 	} {
 		t.Run(raw, func(t *testing.T) {

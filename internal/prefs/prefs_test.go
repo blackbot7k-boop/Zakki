@@ -206,13 +206,25 @@ func TestPreferencesMigrateCodeThemeSoft(t *testing.T) {
 }
 
 func TestPreferencesRejectBackup(t *testing.T) {
-	for _, version := range []string{"1", "3", "5", "6", "8", "9", "11", "12"} {
-		for _, backup := range []string{`{}`, `{"mirrorDir":"/old","gitMode":"commitPush"}`, `{"backupDir":"/old"}`, `{"intervalMinutes":5,"keep":20,"onLaunch":true,"gitAutoPush":true,"gitPushMinutes":10}`} {
-			raw := `{"version":` + version + `,"backup":` + backup + `}`
-			if _, err := Decode([]byte(raw), nil); err == nil || !strings.Contains(err.Error(), `unknown field "backup"`) {
-				t.Fatalf("旧 backup 必须按未知字段拒绝: %s: %v", raw, err)
-			}
+	// 版本 12 文件再出现 backup 按未知字段拒绝。
+	for _, backup := range []string{`{}`, `{"backupDir":"/old"}`, `{"intervalMinutes":5,"keep":20,"onLaunch":true,"gitAutoPush":true,"gitPushMinutes":10}`} {
+		raw := `{"version":12,"backup":` + backup + `}`
+		if _, err := Decode([]byte(raw), nil); err == nil || !strings.Contains(err.Error(), `unknown field "backup"`) {
+			t.Fatalf("版本 12 的 backup 必须按未知字段拒绝: %s: %v", raw, err)
 		}
+	}
+	// 版本 11 及更早：backup 整节与 autosaveDelayMs 静默摘除，其余设置原样保留。
+	raw := `{"version":11,"appearance":{"colorTheme":"paper"},"backup":{"mirrorDir":"/old","gitMode":"commitPush"},"window":{"rememberBounds":false},"advanced":{"autosaveDelayMs":900,"windowColumns":30,"windowRows":20}}`
+	got, err := Decode([]byte(raw), nil)
+	if err != nil {
+		t.Fatalf("旧 backup 键应摘除而不是拒绝: %v", err)
+	}
+	def := Default()
+	if got.Version != CurrentVersion || got.Appearance.ColorTheme != "paper" || got.Window.RememberBounds {
+		t.Fatalf("非存储设置应保留: %+v", got)
+	}
+	if got.Storage != def.Storage || got.Git != def.Git || got.Advanced.WindowColumns != 30 || got.Advanced.WindowRows != 20 {
+		t.Fatalf("存储应用默认，不迁移旧语义: %+v", got)
 	}
 }
 

@@ -491,5 +491,6 @@
   "storageNotSaved": "尚未保存",
   "storageUnsaved": "有未保存修改",
   "storageSavedAt": "已保存 {time}",
-  "commonChoose": "选择"
+  "commonChoose": "选择",
+  "prefsPausedForNotes": "\u504f\u597d\u6587\u4ef6\u4e0d\u53ef\u7528\uff0c\u5df2\u6682\u505c\u7b14\u8bb0\u4fdd\u5b58\uff1a{err}"
 }

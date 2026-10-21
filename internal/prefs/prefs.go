@@ -33,7 +33,8 @@ import (
 // colorTheme / markdownTheme 不再取 "sketch"，只记标准风格下的选择，切回标准时原样恢复。
 // 版本 11 把 advanced.windowWidth / windowHeight（像素）换成 windowColumns /
 // windowRows（每行字数 × 行数），开窗时按当时的字号换算；旧像素值按默认排版换算。
-// 版本 12 以 storage / git 取代备份策略，不接受旧 backup 与 autosaveDelayMs。
+// 版本 12 以 storage / git 取代备份策略：旧 backup 整节与 autosaveDelayMs 在
+// 读取时静默摘除（不迁移语义），写回即为版本 12；版本 12 文件再出现即拒绝。
 const CurrentVersion = 12
 
 // 整体风格：手账风格下颜色与排版由风格决定，colorTheme / markdownTheme 保留不动。
@@ -240,7 +241,7 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	if err != nil {
 		return Preferences{}, err
 	}
-	if hasLegacyWindow {
+	if hasLegacyWindow || stripLegacyStorageKeys(value) {
 		// 严格解码不认旧键；重新编回 JSON 再解码。map 编码只影响键序，
 		// 不改变取值，原文件保持原样。
 		sanitized, err := json.Marshal(value)
