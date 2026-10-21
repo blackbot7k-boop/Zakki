@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"image/color"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -407,5 +408,70 @@ func TestSettingsTabListDragReorder(t *testing.T) {
 	}
 	if a.active != 2 {
 		t.Fatalf("当前选中应跟随被拖的标签: active=%d", a.active)
+	}
+}
+
+func TestTabDropIndexAndMark(t *testing.T) {
+	slots := []tabSlotGeom{{w: 10, cx: 10}, {w: 10, cx: 30}, {w: 10, cx: 50}}
+	for _, c := range []struct {
+		x    float32
+		want int
+	}{{0, 0}, {9, 0}, {11, 1}, {35, 2}, {60, 3}} {
+		if got := tabDropIndex(slots, c.x); got != c.want {
+			t.Errorf("tabDropIndex(%v) = %d, want %d", c.x, got, c.want)
+		}
+	}
+	if got := tabDropMarkX(slots, 1); got != 20 {
+		t.Errorf("中间插入位指示线 = %v, want 20", got)
+	}
+	if got := tabDropMarkX(slots, 0); got >= 5 {
+		t.Errorf("首位指示线应在第一枚左侧: %v", got)
+	}
+	if got := tabDropMarkX(slots, 3); got <= 55 {
+		t.Errorf("末位指示线应在最后一枚右侧: %v", got)
+	}
+}
+
+func TestTabStripDragReorders(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	for i := range a.tabs {
+		a.tabs[i].Text = ""
+	}
+	tt := ui.NewTester(a.view, 400, 540)
+	tt.Frame()
+	from, ok := tt.Find("标签 2")
+	if !ok {
+		t.Fatal("找不到标签 2")
+	}
+	to, ok := tt.Find("标签 5")
+	if !ok {
+		t.Fatal("找不到标签 5")
+	}
+	movedID, activeID := a.tabs[1].ID, a.tabs[a.active].ID
+	y := from.Y + from.H/2
+	tt.Press(from.X+from.W/2, y)
+	for x := from.X + from.W/2; x <= to.X+to.W; x += 4 {
+		tt.Move(x, y)
+		tt.Frame()
+	}
+	tt.Release(to.X+to.W, y)
+	tt.Frame()
+	tt.Frame()
+	if got := a.tabIndexByID(movedID); got != 4 {
+		t.Fatalf("拖到标签 5 之后应排第 5 位，实际 %d", got+1)
+	}
+	if a.tabs[a.active].ID != activeID {
+		t.Fatal("拖拽排序不应改变当前标签")
+	}
+
+	// 原地按下松开仍是普通点击：切换标签，不重排。
+	ids := slices.Clone(a.lastIDs)
+	r, _ := tt.Find("标签 3")
+	tt.Press(r.X+r.W/2, r.Y+r.H/2)
+	tt.Release(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	if a.active != 2 || !slices.Equal(ids, a.lastIDs) {
+		t.Fatalf("点击应只切换标签: active=%d", a.active)
 	}
 }

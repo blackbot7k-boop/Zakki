@@ -446,6 +446,60 @@ func measuredTitleWidth(s string, limit float32, measure func(string) float32) f
 	return min(measure(s), limit)
 }
 
+// ---- 顶栏拖拽排序 ----
+
+// tabDrag 顶栏拖拽中的标签（稳定 ID）；独立类型，其他落点不会误收。
+type tabDrag uint64
+
+// tabDrop 待执行的拖拽重排：松手那帧仍在构建标签条，帧末再改标签次序。
+type tabDrop struct {
+	id uint64
+	to int
+}
+
+// tabDropIndex 标签条局部横坐标 x 对应的插入位（List 语义：移到第 to 个之前）。
+func tabDropIndex(slots []tabSlotGeom, x float32) int {
+	for i, s := range slots {
+		if x < s.cx {
+			return i
+		}
+	}
+	return len(slots)
+}
+
+// tabDropMarkX 插入位的指示线横坐标：相邻两枚标记空隙的中点，两端外扩半个间距。
+func tabDropMarkX(slots []tabSlotGeom, to int) float32 {
+	n := len(slots)
+	switch {
+	case to <= 0:
+		return slots[0].cx - slots[0].w/2 - dotGap/2
+	case to >= n:
+		return slots[n-1].cx + slots[n-1].w/2 + dotGap/2
+	}
+	l, r := slots[to-1], slots[to]
+	return (l.cx + l.w/2 + r.cx - r.w/2) / 2
+}
+
+// tabStripDrop 标签条作为拖拽落点：拖动经过时返回插入位供画指示线（不改变
+// 次序的位置返回 -1），松手时记下重排，由 runTabMenuPending 帧末执行。
+func (a *app) tabStripDrop(strip ui.Element, slots []tabSlotGeom) int {
+	over, hovering := ui.DragOver[tabDrag](strip)
+	dropped, ok := ui.Drop[tabDrag](strip)
+	if !hovering && !ok || len(slots) != len(a.tabs) {
+		return -1
+	}
+	x, _, _ := strip.PointerPosition()
+	to := tabDropIndex(slots, x)
+	if ok {
+		a.dropPending = tabDrop{id: uint64(dropped), to: to}
+		return -1
+	}
+	if i := a.tabIndexByID(uint64(over)); i < 0 || to == i || to == i+1 {
+		return -1
+	}
+	return to
+}
+
 // ---- 标签右键菜单 ----
 
 // tabContextMenu 标签右键菜单：重命名、导出与删除，动作与菜单栏/快捷键同一实现；
@@ -476,12 +530,18 @@ func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 	}
 }
 
-// runTabMenuPending 帧末执行右键菜单动作；目标按稳定 ID 重新定位，菜单
+// runTabMenuPending 帧末执行右键菜单动作与顶栏拖拽重排；目标按稳定 ID 重新定位，菜单
 // 打开期间标签被删时静默丢弃。重命名前先切到该标签：重命名输入框画在
 // 当前标签的色条里，与双击标签的「先切换再重命名」同路径。
 func (a *app) runTabMenuPending(c *ui.Context) {
 	renamed, deleted, exported := a.menuRenamePending, a.menuDeletePending, a.menuExportPending
 	a.menuRenamePending, a.menuDeletePending, a.menuExportPending = 0, 0, 0
+	if drop := a.dropPending; drop.id != 0 {
+		a.dropPending = tabDrop{}
+		if i := a.tabIndexByID(drop.id); i >= 0 && a.reorderTab(i, drop.to) {
+			c.Invalidate()
+		}
+	}
 	if exported != 0 {
 		if i := a.tabIndexByID(exported); i >= 0 {
 			a.exportTab(i)

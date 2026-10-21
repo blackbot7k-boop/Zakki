@@ -251,10 +251,18 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 	ui.ScrollHorizontal(c.Key("tab-viewport")).Width(available).Height(h).
 		TrackScroll(&a.tabScroll).Children(func() {
 		strip := ui.Box(c.Key("tab-strip")).Width(contentW).Height(h)
-		strip.Draw(func(p *ui.Painter, r ui.Rect) { a.paintTabStrip(p, r, dark) })
+		dropAt := a.tabStripDrop(strip, slots)
+		mark := a.resolveStyle(-1, dark, true).accent
+		strip.Draw(func(p *ui.Painter, r ui.Rect) {
+			a.paintTabStrip(p, r, dark)
+			if dropAt >= 0 {
+				x := r.X + tabDropMarkX(slots, dropAt)
+				p.Fill(ui.Rect{X: x - 1, Y: r.Y + (r.H-18)/2, W: 2, H: 18}, mark, 1)
+			}
+		})
 		strip.Children(func() {
 			for i := range a.tabs {
-				a.tabSlot(c, i, slots[i], changed, slotTop)
+				a.tabSlot(c, i, slots[i], changed, slotTop, dark)
 			}
 		})
 	})
@@ -262,7 +270,7 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 
 // tabSlot 顶栏内一枚标签的命中区与内容；slotTop 是槽位按钮顶部，随顶栏高度变化
 // （28 是槽位按钮高，圆点/胶囊始终垂直居中于顶栏，与系统按钮 glyph 同轴）。
-func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool, slotTop float32) {
+func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool, slotTop float32, dark bool) {
 	tb := a.tabs[i]
 	selected := i == a.active
 	renaming := a.renaming == tb.ID
@@ -300,6 +308,18 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool, slotT
 		return
 	}
 	btn.Tooltip(a.tabTooltip(i))
+	btn.Drag(tabDrag(tb.ID))
+	if btn.Dragging() {
+		// 跟随指针的浮层复制的是按钮本身，而标记由标签条统一绘制，按钮自身为空；
+		// 拖动期间补画一枚，浮层才看得见。
+		w, h := float32(dotDiameter), float32(dotDiameter)
+		if slot.w > dotDiameter+1 {
+			w, h = slot.w, pillHeight
+		}
+		btn.AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+			ui.Box(c).Size(w, h).Radius(h / 2).Background(a.tabInk(i, dark))
+		})
+	}
 	btn.OnClick(func() { a.switchTab(i) })
 	btn.ContextMenu(a.tabContextMenu(i))
 	if selected && btn.DoubleClicked() {

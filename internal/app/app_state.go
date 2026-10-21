@@ -39,6 +39,7 @@ type tabStripState struct {
 	menuRenamePending uint64
 	menuDeletePending uint64
 	menuExportPending uint64
+	dropPending       tabDrop
 	animNow           func() time.Time
 }
 
