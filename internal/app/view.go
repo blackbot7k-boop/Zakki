@@ -146,7 +146,7 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(headerHeight(bar)).Background(bg).Padding(0, padR, 0, padL).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		DragWindow().AlignItems(ui.Center).Children(func() {
-		chromeIcon(c, "close-window", iconCloseWindow, locales.CloseWindow(), t.TextMuted, chromeHover(t.TextMuted), false).
+		chromeIcon(c, "close-window", iconCloseWindow, locales.CloseWindow(), t.TextMuted, chromeHover(t.TextMuted)).
 			OnClick(func() {
 				if a.win != nil {
 					// 便签常驻：复用窗口与渲染资源，菜单关闭和退出仍真正关窗。
@@ -338,14 +338,14 @@ func (a *app) tabInk(i int, dark bool) ui.Color {
 	return a.tabColor(i)
 }
 
-// iconPin 置顶开关：激活时用强调色并加粗。
+// iconPin 置顶开关：激活换实心图钉并用强调色。
 func (a *app) iconPin(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
-	ink := t.TextMuted
+	svg, ink := iconPin, t.TextMuted
 	if a.cfg.AlwaysOnTop {
-		ink = style.accent
+		svg, ink = iconPinFilled, style.accent
 	}
-	if chromeIcon(c, "pin-top", iconPin, locales.PinTop(), ink, chromeHover(t.TextMuted), a.cfg.AlwaysOnTop).Clicked() {
+	if chromeIcon(c, "pin-top", svg, locales.PinTop(), ink, chromeHover(t.TextMuted)).Clicked() {
 		a.withWindow(func() {
 			a.setAlwaysOnTop(!a.cfg.AlwaysOnTop)
 		})
@@ -362,22 +362,15 @@ func iconAction(c *ui.Context, key string, svg *ui.SVG, label string, t *ui.Them
 const chromeHit float32 = 24
 
 // chromeIcon 外框图标按钮：16pt 图形居中于 chromeHit 点击区，悬停铺浅底，
-// 名称同时作无障碍标签与悬停提示。
-func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink, hover ui.Color, bold bool) ui.Element {
+// 名称同时作无障碍标签与悬停提示。开关类的选中态由调用方换实心图形表达。
+func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink, hover ui.Color) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).
 		Size(chromeHit, chromeHit).Radius(6).Cursor(ui.CursorPointer)
-	if bold {
-		// 选中态常亮淡底：不依赖悬停也能看清开关状态。
-		btn.Background(chromeHover(ink))
-	}
 	if btn.Hovered() {
 		btn.Background(hover)
 	}
 	btn.Children(func() {
-		g := ui.Icon(c, svg).Size(16, 16).TextColor(ink)
-		if bold {
-			g.Bold()
-		}
+		ui.Icon(c, svg).Size(16, 16).TextColor(ink)
 	})
 	return btn
 }
@@ -495,11 +488,11 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 
 		ui.Row(c).Shrink(0).AlignItems(ui.Center).Children(func() {
 			// 源码模式开关（Lucide eye）：默认实时预览，打开后全文源码 + 语法高亮。
-			a.iconStatusToggle(c, "sb-source", iconPreview, locales.StatusSource(), a.cfg.Source, t, dark, func() {
+			a.iconStatusToggle(c, "sb-source", iconPreview, iconEyeFilled, locales.StatusSource(), a.cfg.Source, t, dark, func() {
 				a.toggleSourceMode()
 			})
 			// 搜索开关（Lucide search）
-			a.iconStatusToggle(c, "sb-find", iconSearch, locales.StatusSearch(), a.findOpen, t, dark, func() {
+			a.iconStatusToggle(c, "sb-find", iconSearch, nil, locales.StatusSearch(), a.findOpen, t, dark, func() {
 				a.findOpen = !a.findOpen
 				if a.findOpen {
 					a.query, a.matchIdx, a.findFocus = "", 0, 1
@@ -509,15 +502,18 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 	})
 }
 
-// iconStatusToggle 底栏图标：用状态栏前景色；激活加粗提亮。
-func (a *app) iconStatusToggle(c *ui.Context, key string, svg *ui.SVG, label string, on bool, t *ui.Theme, dark bool, fn func()) {
+// iconStatusToggle 底栏开关图标：激活换实心图形（svgActive 为 nil 时仅变色）。
+func (a *app) iconStatusToggle(c *ui.Context, key string, svg, svgActive *ui.SVG, label string, on bool, t *ui.Theme, dark bool, fn func()) {
 	style := a.resolveStyle(-1, dark, true)
 	fg := style.accent
 	ink := fg
 	if !on {
 		ink = fg.Mix(style.status, 0.30)
 	}
-	if chromeIcon(c, key, svg, label, ink, chromeHover(fg), on).Clicked() {
+	if on && svgActive != nil {
+		svg = svgActive
+	}
+	if chromeIcon(c, key, svg, label, ink, chromeHover(fg)).Clicked() {
 		fn()
 	}
 }

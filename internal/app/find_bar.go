@@ -284,7 +284,7 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			if a.replaceOpen {
 				toggle = iconChevronDown
 			}
-			if chromeIcon(c, "find-replace-toggle", toggle, locales.FindReplaceToggle(), ink, hover, false).Clicked() {
+			if chromeIcon(c, "find-replace-toggle", toggle, locales.FindReplaceToggle(), ink, hover).Clicked() {
 				a.replaceOpen = !a.replaceOpen
 				if a.replaceOpen {
 					a.findFocus = 2
@@ -295,17 +295,17 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			if a.findAllTabs {
 				scopeInk = t.Accent
 			}
-			if chromeIcon(c, "find-all-tabs", iconLayers, locales.FindAllTabs(), scopeInk, hover, a.findAllTabs).Clicked() {
+			if chromeIcon(c, "find-all-tabs", iconLayers, locales.FindAllTabs(), scopeInk, hover).Clicked() {
 				a.findAllTabs = !a.findAllTabs
 				a.matchIdx = 0
 			}
-			if chromeIcon(c, "find-prev", iconChevronUp, locales.FindPrev(), ink, hover, false).Clicked() {
+			if chromeIcon(c, "find-prev", iconChevronUp, locales.FindPrev(), ink, hover).Clicked() {
 				a.findStep(-1)
 			}
-			if chromeIcon(c, "find-next", iconChevronDown, locales.FindNext(), ink, hover, false).Clicked() {
+			if chromeIcon(c, "find-next", iconChevronDown, locales.FindNext(), ink, hover).Clicked() {
 				a.findStep(1)
 			}
-			if chromeIcon(c, "find-close", iconX, locales.FindClose(), ink, hover, false).Clicked() {
+			if chromeIcon(c, "find-close", iconX, locales.FindClose(), ink, hover).Clicked() {
 				a.closeFind()
 			}
 		})

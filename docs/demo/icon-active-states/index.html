@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zakki 图标选中态方案对比</title>
+<title>Zakki 实心图标选中态 · 效果确认</title>
 <style>
   :root {
     --bg: #f5f5f2; --card: #ffffff; --text: #2a2c2e; --muted: #6b6e72; --line: #dededa;
@@ -35,21 +35,13 @@
   .icon { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none; margin-left: 6px; color: var(--muted); position: relative; }
   .icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .icon:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
-  /* A 实底强调色反白 */
-  .st-a.on { background: var(--accent); color: var(--accent-ink); }
-  /* B 淡底 + 描边 */
-  .st-b.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
-  /* C 实心图标：激活换 fill */
+  /* C 实心图标：激活换 fill 版本 */
   .st-c.on { color: var(--accent); }
-  .st-c.on svg.fillable { fill: currentColor; }
-  .st-c svg.pin-fill { display: none; }
-  .st-c.on svg.pin-line { display: none; }
-  .st-c.on svg.pin-fill { display: block; }
-  /* D 底部小圆点 */
-  .st-d.on::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 999px; background: var(--accent); }
+  .st-c svg.v-fill { display: none; fill: currentColor; stroke: none; }
+  .st-c.on svg.v-fill { display: block; }
+  .st-c.on svg.v-line { display: none; }
   .row-label { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; font-size: 12px; color: var(--muted); }
   .row-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  code { background: color-mix(in srgb, var(--muted) 12%, transparent); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -57,52 +49,86 @@
   <button id="t-light" class="on">浅色</button>
   <button id="t-dark">深色</button>
 </div>
-<h1>图标选中态 · 四种方案</h1>
-<div class="sub">每张卡片上半是顶栏（置顶在最右，点它切换），下半是底栏（预览眼睛已激活）。悬停可看悬停效果；右上角切明暗。</div>
+<h1>实心图标选中态 · 效果确认</h1>
+<div class="sub">线性 = 未选中，实心 + 强调色 = 选中。点图标可切换；右上角切明暗。图钉与眼睛的实心版都带瞳孔/底座细节，与线性版同一轮廓。</div>
 
 <div class="grid" id="grid"></div>
 
 <script>
-const PIN_LINE = '<svg class="pin-line" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>';
-const PIN_FILL = '<svg class="pin-fill fillable" viewBox="0 0 24 24"><path d="M16 3a1 1 0 0 1 1 1v7.6l2.3 2.3a1 1 0 0 1 .7 1.7V17a1 1 0 0 1-1 1h-6v3a1 1 0 0 1-2 0v-3H5a1 1 0 0 1-1-1v-1.4a1 1 0 0 1 .7-1.7L7 11.6V4a1 1 0 0 1 1-1h8z"/></svg>';
-const EYE = '<svg class="fillable" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_FILL = '<svg class="fillable" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.7 11.2a11.75 11.75 0 0 1 20.6 0 1.5 1.5 0 0 1 0 1.6 11.75 11.75 0 0 1-20.6 0 1.5 1.5 0 0 1 0-1.6zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>';
+// 实心版与线性版同一 24×24 网格与轮廓。
+const PIN_LINE = '<svg class="v-line" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>';
+const PIN_FILL = '<svg class="v-fill" viewBox="0 0 24 24"><path d="M9.3 2h5.4c.8 0 1.4.6 1.4 1.4v6.1l2.7 2.7c.4.4.7 1 .7 1.6 0 1.2-1 2.2-2.2 2.2H13.7v5a1.7 1.7 0 0 1-3.4 0v-5H6.7c-1.2 0-2.2-1-2.2-2.2 0-.6.2-1.2.7-1.6l2.7-2.7V3.4C7.9 2.6 8.5 2 9.3 2z"/></svg>';
+const EYE_LINE = '<svg class="v-line" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_FILL = '<svg class="v-fill" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 5.25c-4.9 0-9 3-10.6 6.3a1 1 0 0 0 0 .9C3 15.75 7.1 18.75 12 18.75s9-3 10.6-6.3a1 1 0 0 0 0-.9C21 8.25 16.9 5.25 12 5.25zm0 9.25a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/><circle cx="12" cy="12" r="1.4"/></svg>';
 const SEARCH = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
 const CLOSE = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
-
-const STYLES = [
-  { key: "A", name: "实底色块反白", desc: "选中时整个 24pt 圆角块填满强调色，图标反白。对比最强，一眼可见。", cls: "st-a" },
-  { key: "B", name: "淡底加描边", desc: "当前「淡底」的加强版：底色加深并加一圈 1.5px 强调色描边。", cls: "st-b" },
-  { key: "C", name: "实心图标切换", desc: "不加任何底色：激活时图标从线性换成本产品的实心填充（图钉/眼睛实心化）。", cls: "st-c" },
-  { key: "D", name: "底部小圆点", desc: "图标保持灰色，激活时正下方出现一枚强调色小圆点，类似 Dock 的运行指示。", cls: "st-d" },
-];
 
 function iconBtn(cls, on, inner, label) {
   return `<span class="icon ${cls} ${on ? "on" : ""}" title="${label}">${inner}</span>`;
 }
 
-document.getElementById("grid").innerHTML = STYLES.map(s => `
-  <div class="card" data-style="${s.key}">
-    <h2>${s.key} · ${s.name}</h2>
-    <div class="desc">${s.desc}</div>
+document.getElementById("grid").innerHTML = `
+  <div class="card">
+    <h2>顶栏 · 置顶</h2>
+    <div class="desc">左：未选中（线性灰）。右：已置顶（实心强调色）。点击切换对比。</div>
     <div class="fake">
       <div class="bar">
         ${iconBtn("", false, CLOSE, "关闭窗口")}
         <span class="grow"></span>
-        ${s.key === "C"
-          ? iconBtn(s.cls, false, PIN_LINE + PIN_FILL, "置顶") + iconBtn(s.cls, true, PIN_LINE + PIN_FILL, "置顶（开）")
-          : iconBtn(s.cls, false, PIN_LINE, "置顶") + iconBtn(s.cls, true, PIN_LINE, "置顶（开）")}
+        ${iconBtn("st-c", false, PIN_LINE + PIN_FILL, "置顶")}
+        ${iconBtn("st-c", true, PIN_LINE + PIN_FILL, "置顶（开）")}
       </div>
-      <div style="height:120px"></div>
-      <div class="status">
+      <div style="height:110px"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>底栏 · 源码预览切换</h2>
+    <div class="desc">眼睛实心 = 当前处于源码模式；线性 = 实时预览。搜索保持线性不变。</div>
+    <div class="fake">
+      <div class="status" style="margin-top:110px">
         <span>0 行 · 0 词 · 0 字符</span><span class="grow"></span>
         <span>已保存 15:04</span>
-        ${iconBtn(s.cls, true, EYE, "源码模式（开）")}
+        ${iconBtn("st-c", false, EYE_LINE + EYE_FILL, "源码模式")}
+        ${iconBtn("st-c", true, EYE_LINE + EYE_FILL, "源码模式（开）")}
         ${iconBtn("", false, SEARCH, "搜索")}
       </div>
     </div>
   </div>
-`).join("");
+  <div class="card">
+    <h2>明暗主题下的对比</h2>
+    <div class="desc">实心强调色在两种主题下都应清晰；切右上角明暗后回来看这组。</div>
+    <div class="fake">
+      <div class="bar" style="background:#262729">
+        <span style="color:#9a9da1">${iconBtn("st-c", false, PIN_LINE + PIN_FILL, "置顶")}${iconBtn("st-c", true, PIN_LINE + PIN_FILL, "置顶（开）")}</span>
+      </div>
+      <div class="status" style="background:#212224;color:#7fb0e0">
+        <span>深色状态栏</span><span class="grow"></span>
+        ${iconBtn("st-c", false, EYE_LINE + EYE_FILL, "源码模式")}
+        ${iconBtn("st-c", true, EYE_LINE + EYE_FILL, "源码模式（开）")}
+      </div>
+      <div style="height:56px"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>尺寸与对齐</h2>
+    <div class="desc">实心版与线性版同占 16pt 视觉框；24pt 点击区、6px 圆角不变。</div>
+    <div class="fake">
+      <div class="bar">
+        ${iconBtn("st-c", false, PIN_LINE + PIN_FILL, "线性")}
+        ${iconBtn("st-c", true, PIN_LINE + PIN_FILL, "实心")}
+        <span class="grow"></span>
+        <span style="color:var(--muted);font-size:12px">16pt 图形 · 24pt 点击区</span>
+      </div>
+      <div class="status">
+        ${iconBtn("st-c", false, EYE_LINE + EYE_FILL, "线性")}
+        ${iconBtn("st-c", true, EYE_LINE + EYE_FILL, "实心")}
+        <span class="grow"></span>
+        <span style="color:var(--muted)">1px 网格对齐</span>
+      </div>
+      <div style="height:40px"></div>
+    </div>
+  </div>
+`;
 
 document.querySelectorAll(".icon").forEach(el => {
   el.addEventListener("click", () => { el.classList.toggle("on"); });
