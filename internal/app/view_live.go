@@ -279,8 +279,8 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		}
 		a.pendingEditKind = kind
 		// 待输入格式：第一次输入/粘贴/IME 确认时生成有效 Markdown。
-		if pre, post := a.pendingWrapFor(p, oldStart, oldEnd, blk, caret); pre != "" || post != "" {
-			raw, caret = applyMarkerWrap(raw, p.sourceOffset(oldStart), caret, pre, post)
+		if pre, post, cutStart, cutEnd := a.pendingWrapFor(p, oldStart, oldEnd, blk, caret); pre != "" || post != "" {
+			raw, caret = applyMarkerWrap(raw, p.sourceOffset(oldStart), caret, pre, post, cutStart, cutEnd)
 			a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
 			a.pendingEditKind = editCommand
 		}

@@ -148,11 +148,11 @@ func TestPendingInlineFormatToggleAndApply(t *testing.T) {
 	}
 	// 第一次输入生成有效 Markdown（走 applyPendingWrap 纯函数路径验证）。
 	p := projectBlock(a.mdBlocks()[0])
-	pre, post := a.pendingWrapFor(p, runeLen("前文"), runeLen("前文"), a.mdBlocks()[0], runeLen("前文")+2)
+	pre, post, _, _ := a.pendingWrapFor(p, runeLen("前文"), runeLen("前文"), a.mdBlocks()[0], runeLen("前文")+2)
 	if pre != "**" || post != "**" {
 		t.Fatalf("待输入格式应产出包裹标记: %q %q", pre, post)
 	}
-	raw, caret := applyMarkerWrap("前文新字", runeLen("前文"), runeLen("前文新字"), pre, post)
+	raw, caret := applyMarkerWrap("前文新字", runeLen("前文"), runeLen("前文新字"), pre, post, 0, 0)
 	if raw != "前文**新字**" || caret != runeLen("前文**新字**") {
 		t.Fatalf("包裹插入: %q %d", raw, caret)
 	}
@@ -174,11 +174,11 @@ func TestPendingInlineToggleOffOpenFormat(t *testing.T) {
 	// 当前位置 bold 已打开：⌘B 关闭后续输入格式。
 	a.execFormatCommand(cmdBold)
 	p := projectBlock(a.mdBlocks()[0])
-	pre, post := a.pendingWrapFor(p, runeLen("**已打开"), runeLen("**已打开"), a.mdBlocks()[0], runeLen("**已打开")+2)
+	pre, post, _, _ := a.pendingWrapFor(p, runeLen("**已打开"), runeLen("**已打开"), a.mdBlocks()[0], runeLen("**已打开")+2)
 	if pre != "**" || post != "" {
 		t.Fatalf("关闭已打开格式应先补闭合标记: %q %q", pre, post)
 	}
-	raw, _ := applyMarkerWrap("**已打开新", runeLen("**已打开"), runeLen("**已打开新"), pre, post)
+	raw, _ := applyMarkerWrap("**已打开新", runeLen("**已打开"), runeLen("**已打开新"), pre, post, 0, 0)
 	if raw != "**已打开**新" {
 		t.Fatalf("闭合后输入落在格式外: %q", raw)
 	}
@@ -433,5 +433,47 @@ func TestRecordSourceKeyUndoRouting(t *testing.T) {
 	}
 	if !a.nextEditIsPaste {
 		t.Fatal("粘贴应标记独立事务")
+	}
+}
+
+// 块末尾是完整粗体 span 时，光标在视觉末尾被判为 span 内（闭合标记前），
+// ⌘B 后输入是「关闭」语义：新文本须落在格式外且不残留悬空闭合标记。
+func TestPendingCloseAtCompleteSpanEnd(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	a.tabs[0].Text = "标题\n\n前文**甲**"
+	tt := ui.NewTester(a.view, 400, 540)
+	if err := tt.Click("前文甲"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(0, ui.KeyEnd)
+	a.execFormatCommand(cmdBold) // bold 已打开 → 意图=关闭
+	tt.Type("乙")
+	if want := "标题\n\n前文**甲**乙"; a.tabs[0].Text != want {
+		t.Fatalf("关闭后输入应落在格式外且无悬空标记: %q, 要 %q", a.tabs[0].Text, want)
+	}
+}
+
+// 光标在完整粗体 span 内容中间（甲|乙）时 ⌘B 后输入：新增闭合标记关闭前半段，
+// 原闭合标记冗余应删除，不残留悬空标记。
+func TestPendingCloseInsideCompleteSpan(t *testing.T) {
+	a := newTestApp(t)
+	a.winOpen = true
+	a.tabs[0].Text = "**甲乙**"
+	a.resyncLive(0)
+	a.focusBlock(0, 3, 3)        // 甲乙 之间
+	a.execFormatCommand(cmdBold) // bold 已打开 → 意图=关闭
+	p := projectBlock(a.mdBlocks()[0])
+	// 输入「新」落在 source 3：raw 变 **甲新乙**，新 raw 光标 4。
+	pre, post, cutStart, cutEnd := a.pendingWrapFor(p, 1, 1, a.mdBlocks()[0], 4)
+	if pre != "**" || post != "" {
+		t.Fatalf("关闭已打开格式应补闭合标记: %q %q", pre, post)
+	}
+	if cutStart != 5 || cutEnd != 7 {
+		t.Fatalf("应删除冗余原闭合标记: %d..%d", cutStart, cutEnd)
+	}
+	raw, caret := applyMarkerWrap("**甲新乙**", 3, 4, pre, post, cutStart, cutEnd)
+	if raw != "**甲**新乙" || caret != runeLen("**甲**新") {
+		t.Fatalf("关闭后不得残留悬空标记: %q %d", raw, caret)
 	}
 }

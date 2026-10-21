@@ -254,13 +254,15 @@ func openInlineState(content string) map[spanKind]bool {
 }
 
 // pendingWrapFor 计算「待输入格式」在本次输入上要生成的标记。
-// 返回插在输入前后的标记串；不需要包裹时返回空串。
-func (a *app) pendingWrapFor(p liveProjection, oldStart, oldEnd int, blk liveBlock, caret int) (pre, post string) {
+// 返回插在输入前后的标记串，以及需一并删除的冗余闭合标记区间
+// （新 raw 坐标，恒在输入区之后，见 completedStyleAt）；
+// 不需要包裹时标记串为空。
+func (a *app) pendingWrapFor(p liveProjection, oldStart, oldEnd int, blk liveBlock, caret int) (pre, post string, cutStart, cutEnd int) {
 	if oldStart != oldEnd || len(a.mdPending) == 0 || caret <= p.sourceOffset(oldStart) {
-		return "", ""
+		return "", "", 0, 0
 	}
 	if blk.kind == bkCode {
-		return "", "" // 代码块内无行内格式
+		return "", "", 0, 0 // 代码块内无行内格式
 	}
 	srcAt := p.sourceOffset(oldStart)
 	content, _ := blockContentPrefix(blk, clamp(srcAt, 0, utf8.RuneCountInString(blk.raw)))
@@ -277,6 +279,12 @@ func (a *app) pendingWrapFor(p liveProjection, oldStart, oldEnd int, blk liveBlo
 			post = closer + post
 		case !intent && state[kind]:
 			pre += closer // 关闭已打开的格式，输入落在格式之外
+			if s, ok := completedStyleAt(p, kind, oldStart, srcAt); ok {
+				// 输入已被插进完整 span 内部：新增的闭合标记使原闭合
+				// 标记冗余，不同步删除会残留悬空 opener。
+				shift := caret - srcAt
+				cutStart, cutEnd = s.close+shift, s.tail+shift
+			}
 		}
 	}
 	// 相邻同标记会产生歧义 run：放弃包裹（丢弃意图，不破坏文档）。
@@ -284,23 +292,43 @@ func (a *app) pendingWrapFor(p liveProjection, oldStart, oldEnd int, blk liveBlo
 	at := srcAt
 	if pre != "" && at > 0 {
 		if last := []rune(pre); rs[at-1] == last[len(last)-1] {
-			return "", ""
+			return "", "", 0, 0
 		}
 	}
 	if post != "" && at < len(rs) {
 		if rs[at] == []rune(post)[0] {
-			return "", ""
+			return "", "", 0, 0
 		}
 	}
-	return pre, post
+	return pre, post, cutStart, cutEnd
 }
 
-// applyMarkerWrap 把前后标记插到 raw 的 [at, caret) 输入区间两侧。
-func applyMarkerWrap(raw string, at, caret int, pre, post string) (string, int) {
+// completedStyleAt 找光标可见位置所在的完整行内 span，且输入落点在其闭合
+// 标记之前（块末尾 span 的视觉末尾、或 span 内容中间）。这种情况的「已打开」
+// 来自前缀截断（闭合标记在 srcAt 之后），关闭时要删掉原闭合标记。
+func completedStyleAt(p liveProjection, kind spanKind, visible, srcAt int) (projectedStyle, bool) {
+	for _, s := range p.styles {
+		if s.kind == kind && s.start <= visible && visible <= s.end && srcAt <= s.close {
+			return s, true
+		}
+	}
+	return projectedStyle{}, false
+}
+
+// applyMarkerWrap 把前后标记插到 raw 的 [at, caret) 输入区间两侧；
+// cutStart/cutEnd 非零时删除该冗余区间（位于 caret 之后，
+// 如被新增闭合标记取代的原闭合标记）。
+func applyMarkerWrap(raw string, at, caret int, pre, post string, cutStart, cutEnd int) (string, int) {
 	at = clamp(at, 0, utf8.RuneCountInString(raw))
 	caret = clamp(caret, at, utf8.RuneCountInString(raw))
 	bAt, bCaret := runeToByte(raw, at), runeToByte(raw, caret)
-	out := raw[:bAt] + pre + raw[bAt:bCaret] + post + raw[bCaret:]
+	out := raw[:bAt] + pre + raw[bAt:bCaret] + post
+	if cutEnd > cutStart && cutStart >= caret {
+		bStart, bEnd := runeToByte(raw, cutStart), runeToByte(raw, cutEnd)
+		out += raw[bCaret:bStart] + raw[bEnd:]
+	} else {
+		out += raw[bCaret:]
+	}
 	return out, caret + utf8.RuneCountInString(pre) + utf8.RuneCountInString(post)
 }
 
