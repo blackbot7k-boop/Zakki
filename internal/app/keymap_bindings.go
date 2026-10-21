@@ -95,8 +95,14 @@ func (a *app) findBindingConflict(id string, b keyBinding) string {
 }
 
 func (a *app) findBindingConflictForPlatform(id string, b keyBinding, goos string) string {
+	return a.findBindingConflictExcept(id, "", b, goos)
+}
+
+// findBindingConflictExcept 同 findBindingConflictForPlatform，但不把 except
+// 当作冲突方：改用到这里时它的绑定会在同一次写入里被解除。
+func (a *app) findBindingConflictExcept(id, except string, b keyBinding, goos string) string {
 	for _, def := range commandRegistry {
-		if def.id == id {
+		if def.id == id || def.id == except {
 			continue
 		}
 		if other, ok := a.parsedCommandBindingForPlatform(def.id, goos); ok && sameBinding(other, b) {
@@ -111,12 +117,30 @@ func (a *app) findBindingConflictForPlatform(id string, b keyBinding, goos strin
 	return ""
 }
 
+// commandUsingBinding 返回当前平台已占用 b 的其他可改键命令；固定键不算，
+// 它们不能让出。
+func (a *app) commandUsingBinding(id string, b keyBinding) (commandDef, bool) {
+	for _, def := range commandRegistry {
+		if def.id == id {
+			continue
+		}
+		if other, ok := a.parsedCommandBinding(def.id); ok && sameBinding(other, b) {
+			return def, true
+		}
+	}
+	return commandDef{}, false
+}
+
 // validateKeymapChange 校验当前平台的一次改键请求。
 func (a *app) validateKeymapChange(id string, acc string) error {
 	return a.validateKeymapChangeForPlatform(id, acc, runtime.GOOS)
 }
 
 func (a *app) validateKeymapChangeForPlatform(id string, acc string, goos string) error {
+	return a.validateKeymapChangeExcept(id, "", acc, goos)
+}
+
+func (a *app) validateKeymapChangeExcept(id, except, acc, goos string) error {
 	if acc != "" {
 		b, err := parseAcceleratorForPlatform(acc, goos)
 		if err != nil {
@@ -125,7 +149,7 @@ func (a *app) validateKeymapChangeForPlatform(id string, acc string, goos string
 		if err := validateBinding(b); err != nil {
 			return err
 		}
-		if name := a.findBindingConflictForPlatform(id, b, goos); name != "" {
+		if name := a.findBindingConflictExcept(id, except, b, goos); name != "" {
 			return fmt.Errorf("%s", locales.KeyErrConflict(name))
 		}
 	}
@@ -133,7 +157,7 @@ func (a *app) validateKeymapChangeForPlatform(id string, acc string, goos string
 	if def, ok := commandDefByID(id); ok && def.global && acc != "" {
 		b, _ := parseAcceleratorForPlatform(acc, goos)
 		for _, other := range commandRegistry {
-			if other.global || other.id == id {
+			if other.global || other.id == id || other.id == except {
 				continue
 			}
 			if ob, ok := a.parsedCommandBindingForPlatform(other.id, goos); ok && sameBinding(ob, b) {
@@ -152,16 +176,37 @@ func (a *app) setCommandBinding(id string, acc string) error {
 	if err := a.validateKeymapChange(id, acc); err != nil {
 		return err
 	}
+	return a.updatePreferences(func(p *preferences) { setKeymapOverride(p, id, acc) })
+}
+
+// reassignCommandBinding 把 from 占用的组合键改给 id：from 解除绑定，
+// 两项在同一次偏好写入里完成，校验失败时两边都不动。
+func (a *app) reassignCommandBinding(id, acc, from string) error {
+	if _, ok := commandDefByID(id); !ok {
+		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(id))
+	}
+	if _, ok := commandDefByID(from); !ok {
+		return fmt.Errorf("%s", locales.KeyErrUnknownCommand(from))
+	}
+	if err := a.validateKeymapChangeExcept(id, from, acc, runtime.GOOS); err != nil {
+		return err
+	}
 	return a.updatePreferences(func(p *preferences) {
-		if p.Keymap.Overrides == nil {
-			p.Keymap.Overrides = map[string]string{}
-		}
-		if acc == defBindingOf(id) {
-			delete(p.Keymap.Overrides, id) // 恢复默认：移除覆盖
-		} else {
-			p.Keymap.Overrides[id] = acc
-		}
+		setKeymapOverride(p, from, "")
+		setKeymapOverride(p, id, acc)
 	})
+}
+
+// setKeymapOverride 写入覆盖；等于默认键时移除覆盖。
+func setKeymapOverride(p *preferences, id, acc string) {
+	if p.Keymap.Overrides == nil {
+		p.Keymap.Overrides = map[string]string{}
+	}
+	if acc == defBindingOf(id) {
+		delete(p.Keymap.Overrides, id)
+	} else {
+		p.Keymap.Overrides[id] = acc
+	}
 }
 
 // resetCommandBinding 恢复单项默认绑定；默认键也必须通过同一冲突校验。

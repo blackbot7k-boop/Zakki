@@ -28,6 +28,9 @@ var (
 	// iconChevronRight 查找条：替换行折叠态（Lucide chevron-right）
 	iconChevronRight = lucide(`<path d="m9 18 6-6-6-6"/>`)
 	iconX            = lucide(`<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`)
+	// 快捷键页：恢复默认与系统保留（Lucide rotate-ccw、lock）
+	iconRotateCCW = lucide(`<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`)
+	iconLock      = lucide(`<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`)
 	// iconSearch 点内搜索（Lucide search）
 	iconSearch = lucide(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`)
 	// iconGear 设置侧栏：常规（Lucide settings）

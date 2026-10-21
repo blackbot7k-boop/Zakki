@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -502,12 +503,12 @@ func TestKeymapRecordAndConflicts(t *testing.T) {
 	a.settingsUI.syncDraftFromPrefs(a.prefs)
 	tt := ui.NewTester(a.settingsView, 760, 600)
 	tt.Frame()
-	// 进入录制态。
-	if err := tt.Click("更改"); err != nil {
+	// 进入录制态：点击加粗行的快捷键。
+	if err := tt.Click(keymapBadgeLabel(a, cmdBold)); err != nil {
 		t.Fatal(err)
 	}
 	if a.settingsUI.recording == "" {
-		t.Fatal("点击更改应进入录制态")
+		t.Fatal("点击快捷键应进入录制态")
 	}
 	tt.Frame()
 	if !tt.HasText("按下组合键，Esc 取消") {
@@ -516,8 +517,12 @@ func TestKeymapRecordAndConflicts(t *testing.T) {
 	// 通过测试器发送 ⌘⇧E（行内代码默认键，换到加粗上应冲突）。
 	target := a.settingsUI.recording
 	a.captureKeymapKey(commandDefByID2(target), ui.InputEvent{Kind: ui.InputKeyDown, Key: ui.KeyE, Mods: ui.Super | ui.Shift})
-	if a.settingsUI.keyErr == "" || !strings.Contains(a.settingsUI.keyErr, "行内代码") {
-		t.Fatalf("应提示与「行内代码」冲突: %q", a.settingsUI.keyErr)
+	if a.settingsUI.keyConflict.other != cmdInlineCode {
+		t.Fatalf("应提示与「行内代码」冲突: %+v", a.settingsUI.keyConflict)
+	}
+	tt.Frame()
+	if !slices.ContainsFunc(tt.Texts(), func(s string) bool { return strings.Contains(s, "已被「行内代码」使用") }) {
+		t.Fatalf("冲突提示应显示在加粗行下方: %v", tt.Texts())
 	}
 	if a.commandBinding(cmdBold) != "CmdOrCtrl+B" {
 		t.Fatalf("冲突不得改键: %q", a.commandBinding(cmdBold))

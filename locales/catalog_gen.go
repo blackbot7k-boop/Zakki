@@ -340,16 +340,6 @@ func (msgs Messages) DialogDeleteTabConfirm() string {
 	return Catalog.Format(msgs.locale, "dialogDeleteTabConfirm", nil)
 }
 
-// DialogExportTitle says "Export as Markdown"
-// in the language the app shows.
-func DialogExportTitle() string { return In(i18n.Locale()).DialogExportTitle() }
-
-// DialogExportTitle says "Export as Markdown"
-// in the language of msgs.
-func (msgs Messages) DialogExportTitle() string {
-	return Catalog.Format(msgs.locale, "dialogExportTitle", nil)
-}
-
 // DialogExportFailedTitle says "Export Failed"
 // in the language the app shows.
 func DialogExportFailedTitle() string { return In(i18n.Locale()).DialogExportFailedTitle() }
@@ -358,6 +348,16 @@ func DialogExportFailedTitle() string { return In(i18n.Locale()).DialogExportFai
 // in the language of msgs.
 func (msgs Messages) DialogExportFailedTitle() string {
 	return Catalog.Format(msgs.locale, "dialogExportFailedTitle", nil)
+}
+
+// DialogExportTitle says "Export as Markdown"
+// in the language the app shows.
+func DialogExportTitle() string { return In(i18n.Locale()).DialogExportTitle() }
+
+// DialogExportTitle says "Export as Markdown"
+// in the language of msgs.
+func (msgs Messages) DialogExportTitle() string {
+	return Catalog.Format(msgs.locale, "dialogExportTitle", nil)
 }
 
 // DialogReplaceAllTitle says "Replace in All Tabs"
@@ -1284,6 +1284,16 @@ func (msgs Messages) FixedSwitchToTab(n int) string {
 	return Catalog.Format(msgs.locale, "fixedSwitchToTab", map[string]any{"n": n})
 }
 
+// FixedSwitchTabs says "Switch to Tab 1–9"
+// in the language the app shows.
+func FixedSwitchTabs() string { return In(i18n.Locale()).FixedSwitchTabs() }
+
+// FixedSwitchTabs says "Switch to Tab 1–9"
+// in the language of msgs.
+func (msgs Messages) FixedSwitchTabs() string {
+	return Catalog.Format(msgs.locale, "fixedSwitchTabs", nil)
+}
+
 // FixedNewTab says "New Tab"
 // in the language the app shows.
 func FixedNewTab() string { return In(i18n.Locale()).FixedNewTab() }
@@ -1548,11 +1558,11 @@ func (msgs Messages) KeyErrUnknownCommand(id string) string {
 	return Catalog.Format(msgs.locale, "keyErrUnknownCommand", map[string]any{"id": id})
 }
 
-// KeymapHint says "Click Change, then press the new shortcut. Esc cancels."
+// KeymapHint says "Click a shortcut to change it. Esc cancels."
 // in the language the app shows.
 func KeymapHint() string { return In(i18n.Locale()).KeymapHint() }
 
-// KeymapHint says "Click Change, then press the new shortcut. Esc cancels."
+// KeymapHint says "Click a shortcut to change it. Esc cancels."
 // in the language of msgs.
 func (msgs Messages) KeymapHint() string {
 	return Catalog.Format(msgs.locale, "keymapHint", nil)
@@ -1568,6 +1578,16 @@ func (msgs Messages) KeymapResetAll() string {
 	return Catalog.Format(msgs.locale, "keymapResetAll", nil)
 }
 
+// KeymapModified says "{n, number} changed"
+// in the language the app shows.
+func KeymapModified(n int) string { return In(i18n.Locale()).KeymapModified(n) }
+
+// KeymapModified says "{n, number} changed"
+// in the language of msgs.
+func (msgs Messages) KeymapModified(n int) string {
+	return Catalog.Format(msgs.locale, "keymapModified", map[string]any{"n": n})
+}
+
 // KeymapSearchPlaceholder says "Search commands"
 // in the language the app shows.
 func KeymapSearchPlaceholder() string { return In(i18n.Locale()).KeymapSearchPlaceholder() }
@@ -1578,24 +1598,14 @@ func (msgs Messages) KeymapSearchPlaceholder() string {
 	return Catalog.Format(msgs.locale, "keymapSearchPlaceholder", nil)
 }
 
-// KeymapFixedTitle says "These stay fixed"
+// KeymapFixedTitle says "Reserved · cannot be changed"
 // in the language the app shows.
 func KeymapFixedTitle() string { return In(i18n.Locale()).KeymapFixedTitle() }
 
-// KeymapFixedTitle says "These stay fixed"
+// KeymapFixedTitle says "Reserved · cannot be changed"
 // in the language of msgs.
 func (msgs Messages) KeymapFixedTitle() string {
 	return Catalog.Format(msgs.locale, "keymapFixedTitle", nil)
-}
-
-// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌘1–9, headings ⌃1–6, new tab ⌘T, ren…"
-// in the language the app shows.
-func KeymapFixedHint() string { return In(i18n.Locale()).KeymapFixedHint() }
-
-// KeymapFixedHint says "Find ⌘F, next ⌘G, source ⌘⇧P, keep on top ⌥⌘T, switch tabs ⌘1–9, headings ⌃1–6, new tab ⌘T, ren…"
-// in the language of msgs.
-func (msgs Messages) KeymapFixedHint() string {
-	return Catalog.Format(msgs.locale, "keymapFixedHint", nil)
 }
 
 // KeymapUnbound says "Unbound"
@@ -1606,6 +1616,16 @@ func KeymapUnbound() string { return In(i18n.Locale()).KeymapUnbound() }
 // in the language of msgs.
 func (msgs Messages) KeymapUnbound() string {
 	return Catalog.Format(msgs.locale, "keymapUnbound", nil)
+}
+
+// KeymapClickToSet says "Click to set"
+// in the language the app shows.
+func KeymapClickToSet() string { return In(i18n.Locale()).KeymapClickToSet() }
+
+// KeymapClickToSet says "Click to set"
+// in the language of msgs.
+func (msgs Messages) KeymapClickToSet() string {
+	return Catalog.Format(msgs.locale, "keymapClickToSet", nil)
 }
 
 // KeymapRecord says "Record Shortcut"
@@ -1628,24 +1648,36 @@ func (msgs Messages) KeymapRecording() string {
 	return Catalog.Format(msgs.locale, "keymapRecording", nil)
 }
 
-// KeymapCurrent says "Current shortcut {binding}"
+// KeymapChangeFor says "Change shortcut for {name}: {binding}"
 // in the language the app shows.
-func KeymapCurrent(binding string) string { return In(i18n.Locale()).KeymapCurrent(binding) }
-
-// KeymapCurrent says "Current shortcut {binding}"
-// in the language of msgs.
-func (msgs Messages) KeymapCurrent(binding string) string {
-	return Catalog.Format(msgs.locale, "keymapCurrent", map[string]any{"binding": binding})
+func KeymapChangeFor(name string, binding string) string {
+	return In(i18n.Locale()).KeymapChangeFor(name, binding)
 }
 
-// KeymapChange says "Change"
-// in the language the app shows.
-func KeymapChange() string { return In(i18n.Locale()).KeymapChange() }
-
-// KeymapChange says "Change"
+// KeymapChangeFor says "Change shortcut for {name}: {binding}"
 // in the language of msgs.
-func (msgs Messages) KeymapChange() string {
-	return Catalog.Format(msgs.locale, "keymapChange", nil)
+func (msgs Messages) KeymapChangeFor(name string, binding string) string {
+	return Catalog.Format(msgs.locale, "keymapChangeFor", map[string]any{"name": name, "binding": binding})
+}
+
+// KeymapInUse says "{key} is already used by “{other}”"
+// in the language the app shows.
+func KeymapInUse(key string, other string) string { return In(i18n.Locale()).KeymapInUse(key, other) }
+
+// KeymapInUse says "{key} is already used by “{other}”"
+// in the language of msgs.
+func (msgs Messages) KeymapInUse(key string, other string) string {
+	return Catalog.Format(msgs.locale, "keymapInUse", map[string]any{"key": key, "other": other})
+}
+
+// KeymapUseHere says "Use Here (Unbind “{other}”)"
+// in the language the app shows.
+func KeymapUseHere(other string) string { return In(i18n.Locale()).KeymapUseHere(other) }
+
+// KeymapUseHere says "Use Here (Unbind “{other}”)"
+// in the language of msgs.
+func (msgs Messages) KeymapUseHere(other string) string {
+	return Catalog.Format(msgs.locale, "keymapUseHere", map[string]any{"other": other})
 }
 
 // KeymapClear says "Unbind"

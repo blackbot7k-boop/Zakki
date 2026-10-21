@@ -80,38 +80,46 @@ func (a *app) syncGlobalHotkey() bool {
 
 // ---- 快捷键页 ----
 
+// keymapConflict 录到或恢复出的组合键已被另一条可改键命令占用：在该行下方
+// 就地询问是否改用到这里（同时解除对方）。
+type keymapConflict struct {
+	id, acc, other string
+}
+
 func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
+	st := &a.settingsUI
+	modified := a.keymapModifiedCount()
+	query := strings.ToLower(strings.TrimSpace(st.keySearch))
 	ui.Column(c).Fill().Grow(1).Gap(10).Children(func() {
 		settingsLead(c, locales.KeymapHint())
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.SearchField(c, &a.settingsUI.keySearch).Placeholder(locales.KeymapSearchPlaceholder()).Grow(1)
-			if ui.Button(c, locales.KeymapResetAll()).Clicked() {
+			ui.SearchField(c, &st.keySearch).Label(locales.KeymapSearchPlaceholder()).Placeholder(locales.KeymapSearchPlaceholder()).Grow(1)
+			if modified > 0 {
+				ui.Text(c, locales.KeymapModified(modified)).FontSize(12).TextColor(tMuted(c)).Shrink(0)
+			}
+			if ui.Button(c.Key("km-reset-all"), locales.KeymapResetAll()).Disabled(modified == 0).Clicked() {
 				a.confirmResetPage(pageKeymap)
 			}
 		})
 
 		ui.Scroll(c).Fill().Grow(1).ScrollbarInsets(0, 12, 0, 0).Children(func() {
-			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Gap(12).Children(func() {
+			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Gap(2).Children(func() {
 				for _, groupID := range keymapGroupIDs {
-					items := a.keymapGroupItems(groupID)
+					items := a.keymapGroupItems(groupID, query)
 					if len(items) == 0 {
 						continue
 					}
 					settingsSectionTitle(c, keymapGroupName(groupID))
-					ui.Column(c).FillWidth().Gap(6).Children(func() {
-						for _, def := range items {
-							a.keymapRow(c, def)
-						}
-					})
+					for _, def := range items {
+						a.keymapRow(c, def)
+					}
 				}
-				settingsSectionTitle(c, locales.KeymapFixedTitle())
-				ui.Text(c, shortcutText(locales.KeymapFixedHint())).
-					FontSize(12).TextColor(tMuted(c))
+				keymapFixedRows(c, query)
 			})
 		})
 
-		if a.settingsUI.keyErr != "" {
-			ui.Text(c, a.settingsUI.keyErr).FontSize(12).TextColor(t.Danger)
+		if st.keyErr != "" && st.keyErrID == "" {
+			ui.Text(c, st.keyErr).FontSize(12).TextColor(t.Danger)
 		}
 		if a.noticeHotkey != "" {
 			ui.Text(c, a.noticeHotkey).FontSize(12).TextColor(t.Warning)
@@ -119,15 +127,25 @@ func (a *app) keymapPage(c *ui.Context, t *ui.Theme, dark bool) {
 	})
 }
 
-// keymapGroupItems 按组返回命令（应用搜索过滤）。
-func (a *app) keymapGroupItems(group string) []commandDef {
-	query := strings.ToLower(strings.TrimSpace(a.settingsUI.keySearch))
+// keymapModifiedCount 偏离默认键的可改键命令数（含解除绑定）。
+func (a *app) keymapModifiedCount() int {
+	n := 0
+	for _, def := range commandRegistry {
+		if _, ok := a.prefs.Keymap.Overrides[def.id]; ok {
+			n++
+		}
+	}
+	return n
+}
+
+// keymapGroupItems 按组返回命令；query 同时匹配命令名与当前快捷键文字。
+func (a *app) keymapGroupItems(group, query string) []commandDef {
 	var out []commandDef
 	for _, def := range commandRegistry {
 		if def.group != group {
 			continue
 		}
-		if query != "" && !strings.Contains(strings.ToLower(commandDisplayName(def)), query) {
+		if query != "" && !keymapMatches(query, commandDisplayName(def), a.bindingDisplay(def.id)) {
 			continue
 		}
 		out = append(out, def)
@@ -135,66 +153,262 @@ func (a *app) keymapGroupItems(group string) []commandDef {
 	return out
 }
 
-// keymapRow 一条命令：名称 + 当前绑定 + 录制/解除/恢复默认。
+func keymapMatches(query string, texts ...string) bool {
+	for _, s := range texts {
+		if strings.Contains(strings.ToLower(s), query) {
+			return true
+		}
+	}
+	return false
+}
+
+// bindingDisplay 命令当前快捷键的显示文字；未绑定为空串。
+func (a *app) bindingDisplay(id string) string {
+	if b, ok := a.parsedCommandBinding(id); ok {
+		return b.displayName()
+	}
+	return ""
+}
+
+// keymapRow 一条命令：改过的行首有圆点；点击右侧快捷键开始录制；
+// 改过时常显「恢复默认」，悬停时出现「解除」。冲突与错误显示在行下方。
 func (a *app) keymapRow(c *ui.Context, def commandDef) {
-	acc := a.commandBinding(def.id)
-	b, _ := parseAccelerator(acc)
-	display := locales.KeymapUnbound()
-	if acc != "" {
-		display = b.displayName()
-	}
-	if a.settingsUI.recording == def.id {
-		// 录制态：焦点捕获框，Esc 取消，屏蔽应用命令。
-		box := ui.Box(c.Key("record-" + def.id)).FillWidth().Height(32).Radius(6).
-			Background(c.Theme().Accent.Mix(c.Theme().Background, 0.9)).
-			BorderWidth(1.5).BorderColor(c.Theme().Accent).
-			Focusable().AutoFocus().FocusRing(true).
-			Label(locales.KeymapRecord()).
-			AlignItems(ui.Center).Justify(ui.Center).
-			HandleInput(func(ev ui.InputEvent) bool {
-				return a.captureKeymapKey(def, ev)
-			}).Children(func() {
-			ui.Text(c, locales.KeymapRecording()).TextColor(c.Theme().Accent).Bold()
-		})
-		if !box.Focused() {
-			// 焦点被抢走（点击其他控件或空白处）：取消录制并恢复菜单与
-			// 全局热键，避免录制态卡在失焦状态（Esc 已送达不了捕获框）。
-			a.setKeymapRecording("")
+	st := &a.settingsUI
+	b, bound := a.parsedCommandBinding(def.id)
+	_, overridden := a.prefs.Keymap.Overrides[def.id]
+	recording := st.recording == def.id
+	ui.Column(c).FillWidth().Gap(4).Children(func() {
+		row := ui.Row(c.Key("km-row-"+def.id)).FillWidth().MinHeight(34).AlignItems(ui.Center).
+			Gap(6).Padding(2, 8).Radius(6)
+		hovered := row.Hovered()
+		if hovered || recording {
+			row.Background(c.Theme().Surface)
 		}
-		return
-	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
-		ui.Text(c, commandDisplayName(def)).Grow(1)
-		badge := ui.Box(c.Key("bind-"+def.id)).MinWidth(88).Padding(2, 8).Radius(5).
-			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Border).
-			AlignItems(ui.Center).Justify(ui.Center).
-			Label(locales.KeymapCurrent(display)).Children(func() {
-			ui.Text(c, display).FontSize(12)
-		})
-		_ = badge
-		if ui.Button(c.Key("rec-"+def.id), locales.KeymapChange()).Clicked() {
-			a.setKeymapRecording(def.id)
-			a.settingsUI.keyErr = ""
-		}
-		if acc != "" {
-			if ui.Button(c.Key("clear-"+def.id), locales.KeymapClear()).Clicked() {
-				if err := a.setCommandBinding(def.id, ""); err != nil {
-					a.settingsUI.keyErr = err.Error()
-				}
+		row.Children(func() {
+			dot := ui.Box(c).Width(6).Height(6).Radius(3).Shrink(0)
+			if overridden {
+				dot.Background(c.Theme().Accent)
 			}
-		}
-		if over, ok := a.prefs.Keymap.Overrides[def.id]; ok {
-			_ = over
-			if ui.Button(c.Key("reset-"+def.id), locales.KeymapResetOne()).Clicked() {
-				if err := a.resetCommandBinding(def.id); err != nil {
-					a.settingsUI.keyErr = err.Error()
-				}
+			ui.Text(c, commandDisplayName(def)).Grow(1)
+			if recording {
+				a.keymapRecorder(c, def)
+				return
 			}
+			ui.Box(c).Width(24).Height(24).Shrink(0).Children(func() {
+				if overridden {
+					keymapIconButton(c, "km-reset-"+def.id, iconRotateCCW, locales.KeymapResetOne(), func() { a.resetKeymapRow(def) })
+				}
+			})
+			ui.Box(c).Width(24).Height(24).Shrink(0).Children(func() {
+				if bound && hovered {
+					keymapIconButton(c, "km-clear-"+def.id, iconX, locales.KeymapClear(), func() {
+						st.keyConflict, st.keyErr, st.keyErrID = keymapConflict{}, "", ""
+						if err := a.setCommandBinding(def.id, ""); err != nil {
+							st.keyErr, st.keyErrID = err.Error(), def.id
+						}
+					})
+				}
+			})
+			a.keymapBadge(c, def, b, bound)
+		})
+		if cf := st.keyConflict; cf.id == def.id {
+			a.keymapConflictPanel(c, cf)
+		}
+		if st.keyErrID == def.id && st.keyErr != "" {
+			ui.Text(c, st.keyErr).FontSize(12).TextColor(c.Theme().Danger).Padding(0, 22)
 		}
 	})
 }
 
-// captureKeymapKey 录键：Esc 取消；合法组合经统一校验后写入。
+// keymapBadge 当前快捷键：每个修饰键与主键一枚键帽，整体可点击进入录制。
+func (a *app) keymapBadge(c *ui.Context, def commandDef, b keyBinding, bound bool) {
+	st := &a.settingsUI
+	display := locales.KeymapUnbound()
+	if bound {
+		display = b.displayName()
+	}
+	btn := ui.ButtonBase(c.Key("km-bind-"+def.id)).Label(locales.KeymapChangeFor(commandDisplayName(def), display)).
+		MinWidth(96).Height(26).Padding(0, 6).Radius(6).Gap(3).Shrink(0).
+		AlignItems(ui.Center).Justify(ui.End).Cursor(ui.CursorPointer).FocusRing(true)
+	if btn.Hovered() {
+		btn.Background(c.Theme().Background).BorderWidth(1).BorderColor(c.Theme().Border)
+	}
+	btn.Children(func() {
+		if !bound {
+			ui.Text(c, locales.KeymapClickToSet()).FontSize(12).TextColor(tMuted(c))
+			return
+		}
+		keymapCaps(c, b, false)
+	})
+	btn.OnClick(func() {
+		st.keyConflict, st.keyErr, st.keyErrID = keymapConflict{}, "", ""
+		a.setKeymapRecording(def.id)
+	})
+}
+
+// keymapCaps 按平台顺序把组合键拆成键帽。
+func keymapCaps(c *ui.Context, b keyBinding, muted bool) {
+	for _, part := range bindingCaps(b, runtime.GOOS) {
+		keycap := ui.Box(c).MinWidth(20).Height(20).Padding(0, 5).Radius(4).
+			Background(c.Theme().Surface).BorderWidth(1).BorderColor(c.Theme().Border).
+			AlignItems(ui.Center).Justify(ui.Center).Shrink(0)
+		keycap.Children(func() {
+			text := ui.Text(c, part).FontSize(12)
+			if muted {
+				text.TextColor(tMuted(c))
+			}
+		})
+	}
+}
+
+// bindingCaps 组合键的键帽文字，顺序与 displayNameForPlatform 一致。
+func bindingCaps(b keyBinding, goos string) []string {
+	var out []string
+	if goos == "darwin" {
+		for _, m := range []struct {
+			mod ui.Modifiers
+			cap string
+		}{{ui.Super, "⌘"}, {ui.Ctrl, "⌃"}, {ui.Alt, "⌥"}, {ui.Shift, "⇧"}} {
+			if b.mods&m.mod != 0 {
+				out = append(out, m.cap)
+			}
+		}
+		return append(out, displayKeyName(b.key))
+	}
+	for _, m := range []struct {
+		mod ui.Modifiers
+		cap string
+	}{{ui.Super, "Win"}, {ui.Ctrl, "Ctrl"}, {ui.Alt, "Alt"}, {ui.Shift, "Shift"}} {
+		if b.mods&m.mod != 0 {
+			out = append(out, m.cap)
+		}
+	}
+	return append(out, displayKeyNameForPlatform(b.key, goos))
+}
+
+func keymapIconButton(c *ui.Context, key string, icon *ui.SVG, label string, onClick func()) {
+	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).Size(24, 24).Radius(5).
+		AlignItems(ui.Center).Justify(ui.Center).Cursor(ui.CursorPointer)
+	if btn.Hovered() {
+		btn.Background(c.Theme().Border.Mix(c.Theme().Background, 0.5))
+	}
+	btn.Children(func() {
+		ui.Icon(c, icon).Size(13, 13).TextColor(tMuted(c))
+	})
+	btn.OnClick(onClick)
+}
+
+// keymapRecorder 录制态：原快捷键位置换成焦点捕获框，Esc 取消，失焦也取消。
+func (a *app) keymapRecorder(c *ui.Context, def commandDef) {
+	box := ui.Box(c.Key("record-" + def.id)).Width(168).Height(26).Radius(6).Shrink(0).
+		Background(c.Theme().Accent.Mix(c.Theme().Background, 0.9)).
+		BorderWidth(1.5).BorderColor(c.Theme().Accent).
+		Focusable().AutoFocus().FocusRing(false).
+		Label(locales.KeymapRecord()).
+		AlignItems(ui.Center).Justify(ui.Center).
+		HandleInput(func(ev ui.InputEvent) bool {
+			return a.captureKeymapKey(def, ev)
+		}).Children(func() {
+		ui.Text(c, locales.KeymapRecording()).FontSize(12).TextColor(c.Theme().Accent).Bold()
+	})
+	if !box.Focused() {
+		// 焦点被抢走（点击其他控件或空白处）：取消录制并恢复菜单与
+		// 全局热键，避免录制态卡在失焦状态（Esc 已送达不了捕获框）。
+		a.setKeymapRecording("")
+	}
+}
+
+// keymapConflictPanel 行下方的冲突提示：改用到这里会在同一次写入里解除对方。
+func (a *app) keymapConflictPanel(c *ui.Context, cf keymapConflict) {
+	st := &a.settingsUI
+	other, _ := commandDefByID(cf.other)
+	b, _ := parseAccelerator(cf.acc)
+	t := c.Theme()
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Padding(6, 10).Radius(7).
+		Background(t.Warning.Mix(t.Background, 0.88)).BorderWidth(1).BorderColor(t.Warning.Mix(t.Background, 0.6)).
+		Children(func() {
+			ui.Text(c, locales.KeymapInUse(b.displayName(), commandDisplayName(other))).FontSize(12).Grow(1)
+			if ui.Button(c.Key("km-steal-"+cf.id), locales.KeymapUseHere(commandDisplayName(other))).Clicked() {
+				st.keyConflict = keymapConflict{}
+				if err := a.reassignCommandBinding(cf.id, cf.acc, cf.other); err != nil {
+					st.keyErr, st.keyErrID = err.Error(), cf.id
+				}
+			}
+			if ui.Button(c.Key("km-steal-cancel-"+cf.id), locales.CommonCancel()).Clicked() {
+				st.keyConflict = keymapConflict{}
+			}
+		})
+}
+
+// resetKeymapRow 恢复单项默认；默认键已被别的命令占用时就地询问。
+func (a *app) resetKeymapRow(def commandDef) {
+	st := &a.settingsUI
+	st.keyConflict, st.keyErr, st.keyErrID = keymapConflict{}, "", ""
+	acc := defBindingOf(def.id)
+	if b, err := parseAccelerator(acc); acc != "" && err == nil {
+		if other, ok := a.commandUsingBinding(def.id, b); ok {
+			st.keyConflict = keymapConflict{id: def.id, acc: acc, other: other.id}
+			return
+		}
+	}
+	if err := a.resetCommandBinding(def.id); err != nil {
+		st.keyErr, st.keyErrID = err.Error(), def.id
+	}
+}
+
+// keymapFixedRows 不能改的快捷键，作为灰色只读行列在最后，搜索同样生效；
+// 切换到第 1–9 个标签合成一行。
+func keymapFixedRows(c *ui.Context, query string) {
+	type fixedRow struct {
+		name     string
+		bindings []keyBinding
+	}
+	var rows []fixedRow
+	var tabs []keyBinding
+	for _, f := range fixedBindingsForPlatform(runtime.GOOS) {
+		b, err := parseAccelerator(f.acc)
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(f.key, "tab") && len(f.key) == 4 {
+			tabs = append(tabs, b)
+			continue
+		}
+		rows = append(rows, fixedRow{name: fixedBindingName(f.key), bindings: []keyBinding{b}})
+	}
+	if len(tabs) > 0 {
+		rows = append([]fixedRow{{name: locales.FixedSwitchTabs(), bindings: []keyBinding{tabs[0], tabs[len(tabs)-1]}}}, rows...)
+	}
+	shown := rows[:0]
+	for _, r := range rows {
+		display := ""
+		for _, b := range r.bindings {
+			display += b.displayName() + " "
+		}
+		if query == "" || keymapMatches(query, r.name, display) {
+			shown = append(shown, r)
+		}
+	}
+	if len(shown) == 0 {
+		return
+	}
+	settingsSectionTitle(c, locales.KeymapFixedTitle())
+	for _, r := range shown {
+		ui.Row(c).FillWidth().MinHeight(30).AlignItems(ui.Center).Gap(6).Padding(2, 14, 2, 8).Children(func() {
+			ui.Icon(c, iconLock).Size(12, 12).TextColor(tMuted(c)).Shrink(0)
+			ui.Text(c, r.name).TextColor(tMuted(c)).Grow(1)
+			for i, b := range r.bindings {
+				if i > 0 {
+					ui.Text(c, "–").TextColor(tMuted(c))
+				}
+				keymapCaps(c, b, true)
+			}
+		})
+	}
+}
+
+// captureKeymapKey 录键：Esc 取消；被其他命令占用时退出录制并就地询问；
+// 非法组合留在录制态并在行下方提示原因，可直接重按。
 func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 	if ev.Kind != ui.InputKeyDown {
 		return true // 吞掉其他事件，屏蔽应用命令
@@ -206,12 +420,20 @@ func (a *app) captureKeymapKey(def commandDef, ev ui.InputEvent) bool {
 	if ev.Key == ui.KeyUnknown {
 		return true // 仅修饰键按下：等待完整组合
 	}
+	st := &a.settingsUI
 	b := keyBindingFromInput(ev.Mods, ev.Key, runtime.GOOS)
 	acc := b.accelerator()
+	st.keyConflict, st.keyErr, st.keyErrID = keymapConflict{}, "", ""
+	if validateBinding(b) == nil {
+		if other, ok := a.commandUsingBinding(def.id, b); ok {
+			st.keyConflict = keymapConflict{id: def.id, acc: acc, other: other.id}
+			a.setKeymapRecording("")
+			return true
+		}
+	}
 	if err := a.setCommandBinding(def.id, acc); err != nil {
-		a.settingsUI.keyErr = commandDisplayName(def) + "：" + err.Error()
-	} else {
-		a.settingsUI.keyErr = ""
+		st.keyErr, st.keyErrID = err.Error(), def.id
+		return true
 	}
 	a.setKeymapRecording("")
 	return true

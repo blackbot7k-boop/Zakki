@@ -67,10 +67,13 @@ type settingsUIState struct {
 	bodySizeDirty   bool
 	lineHeightDirty bool
 
-	// Keymap 页：搜索词、正在录制的命令 ID、冲突/非法提示。
-	keySearch string
-	recording string
-	keyErr    string
+	// Keymap 页：搜索词、正在录制的命令 ID、冲突/非法提示。keyErrID 非空时
+	// 提示显示在该命令行下方，否则在页面底部（其他页的写入错误也走 keyErr）。
+	keySearch   string
+	recording   string
+	keyErr      string
+	keyErrID    string
+	keyConflict keymapConflict
 
 	resetTarget string // 待确认的「恢复本页默认值」页面
 
@@ -88,7 +91,7 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.bodySizeDirty, ui.lineHeightDirty = false, false
 	ui.syncDraftBindings()
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
-	ui.keyErr = ""
+	ui.keyErr, ui.keyErrID, ui.keyConflict = "", "", keymapConflict{}
 	ui.gitProbeDir = ""
 }
 

@@ -52,7 +52,7 @@ func TestSettingsAppearanceControlsStartAtTop(t *testing.T) {
 
 func TestSettingsLayoutRender(t *testing.T) {
 	for _, size := range [][2]int{{900, 620}, {760, 520}} {
-		for _, page := range []string{pageGeneral, pageAppearance, pageBackup} {
+		for _, page := range []string{pageGeneral, pageAppearance, pageBackup, pageKeymap} {
 			a := newTestApp(t)
 			a.openSettings(page)
 			tt := ui.NewTester(a.settingsView, size[0], size[1])
