@@ -462,3 +462,62 @@ func TestStoreGitEndToEndCommitAndPush(t *testing.T) {
 		t.Fatalf("推送后远端应与本地一致: local=%s remote=%s", local, remoteHead)
 	}
 }
+
+// TestGitToolsReady macOS 的 /usr/bin/git 垫片只在开发者目录里真有 git 时可用；
+// 其他路径（Homebrew 等）与其他平台直接视为可用，不做额外探测。
+func TestGitToolsReady(t *testing.T) {
+	noDir := func() (string, error) { return "", errors.New("unable to get active developer directory") }
+	cltDir := func() (string, error) { return "/Library/Developer/CommandLineTools", nil }
+	has := func(want string) func(string) bool { return func(p string) bool { return p == want } }
+	cases := []struct {
+		name, goos, path string
+		dir              func() (string, error)
+		exists           func(string) bool
+		want             bool
+	}{
+		{"mac 垫片未装工具", "darwin", macGitShim, noDir, has(""), false},
+		{"mac 垫片开发者目录缺 git", "darwin", macGitShim, cltDir, has(""), false},
+		{"mac 垫片已装工具", "darwin", macGitShim, cltDir, has("/Library/Developer/CommandLineTools/usr/bin/git"), true},
+		{"mac Homebrew git", "darwin", "/opt/homebrew/bin/git", noDir, has(""), true},
+		{"windows", "windows", `C:\Program Files\Git\cmd\git.exe`, noDir, has(""), true},
+	}
+	for _, tc := range cases {
+		if got := gitToolsReady(tc.goos, tc.path, tc.dir, tc.exists); got != tc.want {
+			t.Errorf("%s: gitToolsReady = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestStoreGitMissingToolsIsSilent 本机没有 git 命令行工具：备份照常成功，
+// 不记失败、不推送，只标记 GitMissing；装好后下一次备份自动恢复。
+func TestStoreGitMissingToolsIsSilent(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := newGitTestStore(t, repo)
+	missing := true
+	g := &fakeGit{}
+	s.RunGit = func(dir string, args ...string) (string, error) {
+		if missing {
+			return "", ErrGitUnavailable
+		}
+		return g.run(dir, args...)
+	}
+	s.SetGitAutoPush(true, time.Minute)
+	if err := s.BackupNow(20); err != nil {
+		t.Fatalf("缺 git 不得影响备份: %v", err)
+	}
+	s.WaitGitIdle()
+	if !s.GitMissing() || s.GitError() != "" {
+		t.Fatalf("缺 git 应静默标记: missing=%v err=%q", s.GitMissing(), s.GitError())
+	}
+	missing = false
+	if err := s.BackupNow(20); err != nil {
+		t.Fatal(err)
+	}
+	s.WaitGitIdle()
+	if s.GitMissing() || g.count("push") != 1 {
+		t.Fatalf("装好 git 后应恢复: missing=%v push=%d", s.GitMissing(), g.count("push"))
+	}
+}

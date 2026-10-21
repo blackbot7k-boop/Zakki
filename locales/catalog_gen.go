@@ -4068,6 +4068,16 @@ func (msgs Messages) GitStatusFailed(err string) string {
 	return Catalog.Format(msgs.locale, "gitStatusFailed", map[string]any{"err": err})
 }
 
+// GitToolsMissing says "Git command-line tools not found; automatic commits are skipped"
+// in the language the app shows.
+func GitToolsMissing() string { return In(i18n.Locale()).GitToolsMissing() }
+
+// GitToolsMissing says "Git command-line tools not found; automatic commits are skipped"
+// in the language of msgs.
+func (msgs Messages) GitToolsMissing() string {
+	return Catalog.Format(msgs.locale, "gitToolsMissing", nil)
+}
+
 // FontCacheUnavailable says "Font cache unavailable: {fonts}"
 // in the language the app shows.
 func FontCacheUnavailable(fonts string) string { return In(i18n.Locale()).FontCacheUnavailable(fonts) }

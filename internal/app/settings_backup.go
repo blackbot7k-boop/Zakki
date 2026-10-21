@@ -103,8 +103,12 @@ func (a *app) gitBackupSection(c *ui.Context) {
 	}
 }
 
-// gitStatusText Git 自动化状态行：最近提交/推送时间，有失败时附原因。
+// gitStatusText Git 自动化状态行：最近提交/推送时间，有失败时附原因；本机
+// 没有 git 命令行工具时只给一句说明（自动化静默跳过）。
 func (a *app) gitStatusText() string {
+	if a.notes.GitMissing() {
+		return locales.GitToolsMissing()
+	}
 	commit, push := a.notes.GitCommitTime(), a.notes.GitPushTime()
 	errText := a.notes.GitError()
 	var parts []string

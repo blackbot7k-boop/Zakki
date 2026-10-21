@@ -444,6 +444,7 @@
   "gitStatusCommit": "Committed {time}",
   "gitStatusPush": "Pushed {time}",
   "gitStatusFailed": "Failed: {err}",
+  "gitToolsMissing": "Git command-line tools not found; automatic commits are skipped",
   "@gitStatusCommit": {
     "description": "time is 01-02 15:04"
   },

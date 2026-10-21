@@ -260,21 +260,21 @@ func TestPreferencesMigrateSingleBackupFolder(t *testing.T) {
 }
 
 // TestPreferencesMigrateGitAutomation 版本 9 起备份文件夹支持 Git 自动化：
-// 旧文件从未写过这两个键，迁移补 gitAutoPush = true 与默认推送间隔；
-// 显式关闭只存在于版本 9 及以后的文件，原样保留。
+// 旧文件从未写过这两个键，迁移补默认（关、默认推送间隔），不替用户开启推送；
+// 版本 9 文件的显式值原样保留。
 func TestPreferencesMigrateGitAutomation(t *testing.T) {
-	// v8 文件缺 Git 键：迁移后开启，间隔补默认。
+	// v8 文件缺 Git 键：迁移后保持关闭，间隔补默认。
 	v8, err := Decode([]byte(`{"version":8,"backup":{"backupDir":"/tmp/repo"}}`), testAccel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v8.Version != CurrentVersion || !v8.Backup.GitAutoPush {
-		t.Fatalf("旧文件迁移后 Git 自动化应默认开启: %+v 版本 %d", v8.Backup, v8.Version)
+	if v8.Version != CurrentVersion || v8.Backup.GitAutoPush {
+		t.Fatalf("旧文件迁移后 Git 自动化应默认关闭: %+v 版本 %d", v8.Backup, v8.Version)
 	}
 	if v8.Backup.GitPushMinutes != defaultGitPushMinutes {
 		t.Fatalf("缺推送间隔应补默认 %d: %d", defaultGitPushMinutes, v8.Backup.GitPushMinutes)
 	}
-	// v9 文件显式关闭：原样保留，不受迁移影响。
+	// v9 文件显式开启或关闭：原样保留，不受迁移影响。
 	v9off, err := Decode([]byte(`{"version":9,"backup":{"gitAutoPush":false,"gitPushMinutes":30}}`), testAccel)
 	if err != nil {
 		t.Fatal(err)
@@ -282,8 +282,15 @@ func TestPreferencesMigrateGitAutomation(t *testing.T) {
 	if v9off.Backup.GitAutoPush || v9off.Backup.GitPushMinutes != 30 {
 		t.Fatalf("v9 显式值应原样保留: %+v", v9off.Backup)
 	}
-	// 全新安装默认开启且间隔为默认值。
-	if d := Default(5); !d.Backup.GitAutoPush || d.Backup.GitPushMinutes != defaultGitPushMinutes {
+	v9on, err := Decode([]byte(`{"version":9,"backup":{"gitAutoPush":true}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v9on.Backup.GitAutoPush {
+		t.Fatalf("v9 显式开启应原样保留: %+v", v9on.Backup)
+	}
+	// 全新安装默认关闭且间隔为默认值。
+	if d := Default(5); d.Backup.GitAutoPush || d.Backup.GitPushMinutes != defaultGitPushMinutes {
 		t.Fatalf("默认偏好 Git 键错误: %+v", d.Backup)
 	}
 	// 推送间隔超出 1–1440 拒绝。

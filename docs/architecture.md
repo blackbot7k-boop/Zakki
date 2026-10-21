@@ -29,7 +29,7 @@
 | `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型、`Store`（载入/防抖保存/备份/写保护/Git 自动化）；`store.go` 负责载入与备份直写单一目的地，`save.go` 负责笔记快照保存、防抖合并和退出保存，`backup_status.go` 负责最近备份时间的后台恢复，`git_backup.go` 负责备份文件夹的 Git 自动提交与推送（探测、提交路径规范、推送节流，runner 可注入）。数据版本 3：排版主题旧 ID 更名为 `note`（旧字面量见 `notes` 包常量），随载入迁移。 |
-| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，旧文件补默认开）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。 |
+| `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）、`MigrateLegacy`。偏好版本 4：主题 ID 更名（旧字面量见 `prefs` 包常量，映射为 `classic`/`note`）随 `migrate` 迁移；`appearance.language` 记录界面语言（空 = 跟随系统）。偏好版本 5：代码配色默认「柔和」。版本 7：`appearance.codeIndent` 记录代码块缩进档位（2 / 4 空格，默认 2），旧文件补默认。版本 9：`backup.gitAutoPush`（Git 自动化开关，默认关，旧文件迁移不替用户开启）与 `backup.gitPushMinutes`（推送最小间隔，默认 10）。 |
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置常规页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录一次性迁移（更名后的旧目录 → 新目录）：复制到 staging、校验后发布，数据/暂存/备份文件换新命名；旧目录是根符号链接时复制其目标内容并保留链接与目标，路径探测状态不确定时失败关闭；`resolveDataDir()` 内 `sync.Once` 保证每进程只跑一次。迁移失败保留源文件并把错误交给 `Run`，Store 不会构造；修复后由下一进程重试。开发运行（`mygo.IsDev`，即 `go tool mygo dev` / `go run`）改用 `Zakki Dev` 目录且不做迁移，正式目录留给安装版与本地 `make build` 产物。 |
 | `internal/app/live_markdown.go` / `internal/app/view_highlight.go` | 桥接 `internal/markdown`；源码高亮 `editorRanges`（依赖 `ui.TextRange`），用每 rune 一位的占用位图判交，保留搜索优先与重叠候选整段拒绝；代码内容行按外观「代码配色」方案套 `internal/codehl` 区间。 |
@@ -130,7 +130,7 @@
 
 备份文件夹探测到 `.git`（含 worktree 的文件形态，`notes.DirIsGitRepo`；设置页按文件夹缓存
 探测结果，切换文件夹或重新同步草稿时才重新 Stat）时，
-设置页展示 Git 自动化区块：总开关（`Backup.GitAutoPush`，默认开）与推送间隔
+设置页展示 Git 自动化区块：总开关（`Backup.GitAutoPush`，默认关）与推送间隔
 （`Backup.GitPushMinutes`，默认 10 分钟，1–1440）。普通文件夹不出现该区块。
 
 | 步骤 | 行为 |
@@ -138,7 +138,7 @@
 | 线程 | 备份写入后只在 `mu` 下登记一条 Git 请求（文件夹、备份名、文件夹代号），由 Store 内部单个后台 worker 执行；排队期间新请求覆盖旧请求（commit 的路径集合是整个备份命名空间，合并不丢变更），备份调用（含主线程的 ⌘S、删除前安全备份）不等 git。更换备份文件夹会递增代号并丢弃排队请求，旧文件夹的迟到结果不写入状态。退出不等待 git（推送可能长达超时上限），未完成的提交在下次备份时补上；`WaitGitIdle` 供测试等待 |
 | 提交（随备份） | 每次实际备份写入并修剪后，由 Git worker 把备份文件的变更 commit（`add -- <备份文件>` → `status --porcelain` 无变更则跳过 → `commit --only -m "backup: zakki-<时间戳>"`）；只提交本应用备份命名空间（含旧前缀与修剪产生的删除），不碰仓库里用户的其他文件 |
 | 推送（按间隔节流） | 距上次推送**尝试**超过 `Backup.GitPushMinutes` 才 `git push`；失败也计一次尝试，避免无网时每次备份硬撞；提交失败不推送，等下次备份重试 |
-| 实现 | 调系统 git CLI（`notes.DefaultGitRunner`，单条命令超时 1 分钟，超时后最多再等 5 秒回收子进程管道），以非交互方式运行（`GIT_TERMINAL_PROMPT=0`、`GCM_INTERACTIVE=never`：凭据缺失直接失败并上报，不挂起等输入），认证复用用户既有 ssh-agent/凭据配置；不做 pull/rebase/force push，远端分叉的推送失败如实记录 |
+| 实现 | 调系统 git CLI（`notes.DefaultGitRunner`，单条命令超时 1 分钟，超时后最多再等 5 秒回收子进程管道），找不到可直接运行的 git 时返回 `ErrGitUnavailable`：macOS 的 `/usr/bin/git` 只是垫片，未装命令行工具时运行会弹系统安装对话框，所以先经 `xcode-select -p` 确认开发者目录里有 git；不可用时静默跳过（不记失败，`GitMissing` 供设置页提示一句），装好后下一次备份自动恢复。以非交互方式运行（`GIT_TERMINAL_PROMPT=0`、`GCM_INTERACTIVE=never`：凭据缺失直接失败并上报，不挂起等输入），认证复用用户既有 ssh-agent/凭据配置；不做 pull/rebase/force push，远端分叉的推送失败如实记录 |
 | 状态 | 最近提交/推送时间与最近错误在 `Store` 内部锁下发布（`GitCommitTime`/`GitPushTime`/`GitError`），设置页卡片状态行展示；更换备份文件夹或关闭开关时状态作废/清错误 |
 
 ### 损坏隔离与恢复（`load` → `recoverFromBrokenFile`）

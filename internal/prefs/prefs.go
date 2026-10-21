@@ -26,7 +26,7 @@ import (
 // 旧文件从未写过该键，升级时统一补默认。
 // 版本 8 扩展既有字体键：支持 local:<真实家族名>，西文与代码字体另支持 fira；
 // 不新增 JSON 字段，不改默认字体或触发下载。
-// 版本 9 起备份文件夹支持 Git 自动化：backup.gitAutoPush（开关，默认开）与
+// 版本 9 起备份文件夹支持 Git 自动化：backup.gitAutoPush（开关，默认关）与
 // backup.gitPushMinutes（自动推送最小间隔，默认 10，1–1440）。旧文件从未写过
 // 这两个键，迁移时统一补默认；无破坏性变更。
 const CurrentVersion = 9
@@ -114,7 +114,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			CodeIndent:     "space2",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
-		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitAutoPush: true, GitPushMinutes: defaultGitPushMinutes},
+		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitAutoPush: false, GitPushMinutes: defaultGitPushMinutes},
 		Keymap: Keymap{Overrides: map[string]string{}},
 		Advanced: Advanced{
 			AutosaveDelayMS: 800,
@@ -299,9 +299,8 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 // backupDir 键更名发生在严格解码前（见 Decode），这里只承载版本号提升。
 // 版本 7 给从未写过 codeIndent 的旧文件补默认 2 空格。
 // 版本 8 仅扩展字体键取值，保留字体值与此前迁移行为。
-// 版本 9 给从未写过 Git 键的旧文件补 gitAutoPush = true：备份文件夹若是
-// git 仓库，升级后默认恢复自动提交（0.3.6 的 gitMode 用户回到开启状态）。
-// 显式关闭只存在于版本 9 及以后的文件，不受此迁移影响。
+// 版本 9 的 Git 键由默认值补齐（gitAutoPush 关、间隔 10 分钟）：自动推送会把
+// 笔记送到远端，只能由用户在设置页显式开启，迁移不替用户打开。
 func migrate(p Preferences) Preferences {
 	if p.Version < 2 {
 		p.Appearance.LatinFont = ""
@@ -322,10 +321,6 @@ func migrate(p Preferences) Preferences {
 	if p.Version < 7 && p.Appearance.CodeIndent == "" {
 		// 版本 6 及更早的写入方从未写过 codeIndent 键，升级时补默认 2 空格。
 		p.Appearance.CodeIndent = "space2"
-	}
-	if p.Version < 9 && !p.Backup.GitAutoPush {
-		// 版本 8 及更早的写入方从未写过 gitAutoPush 键，缺省即开启。
-		p.Backup.GitAutoPush = true
 	}
 	p.Version = CurrentVersion
 	return p

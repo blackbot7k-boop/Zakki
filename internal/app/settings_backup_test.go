@@ -41,6 +41,14 @@ func TestBackupPageGitSectionOnlyForRepo(t *testing.T) {
 	if !tt.HasText("Git 仓库") || !tt.HasText("自动提交与推送") {
 		t.Fatalf("仓库文件夹应出现 Git 区块: %v", tt.Texts())
 	}
+	// 自动推送默认关闭：只显示开关，打开后才出现推送间隔。
+	if tt.HasText("推送间隔（分钟）") {
+		t.Fatalf("默认关闭时不应显示推送间隔: %v", tt.Texts())
+	}
+	if err := a.updatePreferences(func(p *preferences) { p.Backup.GitAutoPush = true }); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if !tt.HasText("推送间隔（分钟）") {
 		t.Fatalf("开关开启时应显示推送间隔: %v", tt.Texts())
 	}
@@ -52,7 +60,7 @@ func TestBackupPageGitDraftAppliesWithValidation(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir = repo }); err != nil {
+	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir, p.Backup.GitAutoPush = repo, true }); err != nil {
 		t.Fatal(err)
 	}
 	// 与真实打开设置页一致：先同步草稿，draftReady 后 merge 才生效。
@@ -81,7 +89,7 @@ func TestBackupPageGitStatusLine(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir = repo }); err != nil {
+	if err := a.updatePreferences(func(p *preferences) { p.Backup.BackupDir, p.Backup.GitAutoPush = repo, true }); err != nil {
 		t.Fatal(err)
 	}
 	// 备份建立在已保存的数据文件上（生产环境由启动/首存写入）。

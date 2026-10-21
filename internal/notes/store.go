@@ -61,6 +61,8 @@ type Store struct {
 	lastGitPush     time.Time
 	lastPushAttempt time.Time
 	gitErr          string
+	// gitMissing 最近一次 git 步骤发现本机没有 git 命令行工具（静默跳过）。
+	gitMissing bool
 	// git worker 不持 backupMu：备份入口可能在主线程，git 命令（含网络推送）
 	// 不能让它等。worker 只保留最新一次排队请求；gitGen 随备份文件夹变更递增，
 	// 旧文件夹的结果不再发布。gitDone 在 worker 退出时关闭。
@@ -106,6 +108,7 @@ func (s *Store) SetBackupDir(dir string) {
 	s.mu.Lock()
 	if dir != s.backupDir {
 		s.lastGitCommit, s.lastGitPush, s.lastPushAttempt, s.gitErr = time.Time{}, time.Time{}, time.Time{}, ""
+		s.gitMissing = false
 		s.gitGen++
 		s.gitQueued = nil
 	}
@@ -122,6 +125,13 @@ func (s *Store) SetGitAutoPush(enabled bool, interval time.Duration) {
 	}
 	s.gitAutoPush, s.gitPushInterval = enabled, interval
 	s.mu.Unlock()
+}
+
+// GitMissing 报告最近一次 git 步骤是否因本机没有 git 命令行工具而跳过。
+func (s *Store) GitMissing() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.gitMissing
 }
 
 // GitCommitTime 最近一次自动提交时间（零值表示尚未提交过）。
@@ -410,6 +420,12 @@ func (s *Store) runGitBackupStep(req gitRequest) {
 		s.mu.Unlock()
 		return
 	}
+	s.gitMissing = errors.Is(err, ErrGitUnavailable)
+	if s.gitMissing {
+		s.gitErr = ""
+		s.mu.Unlock()
+		return
+	}
 	if err != nil {
 		s.gitErr = err.Error()
 	} else {
@@ -441,6 +457,9 @@ func (s *Store) runGitBackupStep(req gitRequest) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.gitGen != req.gen {
+		return
+	}
+	if s.gitMissing = errors.Is(err, ErrGitUnavailable); s.gitMissing {
 		return
 	}
 	if err != nil {

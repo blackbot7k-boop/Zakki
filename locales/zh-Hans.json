@@ -397,6 +397,7 @@
   "gitStatusCommit": "提交于 {time}",
   "gitStatusPush": "推送于 {time}",
   "gitStatusFailed": "失败：{err}",
+  "gitToolsMissing": "未检测到 git 命令行工具，已跳过自动提交",
   "fontCacheUnavailable": "字体缓存不可用：{fonts}",
   "fontUnavailable": "字体不可用：{font}",
   "fontPrepareFailed": "未能完成字体准备，请重试或改用系统字体。",
