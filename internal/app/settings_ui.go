@@ -90,7 +90,7 @@ func (a *app) languageRow(c *ui.Context) {
 		displays[i] = o.display
 	}
 	settingsRow(c, locales.LanguageRow(), locales.LanguageRowHint(), func() {
-		if ui.Select(c, &a.settingsUI.languageSel, displays).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.languageSel, displays).Width(200).Changed() {
 			tag := languageTagOfDisplay(a.settingsUI.languageSel)
 			a.settingsUI.draft.Appearance.Language = tag
 			_ = a.updatePreferences(func(p *preferences) { p.Appearance.Language = tag })
@@ -192,7 +192,7 @@ func (a *app) presetSketchRow(c *ui.Context) {
 func (a *app) appearanceModeSelect(c *ui.Context) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.AppearanceLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.appearanceModeSel, []string{locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()}).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.AppearanceMode = appearanceModeKey(a.settingsUI.appearanceModeSel)
 			a.pushAppearance()
 		}
@@ -206,7 +206,7 @@ func (a *app) colorThemeSelect(c *ui.Context) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.ColorThemeLabel()).Grow(1)
 		ui.Box(c).Width(44).Shrink(0).Children(func() { miniMock(c, pal) })
-		if ui.Select(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.colorThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.ColorTheme = colorThemeIDOfDisplay(a.settingsUI.colorThemeSel)
 			a.pushAppearance()
 		}
@@ -324,7 +324,7 @@ func (a *app) markdownThemeSelect(c *ui.Context) {
 	}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.LayoutThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.markdownThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.MarkdownTheme = markdownThemeKey(a.settingsUI.markdownThemeSel)
 			a.pushAppearance()
 		}
@@ -338,7 +338,7 @@ func (a *app) codeThemeSelect(c *ui.Context) {
 	options := []string{locales.CodeThemeNone(), locales.CodeThemeSoft(), locales.CodeThemeVivid(), locales.CodeThemeClaude(), locales.CodeThemeQoder()}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.CodeThemeLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.codeThemeSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeTheme = codeThemeKey(a.settingsUI.codeThemeSel)
 			a.pushAppearance()
 		}
@@ -350,7 +350,7 @@ func (a *app) codeIndentSelect(c *ui.Context) {
 	options := []string{locales.CodeIndent2(), locales.CodeIndent4()}
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).PaddingY(14).Children(func() {
 		ui.Text(c, locales.CodeIndentLabel()).Grow(1)
-		if ui.Select(c, &a.settingsUI.codeIndentSel, options).Width(200).Changed() {
+		if boundedSelect(c, &a.settingsUI.codeIndentSel, options).Width(200).Changed() {
 			a.settingsUI.draft.Appearance.CodeIndent = codeIndentKey(a.settingsUI.codeIndentSel)
 			a.pushAppearance()
 		}
@@ -467,7 +467,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontChineseHint()).FontSize(11).TextColor(tMuted(c))
 			})
 			options, keyOf := a.fontSelectSettings(0, a.settingsUI.draft.Appearance.BodyFont)
-			if ui.Select(c, &a.settingsUI.bodyFontSel, options).Width(200).Changed() {
+			if boundedSelect(c, &a.settingsUI.bodyFontSel, options).Width(200).Changed() {
 				a.applySettingsFont("bodyFont", keyOf[a.settingsUI.bodyFontSel])
 			}
 		})
@@ -477,7 +477,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontWesternHint()).FontSize(11).TextColor(tMuted(c))
 			})
 			options, keyOf := a.fontSelectSettings(1, a.settingsUI.draft.Appearance.LatinFont)
-			if ui.Select(c, &a.settingsUI.latinFontSel, options).Width(200).Changed() {
+			if boundedSelect(c, &a.settingsUI.latinFontSel, options).Width(200).Changed() {
 				a.applySettingsFont("latinFont", keyOf[a.settingsUI.latinFontSel])
 			}
 		})
@@ -487,7 +487,7 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				ui.Text(c, locales.FontCodeHint()).FontSize(11).TextColor(tMuted(c))
 			})
 			options, keyOf := a.fontSelectSettings(2, a.settingsUI.draft.Appearance.MonoFont)
-			if ui.Select(c, &a.settingsUI.monoFontSel, options).Width(200).Changed() {
+			if boundedSelect(c, &a.settingsUI.monoFontSel, options).Width(200).Changed() {
 				a.applySettingsFont("monoFont", keyOf[a.settingsUI.monoFontSel])
 			}
 		})
@@ -746,7 +746,7 @@ func (a *app) tabAppearanceSection(c *ui.Context) {
 			for i, o := range opts {
 				displays[i] = o.display
 			}
-			if ui.Select(c, &a.settingsUI.tabAnimSpeedSel, displays).Width(200).Changed() {
+			if boundedSelect(c, &a.settingsUI.tabAnimSpeedSel, displays).Width(200).Changed() {
 				a.cfg.TabAnimSpeed = tabAnimSpeedKey(a.settingsUI.tabAnimSpeedSel)
 				a.scheduleSave()
 			}
