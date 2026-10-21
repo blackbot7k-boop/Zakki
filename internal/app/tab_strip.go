@@ -448,7 +448,7 @@ func measuredTitleWidth(s string, limit float32, measure func(string) float32) f
 
 // ---- 标签右键菜单 ----
 
-// tabContextMenu 标签右键菜单：重命名与删除，动作与菜单栏/快捷键同一实现；
+// tabContextMenu 标签右键菜单：重命名、导出与删除，动作与菜单栏/快捷键同一实现；
 // 项尾展示当前平台的固定快捷键，删除前加分隔线（破坏性项独立成组）。
 // 只剩一个标签时禁用删除（至少保留一个）。
 // 动作记为待执行、帧末跑（Chosen 在选中后的下一帧报告），不在构建期改状态。
@@ -458,6 +458,7 @@ func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 		if b, ok := parsedFixedBinding("renameTab"); ok {
 			rename.Shortcut(b.mods, b.key)
 		}
+		export := m.Item(locales.MenuExportMarkdown())
 		m.Separator()
 		dele := m.Item(locales.MenuDeleteTab()).Disabled(len(a.tabs) <= 1)
 		if b, ok := parsedFixedBinding("deleteTab"); ok {
@@ -469,6 +470,9 @@ func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 		if dele.Chosen() {
 			a.menuDeletePending = a.tabs[i].ID
 		}
+		if export.Chosen() {
+			a.menuExportPending = a.tabs[i].ID
+		}
 	}
 }
 
@@ -476,8 +480,13 @@ func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 // 打开期间标签被删时静默丢弃。重命名前先切到该标签：重命名输入框画在
 // 当前标签的色条里，与双击标签的「先切换再重命名」同路径。
 func (a *app) runTabMenuPending(c *ui.Context) {
-	renamed, deleted := a.menuRenamePending, a.menuDeletePending
-	a.menuRenamePending, a.menuDeletePending = 0, 0
+	renamed, deleted, exported := a.menuRenamePending, a.menuDeletePending, a.menuExportPending
+	a.menuRenamePending, a.menuDeletePending, a.menuExportPending = 0, 0, 0
+	if exported != 0 {
+		if i := a.tabIndexByID(exported); i >= 0 {
+			a.exportTab(i)
+		}
+	}
 	if renamed != 0 {
 		if i := a.tabIndexByID(renamed); i >= 0 {
 			a.switchTab(i)

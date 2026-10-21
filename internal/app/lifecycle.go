@@ -422,6 +422,9 @@ func (a *app) createMenu() *mygo.Menu {
 			mygo.Separator(),
 			// 立即备份必须绕过节流：保存当前数据并无条件写一份备份。
 			{Label: locales.MenuBackupNow(), Accelerator: "CmdOrCtrl+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.backupNow() }},
+			{Label: locales.MenuExportMarkdown(), Click: func(*mygo.MenuItem, *mygo.Window) {
+				a.withWindow(func() { a.exportTab(a.active) })
+			}},
 			mygo.Separator(),
 			{Role: mygo.RoleClose, Label: locales.MenuCloseWindow()},
 		}},

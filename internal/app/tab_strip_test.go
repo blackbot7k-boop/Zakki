@@ -342,7 +342,7 @@ func TestTabContextMenuDeleteAndRename(t *testing.T) {
 	}
 	tt.Frame()
 	menu := strings.Join(tt.Menu(), ",")
-	for _, want := range []string{"重命名标签", "删除标签"} {
+	for _, want := range []string{"重命名标签", "导出为 Markdown…", "删除标签"} {
 		if !strings.Contains(menu, want) {
 			t.Fatalf("右键菜单缺 %q: %q", want, menu)
 		}

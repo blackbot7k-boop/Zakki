@@ -340,6 +340,26 @@ func (msgs Messages) DialogDeleteTabConfirm() string {
 	return Catalog.Format(msgs.locale, "dialogDeleteTabConfirm", nil)
 }
 
+// DialogExportTitle says "Export as Markdown"
+// in the language the app shows.
+func DialogExportTitle() string { return In(i18n.Locale()).DialogExportTitle() }
+
+// DialogExportTitle says "Export as Markdown"
+// in the language of msgs.
+func (msgs Messages) DialogExportTitle() string {
+	return Catalog.Format(msgs.locale, "dialogExportTitle", nil)
+}
+
+// DialogExportFailedTitle says "Export Failed"
+// in the language the app shows.
+func DialogExportFailedTitle() string { return In(i18n.Locale()).DialogExportFailedTitle() }
+
+// DialogExportFailedTitle says "Export Failed"
+// in the language of msgs.
+func (msgs Messages) DialogExportFailedTitle() string {
+	return Catalog.Format(msgs.locale, "dialogExportFailedTitle", nil)
+}
+
 // DialogReplaceAllTitle says "Replace in All Tabs"
 // in the language the app shows.
 func DialogReplaceAllTitle() string { return In(i18n.Locale()).DialogReplaceAllTitle() }
@@ -828,6 +848,16 @@ func MenuDeleteTab() string { return In(i18n.Locale()).MenuDeleteTab() }
 // in the language of msgs.
 func (msgs Messages) MenuDeleteTab() string {
 	return Catalog.Format(msgs.locale, "menuDeleteTab", nil)
+}
+
+// MenuExportMarkdown says "Export as Markdown…"
+// in the language the app shows.
+func MenuExportMarkdown() string { return In(i18n.Locale()).MenuExportMarkdown() }
+
+// MenuExportMarkdown says "Export as Markdown…"
+// in the language of msgs.
+func (msgs Messages) MenuExportMarkdown() string {
+	return Catalog.Format(msgs.locale, "menuExportMarkdown", nil)
 }
 
 // MenuBackupNow says "Back Up Now"
@@ -3358,6 +3388,16 @@ func NoticeRecoveredFromBackup(name string) string {
 // in the language of msgs.
 func (msgs Messages) NoticeRecoveredFromBackup(name string) string {
 	return Catalog.Format(msgs.locale, "noticeRecoveredFromBackup", map[string]any{"name": name})
+}
+
+// NoticeExported says "Exported {name}"
+// in the language the app shows.
+func NoticeExported(name string) string { return In(i18n.Locale()).NoticeExported(name) }
+
+// NoticeExported says "Exported {name}"
+// in the language of msgs.
+func (msgs Messages) NoticeExported(name string) string {
+	return Catalog.Format(msgs.locale, "noticeExported", map[string]any{"name": name})
 }
 
 // NoticeWriteProtected says "Data file is corrupt with no usable backup; new edits are staged in .pending — use “Write Back Data File” in th…"

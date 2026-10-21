@@ -38,6 +38,7 @@ type tabStripState struct {
 	// 报告，这里记下目标、帧末执行，避免构建期改标签集合。
 	menuRenamePending uint64
 	menuDeletePending uint64
+	menuExportPending uint64
 	animNow           func() time.Time
 }
 
