@@ -160,7 +160,6 @@
   "keymapChangeFor": "修改「{name}」的快捷键：{binding}",
   "keymapInUse": "{key} 已被「{other}」使用",
   "keymapUseHere": "改用到这里（解除「{other}」）",
-  "keymapClear": "解除",
   "keymapResetOne": "恢复默认",
   "keymapHotkeyInvalid": "全局热键无效：{err}",
   "keymapHotkeyFailed": "全局热键注册失败（可能被其他应用占用）：{err}",

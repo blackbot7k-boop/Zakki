@@ -1670,16 +1670,6 @@ func (msgs Messages) KeymapUseHere(other string) string {
 	return Catalog.Format(msgs.locale, "keymapUseHere", map[string]any{"other": other})
 }
 
-// KeymapClear says "Unbind"
-// in the language the app shows.
-func KeymapClear() string { return In(i18n.Locale()).KeymapClear() }
-
-// KeymapClear says "Unbind"
-// in the language of msgs.
-func (msgs Messages) KeymapClear() string {
-	return Catalog.Format(msgs.locale, "keymapClear", nil)
-}
-
 // KeymapResetOne says "Reset to Default"
 // in the language the app shows.
 func KeymapResetOne() string { return In(i18n.Locale()).KeymapResetOne() }

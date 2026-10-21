@@ -44,9 +44,8 @@ func (a *app) storagePage(c *ui.Context) {
 					_ = a.updatePreferences(func(p *preferences) { p.Storage.SaveIntervalMS = int(seconds * 1000) })
 				}
 			})
-			ui.Text(c, a.storageStatus()).FontSize(12).TextColor(tMuted(c))
-			ui.Row(c).FillWidth().Children(func() {
-				ui.Box(c).Grow(1)
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Text(c, a.storageStatus()).FontSize(12).TextColor(tMuted(c)).Grow(1)
 				if ui.Button(c, locales.MenuSave()).Clicked() {
 					a.saveCurrent()
 				}
@@ -107,8 +106,7 @@ func (a *app) storagePage(c *ui.Context) {
 					ui.Text(c, status.Error).FontSize(12).TextColor(c.Theme().Danger)
 				}
 			}
-			sectionDivider(c)
-			a.cardResetFooter(c, "storage", pageStorage)
+
 		})
 	})
 }

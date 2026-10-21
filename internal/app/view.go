@@ -146,7 +146,7 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	ui.Row(c).Height(headerHeight(bar)).Background(bg).Padding(0, padR, 0, padL).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		DragWindow().AlignItems(ui.Center).Children(func() {
-		chromeIcon(c, "close-window", iconCloseWindow, locales.CloseWindow(), t.TextMuted, chromeHover(t.TextMuted)).
+		chromeIcon(c, "close-window", iconCloseWindow, locales.CloseWindow(), t.TextMuted).
 			OnClick(func() {
 				if a.win != nil {
 					// 便签常驻：复用窗口与渲染资源，菜单关闭和退出仍真正关窗。
@@ -345,7 +345,7 @@ func (a *app) iconPin(c *ui.Context, t *ui.Theme, dark bool) {
 	if a.cfg.AlwaysOnTop {
 		svg, ink = iconPinFilled, style.accent
 	}
-	if chromeIcon(c, "pin-top", svg, locales.PinTop(), ink, chromeHover(t.TextMuted)).Clicked() {
+	if chromeIcon(c, "pin-top", svg, locales.PinTop(), ink).Clicked() {
 		a.withWindow(func() {
 			a.setAlwaysOnTop(!a.cfg.AlwaysOnTop)
 		})
@@ -361,22 +361,16 @@ func iconAction(c *ui.Context, key string, svg *ui.SVG, label string, t *ui.Them
 // chromeHit 是顶栏、底栏与查找条图标按钮的点击区边长；图形仍是 16。
 const chromeHit float32 = 24
 
-// chromeIcon 外框图标按钮：16pt 图形居中于 chromeHit 点击区，悬停铺浅底，
+// chromeIcon 外框图标按钮：16pt 图形居中于 chromeHit 点击区，无底色，
 // 名称同时作无障碍标签与悬停提示。开关类的选中态由调用方换实心图形表达。
-func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink, hover ui.Color) ui.Element {
+func chromeIcon(c *ui.Context, key string, svg *ui.SVG, label string, ink ui.Color) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).
 		Size(chromeHit, chromeHit).Radius(6).Cursor(ui.CursorPointer)
-	if btn.Hovered() {
-		btn.Background(hover)
-	}
 	btn.Children(func() {
 		ui.Icon(c, svg).Size(16, 16).TextColor(ink)
 	})
 	return btn
 }
-
-// chromeHover 图标悬停底色：取图标墨色的淡色，深浅主题与标签色下都可见。
-func chromeHover(ink ui.Color) ui.Color { return withAlpha(ink, 0.14) }
 
 // ---- 编辑器（源码模式） ----
 
@@ -505,7 +499,7 @@ func (a *app) iconStatusToggle(c *ui.Context, key string, svg, svgActive *ui.SVG
 	if on && svgActive != nil {
 		svg = svgActive
 	}
-	if chromeIcon(c, key, svg, label, ink, chromeHover(style.accent)).Clicked() {
+	if chromeIcon(c, key, svg, label, ink).Clicked() {
 		fn()
 	}
 }

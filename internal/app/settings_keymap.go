@@ -1,6 +1,6 @@
 package app
 
-// 快捷键页：名称搜索、按 Markdown/全局分组、按键录制、解除绑定、恢复单项、
+// 快捷键页：名称搜索、按 Markdown/全局分组、按键录制、恢复单项、
 // 恢复全部。录键期间屏蔽应用命令，并临时摘除应用菜单与全局热键（两者都
 // 先于窗口按键被消费，见 setKeymapRecording），Esc 取消；冲突与非法组合显示原因。
 // 全局热键变更先注册新键，成功后再注销旧键；失败保留旧绑定并提示。
@@ -170,12 +170,14 @@ func (a *app) bindingDisplay(id string) string {
 	return ""
 }
 
-// keymapRow 一条命令：改过的行首有圆点；点击右侧快捷键开始录制；
-// 改过时常显「恢复默认」，悬停时出现「解除」。冲突与错误显示在行下方。
+// keymapRow 一条命令：偏离默认绑定时行首有圆点并显示「恢复默认」，
+// 回到默认即消失。冲突与错误显示在行下方。
 func (a *app) keymapRow(c *ui.Context, def commandDef) {
 	st := &a.settingsUI
 	b, bound := a.parsedCommandBinding(def.id)
 	_, overridden := a.prefs.Keymap.Overrides[def.id]
+	// 只有当前绑定偏离平台默认时才提供「恢复默认」。
+	deviated := overridden && (!bound || b.acceleratorForPlatform(runtime.GOOS) != defaultBindingForPlatform(def, runtime.GOOS))
 	recording := st.recording == def.id
 	ui.Column(c).FillWidth().Gap(4).Children(func() {
 		row := ui.Row(c.Key("km-row-"+def.id)).FillWidth().MinHeight(34).AlignItems(ui.Center).
@@ -195,18 +197,8 @@ func (a *app) keymapRow(c *ui.Context, def commandDef) {
 				return
 			}
 			ui.Box(c).Width(24).Height(24).Shrink(0).Children(func() {
-				if overridden {
+				if deviated {
 					keymapIconButton(c, "km-reset-"+def.id, iconRotateCCW, locales.KeymapResetOne(), func() { a.resetKeymapRow(def) })
-				}
-			})
-			ui.Box(c).Width(24).Height(24).Shrink(0).Children(func() {
-				if bound && hovered {
-					keymapIconButton(c, "km-clear-"+def.id, iconX, locales.KeymapClear(), func() {
-						st.keyConflict, st.keyErr, st.keyErrID = keymapConflict{}, "", ""
-						if err := a.setCommandBinding(def.id, ""); err != nil {
-							st.keyErr, st.keyErrID = err.Error(), def.id
-						}
-					})
 				}
 			})
 			a.keymapBadge(c, def, b, bound)

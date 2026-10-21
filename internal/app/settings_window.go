@@ -357,9 +357,6 @@ func (a *app) resetPageDefaults(page string) {
 			p.Advanced.WindowColumns = defaults.Advanced.WindowColumns
 			p.Advanced.WindowRows = defaults.Advanced.WindowRows
 			p.Appearance = defaults.Appearance
-		case pageStorage:
-			p.Storage.SaveIntervalMS = defaults.Storage.SaveIntervalMS
-			p.Git = defaults.Git
 		case pageKeymap:
 			p.Keymap = defaults.Keymap
 		}

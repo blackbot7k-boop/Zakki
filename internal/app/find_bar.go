@@ -275,7 +275,7 @@ func (a *app) replaceAllTabsNow(query, with string) int {
 // ---- 查找条视图 ----
 
 func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
-	ink, hover := t.TextMuted, chromeHover(t.TextMuted)
+	ink := t.TextMuted
 	ui.Column(c).FillWidth().Background(a.chromeColor(headerBackground(dark), dark, c.Vibrancy())).
 		Padding(7, headerPadX, 7, headerPadX).Gap(6).
 		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
@@ -284,7 +284,7 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			if a.replaceOpen {
 				toggle = iconChevronDown
 			}
-			if chromeIcon(c, "find-replace-toggle", toggle, locales.FindReplaceToggle(), ink, hover).Clicked() {
+			if chromeIcon(c, "find-replace-toggle", toggle, locales.FindReplaceToggle(), ink).Clicked() {
 				a.replaceOpen = !a.replaceOpen
 				if a.replaceOpen {
 					a.findFocus = 2
@@ -295,17 +295,17 @@ func (a *app) findBar(c *ui.Context, t *ui.Theme, dark bool) {
 			if a.findAllTabs {
 				scopeInk = t.Accent
 			}
-			if chromeIcon(c, "find-all-tabs", iconLayers, locales.FindAllTabs(), scopeInk, hover).Clicked() {
+			if chromeIcon(c, "find-all-tabs", iconLayers, locales.FindAllTabs(), scopeInk).Clicked() {
 				a.findAllTabs = !a.findAllTabs
 				a.matchIdx = 0
 			}
-			if chromeIcon(c, "find-prev", iconChevronUp, locales.FindPrev(), ink, hover).Clicked() {
+			if chromeIcon(c, "find-prev", iconChevronUp, locales.FindPrev(), ink).Clicked() {
 				a.findStep(-1)
 			}
-			if chromeIcon(c, "find-next", iconChevronDown, locales.FindNext(), ink, hover).Clicked() {
+			if chromeIcon(c, "find-next", iconChevronDown, locales.FindNext(), ink).Clicked() {
 				a.findStep(1)
 			}
-			if chromeIcon(c, "find-close", iconX, locales.FindClose(), ink, hover).Clicked() {
+			if chromeIcon(c, "find-close", iconX, locales.FindClose(), ink).Clicked() {
 				a.closeFind()
 			}
 		})

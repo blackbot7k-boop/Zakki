@@ -3,7 +3,6 @@ package app
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
@@ -95,44 +94,6 @@ func TestStoragePageDraftAppliesWithValidation(t *testing.T) {
 	}
 	if a.notes.DataPath() != path {
 		t.Fatal("调整保存和 Git 参数不得改变数据路径")
-	}
-}
-
-func TestStoragePageResetPreservesDataFileAndOtherPages(t *testing.T) {
-	a := newTestApp(t)
-	t.Cleanup(a.shutdown)
-	a.applyStorageDir(t.TempDir())
-	if err := a.updatePreferences(func(p *preferences) {
-		p.Storage.SaveIntervalMS = 3000
-		p.Git.AutoCommit, p.Git.AutoPush = true, true
-		p.Git.CommitMinutes, p.Git.PushMinutes = 2, 30
-		p.Appearance.BodySize = 23
-	}); err != nil {
-		t.Fatal(err)
-	}
-	path := a.notes.DataPath()
-	raw := string(persistReadRaw(t, path))
-	before := clonePrefs(a.prefs)
-	a.resetPageDefaults(pageStorage)
-	defaults := defaultPreferences()
-	if a.prefs.Storage.DataFile != path || a.notes.DataPath() != path {
-		t.Fatal("恢复默认不得搬动或清空存储位置")
-	}
-	if a.prefs.Storage.SaveIntervalMS != 2000 || a.prefs.Git != defaults.Git {
-		t.Fatalf("间隔/Git 未恢复默认: %+v %+v", a.prefs.Storage, a.prefs.Git)
-	}
-	want := clonePrefs(before)
-	want.Storage.SaveIntervalMS = defaults.Storage.SaveIntervalMS
-	want.Git = defaults.Git
-	if !reflect.DeepEqual(a.prefs, want) {
-		t.Fatalf("本页重置不应改其他偏好: got=%+v want=%+v", a.prefs, want)
-	}
-	if got := string(persistReadRaw(t, path)); got != raw {
-		t.Fatal("重置不得改写笔记文件")
-	}
-	assertOnlyStorageFiles(t, filepath.Dir(path), "zakki.json")
-	if _, err := os.Stat(filepath.Join(filepath.Dir(a.preferencesPath()), "zakki.json")); !os.IsNotExist(err) {
-		t.Fatalf("不得在默认位置重建文件: %v", err)
 	}
 }
 

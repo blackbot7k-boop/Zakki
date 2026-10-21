@@ -160,7 +160,6 @@
   "keymapChangeFor": "Change shortcut for {name}: {binding}",
   "keymapInUse": "{key} is already used by “{other}”",
   "keymapUseHere": "Use Here (Unbind “{other}”)",
-  "keymapClear": "Unbind",
   "keymapResetOne": "Reset to Default",
   "keymapHotkeyInvalid": "Invalid global hotkey: {err}",
   "keymapHotkeyFailed": "Global hotkey registration failed (maybe taken by another app): {err}",
