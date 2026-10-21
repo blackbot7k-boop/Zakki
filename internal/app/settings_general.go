@@ -19,7 +19,7 @@ func (a *app) generalPage(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(0, 22, 0, 0).Children(func() {
 				settingsSectionTitle(c, locales.CardGeneral())
 				a.languageRow(c)
-				settingsRow(c, locales.RememberBounds(), locales.RememberBoundsHint(), func() {
+				settingsRow(c, locales.RememberBounds(), "", func() {
 					if ui.Switch(c, &a.settingsUI.draft.Window.RememberBounds).Label(locales.RememberBoundsSwitch()).Changed() {
 						a.pushWindow()
 					}
@@ -67,7 +67,7 @@ func (a *app) languageRow(c *ui.Context) {
 	for i, o := range opts {
 		displays[i] = o.display
 	}
-	settingsRow(c, locales.LanguageRow(), locales.LanguageRowHint(), func() {
+	settingsRow(c, locales.LanguageRow(), "", func() {
 		if boundedSelect(c, &a.settingsUI.languageSel, displays).Width(200).Changed() {
 			tag := languageTagOfDisplay(a.settingsUI.languageSel)
 			a.settingsUI.draft.Appearance.Language = tag
@@ -97,7 +97,7 @@ func (a *app) migrationStatus(c *ui.Context) {
 func (a *app) windowSizeRows(c *ui.Context) {
 	adv := &a.settingsUI.draft.Advanced
 	cols, rows := float64(adv.WindowColumns), float64(adv.WindowRows)
-	settingsRow(c, locales.DefaultWindowColumns(), locales.DefaultWindowSizeHint(), func() {
+	settingsRow(c, locales.DefaultWindowColumns(), "", func() {
 		if ui.NumberInput(c.Key("window-columns"), &cols, prefs.MinWindowColumns, prefs.MaxWindowColumns, 1).
 			Label(locales.DefaultWindowColumns()).Changed() {
 			adv.WindowColumns = int(cols)

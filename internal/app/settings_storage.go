@@ -25,13 +25,14 @@ func (a *app) storagePage(c *ui.Context) {
 					a.pickStorageFolder()
 				}
 			})
-			settingsRow(c, locales.StorageInterval(), locales.StorageIntervalHint(), func() {
+			settingsRow(c, locales.StorageInterval(), "", func() {
 				seconds := float64(a.settingsUI.draft.Storage.SaveIntervalMS) / 1000
 				if ui.NumberInput(c.Key("save-interval"), &seconds, 0.1, 60, 0.5).Width(150).Label(locales.StorageInterval()).Changed() {
 					_ = a.updatePreferences(func(p *preferences) { p.Storage.SaveIntervalMS = int(seconds * 1000) })
 				}
 			})
 			ui.Text(c, a.storageStatus()).FontSize(12).TextColor(tMuted(c))
+			ui.Box(c).Grow(1)
 			if ui.Button(c, locales.MenuSave()).Clicked() {
 				a.saveCurrent()
 			}
@@ -46,7 +47,7 @@ func (a *app) storagePage(c *ui.Context) {
 			default:
 				ui.Text(c, status.RepoRoot).FontSize(12).TextColor(tMuted(c))
 			}
-			settingsRow(c, locales.StorageAutoCommit(), locales.StorageCommitHint(), func() {
+			settingsRow(c, locales.StorageAutoCommit(), "", func() {
 				if ui.Switch(c.Key("auto-commit"), &a.settingsUI.draft.Git.AutoCommit).Label(locales.StorageAutoCommit()).Changed() {
 					enabled := a.settingsUI.draft.Git.AutoCommit
 					_ = a.updatePreferences(func(p *preferences) {

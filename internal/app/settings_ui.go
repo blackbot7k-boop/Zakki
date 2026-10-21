@@ -32,7 +32,6 @@ func (a *app) appearanceSections(c *ui.Context) {
 	a.codeIndentSelect(c)
 	sectionDivider(c)
 	settingsSectionTitle(c, locales.CardTabBar())
-	settingsLead(c, locales.TabDotShapeHint())
 	a.tabAppearanceSection(c)
 	sectionDivider(c)
 }
@@ -46,8 +45,8 @@ func (a *app) styleRow(c *ui.Context) {
 	if ap.Style == styleSketch {
 		a.settingsUI.styleIdx = 1
 	}
-	settingsRow(c, locales.StyleLabel(), locales.StyleHint(), func() {
-		if ui.Segmented(c.Key("style"), &a.settingsUI.styleIdx, locales.StyleStandard(), locales.StyleSketch()).Width(200).
+	settingsRow(c, locales.StyleLabel(), "", func() {
+		if ui.Segmented(c.Key("style"), &a.settingsUI.styleIdx, locales.StyleStandard(), locales.StyleSketch()).
 			Label(locales.StyleLabel()).Changed() {
 			ap.Style = []string{styleStandard, styleSketch}[a.settingsUI.styleIdx]
 			a.pushAppearance()
@@ -623,14 +622,14 @@ func (a *app) tabAppearanceSection(c *ui.Context) {
 				a.withWindow(func() {})
 			}
 		})
-		settingsCompactRow(c, locales.TabTitleMaxWidth(), locales.TabTitleMaxWidthHint(), func() {
+		settingsCompactRow(c, locales.TabTitleMaxWidth(), "", func() {
 			if ui.NumberInput(c, &titleW, 80, 220, 10).Changed() {
 				a.cfg.TabTitleWidth = float32(titleW)
 				a.scheduleSave()
 				a.withWindow(func() {})
 			}
 		})
-		settingsCompactRow(c, locales.TabAnimSpeed(), locales.TabAnimSpeedHint(), func() {
+		settingsCompactRow(c, locales.TabAnimSpeed(), "", func() {
 			opts := tabAnimSpeedOptions()
 			displays := make([]string, len(opts))
 			for i, o := range opts {
@@ -641,7 +640,7 @@ func (a *app) tabAppearanceSection(c *ui.Context) {
 				a.scheduleSave()
 			}
 		})
-		settingsCompactRow(c, locales.TabMotion(), locales.TabMotionHint(), func() {
+		settingsCompactRow(c, locales.TabMotion(), "", func() {
 			motion := !a.cfg.TabMotionOff
 			if ui.Switch(c, &motion).Label(locales.TabMotionSwitch()).Changed() {
 				a.cfg.TabMotionOff = !motion
@@ -649,7 +648,7 @@ func (a *app) tabAppearanceSection(c *ui.Context) {
 				a.withWindow(func() {})
 			}
 		})
-		settingsCompactRow(c, locales.GlassStrength(), locales.GlassStrengthHint(), func() {
+		settingsCompactRow(c, locales.GlassStrength(), "", func() {
 			if ui.NumberInput(c, &glass, 0.2, 0.9, 0.05).Changed() {
 				a.cfg.GlassStrength = float32(glass)
 				a.scheduleSave()
