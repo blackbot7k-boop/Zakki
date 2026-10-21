@@ -247,6 +247,31 @@ func TestPersistenceLoadFields(t *testing.T) {
 
 // ---- 3. v1 → v2 迁移与 v2 修复 ----
 
+// TestSwitchTabDoesNotTouchFile 切换标签是纯导航：不产生待写快照，
+// 活动标签随下次真实保存或退出最终保存顺带落盘。
+func TestSwitchTabDoesNotTouchFile(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	if a.notes.Unsaved() {
+		t.Fatal("保存后不应有待写快照")
+	}
+	a.switchTab(1)
+	a.switchTab(0)
+	if a.notes.Unsaved() {
+		t.Fatal("切换标签不应产生待写快照")
+	}
+	a.active = 1
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	if got := persistReadSaved(t, a.notes.DataPath()).Active; got != 1 {
+		t.Fatalf("真实保存应带上活动标签: %d", got)
+	}
+}
+
 // TestToggleSourceDoesNotTouchFile 源码/预览切换是纯视图状态：不产生待写快照。
 func TestToggleSourceDoesNotTouchFile(t *testing.T) {
 	a := newTestApp(t)

@@ -483,7 +483,7 @@ func (a *app) switchTab(i int) {
 		a.restoreSourceSession()
 	}
 	a.syncMenus()
-	a.scheduleSave()
+	// 纯导航不写盘：active 随下次真实保存或退出最终保存顺带落盘。
 }
 
 // cycleTab 上/下一个标签并循环（⌘⌥←/→）。
