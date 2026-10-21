@@ -152,7 +152,7 @@ func TestResolveStyleIndependentLayers(t *testing.T) {
 	// 排版独立：换颜色主题不改变字号；字体与主题解耦，保持用户选择。
 	a.prefs.Appearance.MarkdownTheme = "book"
 	b := a.resolveStyle(3, false, true)
-	if b.bodySize != 17 || b.bodyFont != sonnetBodyFont {
+	if b.bodySize != 17 || b.bodyFont != bodyFontStack("", a.prefs.Appearance.LatinFont) {
 		t.Fatalf("书页排版应生效且字体不随主题: %+v", b)
 	}
 	// 设置窗口（dot=-1）用 Tot 中性灰变体。
@@ -172,7 +172,7 @@ func TestResolveStyleOverridesFollowTheme(t *testing.T) {
 		t.Fatalf("无覆盖应跟随主题: %+v", s)
 	}
 	// 字体键与排版主题解耦：clear 主题不再改变字体，空键是默认栈。
-	if s.bodyFont != sonnetBodyFont || s.monoFont != sonnetMonoFont {
+	if s.bodyFont != bodyFontStack("", a.prefs.Appearance.LatinFont) || s.monoFont != sonnetMonoFont {
 		t.Fatalf("空字体键应为默认栈: %q %q", s.bodyFont, s.monoFont)
 	}
 	// 显式字号/行高覆盖优先，且主题切换不重置覆盖。
@@ -181,7 +181,7 @@ func TestResolveStyleOverridesFollowTheme(t *testing.T) {
 	a.prefs.Appearance.BodyFont = "songti"
 	a.prefs.Appearance.MonoFont = "menlo"
 	s2 := a.resolveStyle(-1, false, true)
-	if s2.bodySize != 22 || s2.lineHeight != 2 || s2.bodyFont != bodyFontStack("songti", "") || s2.monoFont != monoFontStack("menlo") {
+	if s2.bodySize != 22 || s2.lineHeight != 2 || s2.bodyFont != bodyFontStack("songti", a.prefs.Appearance.LatinFont) || s2.monoFont != monoFontStack("menlo") {
 		t.Fatalf("覆盖应优先: %+v", s2)
 	}
 	// 标题字号随覆盖的基准缩放。

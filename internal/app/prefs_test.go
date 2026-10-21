@@ -158,6 +158,9 @@ func TestPrefsNotesSettingsUsedWhenNoConfig(t *testing.T) {
 		a.prefs.Appearance.MarkdownTheme != "note" || a.prefs.Appearance.BodyFont != "songti" {
 		t.Fatalf("笔记内旧设置应成为迁移基线: %+v", a.prefs.Appearance)
 	}
+	if a.prefs.Appearance.LatinFont != "" {
+		t.Fatalf("选过中文字体的旧用户英文应保持跟随中文: %q", a.prefs.Appearance.LatinFont)
+	}
 	// 全新安装（无笔记设置、无旧配置）用默认值。
 	b := newTestApp(t)
 	if err := b.loadPreferences(); err != nil {

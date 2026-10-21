@@ -2698,31 +2698,31 @@ func (msgs Messages) FontChinese() string {
 	return Catalog.Format(msgs.locale, "fontChinese", nil)
 }
 
-// FontChineseHint says "Chinese glyphs; Latin text follows this unless a Western font is set"
+// FontChineseHint says "Chinese glyphs; English text uses it too when the English font follows it"
 // in the language the app shows.
 func FontChineseHint() string { return In(i18n.Locale()).FontChineseHint() }
 
-// FontChineseHint says "Chinese glyphs; Latin text follows this unless a Western font is set"
+// FontChineseHint says "Chinese glyphs; English text uses it too when the English font follows it"
 // in the language of msgs.
 func (msgs Messages) FontChineseHint() string {
 	return Catalog.Format(msgs.locale, "fontChineseHint", nil)
 }
 
-// FontWestern says "Western font"
+// FontWestern says "English font"
 // in the language the app shows.
 func FontWestern() string { return In(i18n.Locale()).FontWestern() }
 
-// FontWestern says "Western font"
+// FontWestern says "English font"
 // in the language of msgs.
 func (msgs Messages) FontWestern() string {
 	return Catalog.Format(msgs.locale, "fontWestern", nil)
 }
 
-// FontWesternHint says "Latin letters and digits; follows the Chinese font by default"
+// FontWesternHint says "Latin letters and digits; JetBrains Mono by default"
 // in the language the app shows.
 func FontWesternHint() string { return In(i18n.Locale()).FontWesternHint() }
 
-// FontWesternHint says "Latin letters and digits; follows the Chinese font by default"
+// FontWesternHint says "Latin letters and digits; JetBrains Mono by default"
 // in the language of msgs.
 func (msgs Messages) FontWesternHint() string {
 	return Catalog.Format(msgs.locale, "fontWesternHint", nil)
@@ -2828,11 +2828,11 @@ func (msgs Messages) FontJetBrains() string {
 	return Catalog.Format(msgs.locale, "fontJetBrains", nil)
 }
 
-// FontSystemWestern says "System Western"
+// FontSystemWestern says "System English font"
 // in the language the app shows.
 func FontSystemWestern() string { return In(i18n.Locale()).FontSystemWestern() }
 
-// FontSystemWestern says "System Western"
+// FontSystemWestern says "System English font"
 // in the language of msgs.
 func (msgs Messages) FontSystemWestern() string {
 	return Catalog.Format(msgs.locale, "fontSystemWestern", nil)

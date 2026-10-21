@@ -148,8 +148,8 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 		t.Fatalf("版本 3 的外部备份目录应迁移为备份文件夹: %+v", v3.Backup)
 	}
 	// 保存的是版本 5，磁盘模型随当前版本落盘。
-	if d := Default(5); d.Version != CurrentVersion || d.Appearance.LatinFont != "" {
-		t.Fatalf("默认偏好应为当前版本且西文跟随中文: %+v", d)
+	if d := Default(5); d.Version != CurrentVersion || d.Appearance.LatinFont != "jetbrains" {
+		t.Fatalf("默认偏好应为当前版本且英文默认 JetBrains Mono: %+v", d)
 	}
 }
 

@@ -59,7 +59,7 @@ type Appearance struct {
 	// CodeIndent 是代码块内 Tab 插入的缩进档位："space2"（默认）/ "space4"
 	// 空格；Shift+Tab 按同一档位反向移除。
 	CodeIndent string `json:"codeIndent"`
-	// BodyFont 是中文字体；LatinFont 是西文字体，空串表示跟随中文字体。
+	// BodyFont 是中文字体；LatinFont 是英文字体，空串表示跟随中文字体。
 	BodyFont   string  `json:"bodyFont"`
 	LatinFont  string  `json:"latinFont"`
 	MonoFont   string  `json:"monoFont"`
@@ -112,6 +112,7 @@ func Default(backupIntervalMinutes int) Preferences {
 			MarkdownTheme:  "sonnet",
 			CodeTheme:      "soft",
 			CodeIndent:     "space2",
+			LatinFont:      "jetbrains",
 		},
 		Window: Window{AlwaysOnTop: false, HideOnEscape: true, RememberBounds: true},
 		Backup: Backup{IntervalMinutes: backupIntervalMinutes, Keep: 20, OnLaunch: true, GitAutoPush: false, GitPushMinutes: defaultGitPushMinutes},
@@ -390,6 +391,10 @@ func FromNotes(b legacyconfig.NotesBaseline, backupIntervalMinutes int) Preferen
 		p.Appearance.MarkdownTheme = "sonnet"
 	}
 	p.Appearance.BodyFont, p.Appearance.MonoFont = b.BodyFont, b.MonoFont
+	if b.BodyFont != "" {
+		// 旧版没有单独的英文字体：选过中文字体的用户保持跟随中文字体，渲染与升级前一致。
+		p.Appearance.LatinFont = ""
+	}
 	p.Appearance.BodySize, p.Appearance.LineHeight = b.BodySize, b.LineHeight
 	p.Window.AlwaysOnTop = b.AlwaysOnTop
 	p.Window.HideOnEscape = b.HideOnEscape

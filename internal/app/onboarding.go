@@ -45,7 +45,7 @@ func (a *app) firstRun() bool {
 
 func (a *app) initOnboarding() {
 	ap := a.prefs.Appearance
-	ap.BodyFont, ap.LatinFont = "pingfang", ""
+	ap.BodyFont, ap.LatinFont = "pingfang", "jetbrains"
 	a.onboarding = onboardingState{step: 1, tabCount: DefaultTabCount, tabCountText: strconv.Itoa(DefaultTabCount), dirDraft: defaultBackupDir(), appearance: ap}
 	if mygo.App.Locale() == "zh-Hans" {
 		a.onboarding.languageIndex = 1

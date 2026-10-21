@@ -25,7 +25,7 @@ func TestResolveStyleAppliesOverrides(t *testing.T) {
 	if s.bodySize != 21 || s.lineHeight != 2.0 {
 		t.Fatalf("排版微调应作用于样式: size=%v lh=%v", s.bodySize, s.lineHeight)
 	}
-	if s.bodyFont != bodyFontStack("songti", "") || s.monoFont != monoFontStack("menlo") {
+	if s.bodyFont != bodyFontStack("songti", a.prefs.Appearance.LatinFont) || s.monoFont != monoFontStack("menlo") {
 		t.Fatalf("字体覆盖应作用于样式: %q %q", s.bodyFont, s.monoFont)
 	}
 	if s.headingSizes[1] != roundHalf(21*markdownLayoutByID("book").headingScale[1]) {
@@ -40,7 +40,7 @@ func TestResolveStyleFollowsLayoutWithoutOverrides(t *testing.T) {
 	a := newTestApp(t)
 	a.prefs.Appearance.MarkdownTheme = "book"
 	a.prefs.Appearance.BodySize, a.prefs.Appearance.LineHeight = 0, 0
-	a.prefs.Appearance.BodyFont, a.prefs.Appearance.MonoFont = "", ""
+	a.prefs.Appearance.BodyFont, a.prefs.Appearance.LatinFont, a.prefs.Appearance.MonoFont = "", "", ""
 
 	layout := markdownLayoutByID("book")
 	s := a.resolveStyle(-1, false, true)
@@ -63,7 +63,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 	tt.Frame()
 	for _, want := range []string{
 		"界面外观", "颜色主题", "手绘手账",
-		"排版主题", "中文字体", "西文字体", "代码字体",
+		"排版主题", "中文字体", "英文字体", "代码字体",
 		"主题", "排版", "语法配色", "恢复本页默认值",
 	} {
 		if !tt.HasText(want) {
@@ -135,6 +135,7 @@ func TestSettingsFontSplitPersists(t *testing.T) {
 	// 视口要够高，排版微调卡片与下拉选项才在可视区内。
 	tt := ui.NewTester(a.settingsView, 900, 1200)
 	tt.Frame()
+	latin := a.prefs.Appearance.LatinFont
 
 	// 下拉：先点开当前值，再点选项。
 	if err := tt.Click("霞鹜文楷（默认）"); err != nil {
@@ -146,10 +147,11 @@ func TestSettingsFontSplitPersists(t *testing.T) {
 	if a.prefs.Appearance.BodyFont != "songti" {
 		t.Fatalf("中文字体应即时生效: %+v", a.prefs.Appearance)
 	}
-	if a.prefs.Appearance.LatinFont != "" {
+	if a.prefs.Appearance.LatinFont != latin {
 		t.Fatalf("选中文字体不应改动西文设置: %q", a.prefs.Appearance.LatinFont)
 	}
-	if err := tt.Click("跟随中文字体"); err != nil {
+	// 英文字体行在代码字体行之前：同名显示时先点到的是英文字体下拉。
+	if err := tt.Click(fontDisplayOf(1, latin)); err != nil {
 		t.Fatal(err)
 	}
 	if err := tt.Click("Noteworthy"); err != nil {

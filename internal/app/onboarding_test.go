@@ -180,7 +180,7 @@ func TestOnboardingViewRendersSteps(t *testing.T) {
 		step  int
 		wants []string
 	}{
-		{1, []string{"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "西文字体"}},
+		{1, []string{"外观与字体", "English", "简体中文", "明暗", "风格", "中文字体", "英文字体"}},
 		{2, []string{"笔记与备份", "初始标签数量", "备份文件夹", folder, "完成设置"}},
 	}
 	for _, s := range steps {

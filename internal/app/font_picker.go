@@ -43,7 +43,7 @@ func fontDisplayOf(kind int, key string) string {
 		case "system":
 			return locales.FontSystemWestern()
 		case "jetbrains":
-			return locales.FontJetBrains()
+			return locales.FontJetBrainsDefault()
 		case "noteworthy":
 			return locales.FontNoteworthy()
 		case "bradley":
