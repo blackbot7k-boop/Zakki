@@ -54,19 +54,22 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	wrap.Children(func() {
 		list := ui.List(c, &a.liveList, len(blocks), func(i int) {
 			blk := blocks[i]
+			pad := listGapAfter(blocks, i, style.blockGap)
 			if i == active {
-				a.activeBlock(c, t, &hits)
+				a.activeBlock(c, t, &hits, pad)
 				return
 			}
 			start := blockStarts[i]
 			blockEnd := blockStarts[i+1] - 1
-			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1, &hits)
+			a.liveBlockRow(c, t, dark, i, blk, isLiveSeparator(blocks, i), start, blockEnd+1, &hits, pad)
 		})
 		a.virt.endFrame(list.Bounds())
 		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
 			TrackScroll(&a.liveScroll).
 			// MyGo Padding 按 CSS 序：先上下后左右；padX 是左右内边距。
-			Padding(style.padY, style.padX).Gap(style.blockGap).
+			// 块间距不用 List 的统一 Gap：同一列表的相邻项要收紧，
+			// 改由每行尾部 padding 按相邻块类型给出（listGapAfter）。
+			Padding(style.padY, style.padX).
 			TextColor(style.text).Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight)
 		if style.sketch {
 			// 纸面画在滚动视口上而不是内容行上：内容比视口短时，下方空白同样是纸。
@@ -85,8 +88,32 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 	a.liveClickHandled = false
 }
 
+// listGapAfter 返回块 i 与下一块之间应有的间距（画在块 i 的尾部 padding 里）：
+//   - 最后一行为 0；
+//   - 下一块是分隔空行时给两倍：分隔行自身 0 高（Height 是 border-box，padding 被裁掉），
+//     原先它在统一 Gap 下贡献了两侧两个间隙；
+//   - 同一列表的相邻项（列表/待办相连，源码中间无空行）收紧到 blockGap 的四分之一，
+//     避免列表节距接近双倍行距；其余边界维持完整块间距。
+func listGapAfter(blocks []liveBlock, i int, gap float32) float32 {
+	if i < 0 || i >= len(blocks)-1 {
+		return 0
+	}
+	if isLiveSeparator(blocks, i+1) {
+		return gap * 2
+	}
+	if sameListItem(blocks[i], blocks[i+1]) {
+		return roundHalf(gap * 0.25)
+	}
+	return gap
+}
+
+// sameListItem 报告两个块是否属于同一个列表的相邻项。
+func sameListItem(a, b liveBlock) bool {
+	return (a.kind == bkList || a.kind == bkTask) && (b.kind == bkList || b.kind == bkTask)
+}
+
 // activeBlock keeps the block's rendered structure while editing visible contents.
-func (a *app) activeBlock(c *ui.Context, t *ui.Theme, hits *[]liveHit) {
+func (a *app) activeBlock(c *ui.Context, t *ui.Theme, hits *[]liveHit, pad float32) {
 	blk := a.mdBlocks()[a.mdActive]
 	var projection liveProjection
 	if blk.kind != bkTable {
@@ -98,7 +125,7 @@ func (a *app) activeBlock(c *ui.Context, t *ui.Theme, hits *[]liveHit) {
 		blk.kind = bkPara
 	}
 	md := a.resolveStyle(-1, themeIsDark(t), true)
-	row := ui.Row(c.Key("blk-" + strconv.Itoa(a.mdActive))).Gap(8).FillWidth()
+	row := ui.Row(c.Key("blk-"+strconv.Itoa(a.mdActive))).Gap(8).FillWidth().Padding(0, 0, pad, 0)
 	// 文档级全选：焦点块与其余块呈现一致的选区底色。
 	if a.selDoc {
 		row.Background(t.Selection)
@@ -365,15 +392,16 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 
 // liveBlockRow 渲染一个非焦点块。点在文字上时按排版落光标；点在标记或行内留白上时，
 // 用同一行的文字盒子换算。勾选框是更内层的可点元素，它的点击不会冒泡到行。
-func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool, docStart, docEnd int, hits *[]liveHit) {
+func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, separator bool, docStart, docEnd int, hits *[]liveHit, pad float32) {
 	var row ui.Element
 	if blk.kind == bkBlank {
 		// 源码分隔符不占行高；额外的空段落可见、可点击，且一次退格只删一个。
-		height := float32(20)
 		if separator {
-			height = 0
+			row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).FillWidth().Height(0)
+		} else {
+			// 分隔行 0 高时 padding 被 border-box 裁掉，间距记在上一行尾部。
+			row = ui.Row(c.Key("blk-"+strconv.Itoa(i))).FillWidth().Height(20).Padding(0, 0, pad, 0)
 		}
-		row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).FillWidth().Height(height)
 		if !separator {
 			row.OnClick(func() {
 				a.liveClickHandled = true
@@ -388,7 +416,7 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 		if hits != nil {
 			before = len(*hits)
 		}
-		row = ui.Row(c.Key("blk-" + strconv.Itoa(i))).Gap(8).FillWidth()
+		row = ui.Row(c.Key("blk-"+strconv.Itoa(i))).Gap(8).FillWidth().Padding(0, 0, pad, 0)
 		row.Children(func() { a.renderLiveBlock(c, t, dark, i, blk, hits) })
 		var mine []liveHit
 		if hits != nil {
