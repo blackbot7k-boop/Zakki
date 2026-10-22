@@ -112,7 +112,7 @@ func TestQuitFailureCancelsUpdateRelaunchAndAllowsRetry(t *testing.T) {
 			}
 			event := &mygo.QuitEvent{}
 			a.finishQuit(event)
-			if !event.DefaultPrevented() || !strings.Contains(a.notice, "保存失败") {
+			if !event.DefaultPrevented() || !strings.Contains(strings.Join(a.toasts.pending, "\n"), "保存失败") {
 				t.Fatal("任一种保存失败必须取消退出/重启并提示")
 			}
 			a.prefsStore.Path = prefsPath

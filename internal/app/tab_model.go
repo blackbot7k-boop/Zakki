@@ -179,7 +179,7 @@ func (a *app) syncNextTabID() {
 // 自动分配未使用的调色板颜色与新 ID，随后聚焦内容编辑。
 func (a *app) addTab() bool {
 	if len(a.tabs) >= MaxTabCount {
-		a.notice = locales.TabMaxCannotAdd(MaxTabCount)
+		a.showToast(locales.TabMaxCannotAdd(MaxTabCount))
 		return false
 	}
 	if a.cfg.Source {
@@ -198,7 +198,7 @@ func (a *app) addTab() bool {
 // deleteTabNow 删除已确认的标签；至少保留一个，统一保存到当前笔记文件。
 func (a *app) deleteTabNow(i int) bool {
 	if len(a.tabs) <= 1 {
-		a.notice = locales.TabKeepOne()
+		a.showToast(locales.TabKeepOne())
 		return false
 	}
 	if i < 0 || i >= len(a.tabs) {

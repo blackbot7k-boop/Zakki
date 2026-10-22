@@ -5,6 +5,7 @@ package app
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -67,8 +68,8 @@ func TestReplaceInLivePreviewCommitsDraft(t *testing.T) {
 	if got := a.activeTab().Text; got != "丙丙\n\n乙" {
 		t.Fatalf("实时预览下全部替换: %q", got)
 	}
-	if a.notice == "" {
-		t.Fatal("全部替换后应提示替换数量")
+	if !strings.Contains(strings.Join(tt.Texts(), "\n"), "已替换 2 处") {
+		t.Fatal("全部替换后应以 toast 提示替换数量")
 	}
 }
 

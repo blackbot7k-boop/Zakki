@@ -74,6 +74,7 @@ func (a *app) view(c *ui.Context) {
 		c.SetTheme(&t)
 		a.statusBar(c, &t, dark)
 	})
+	a.toastViewport(c)
 	a.syncEditorMenu(c)
 	if command := a.editMenuPending; command != "" {
 		a.editMenuPending = ""

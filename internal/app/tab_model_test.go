@@ -53,8 +53,8 @@ func TestTabAddLimitAndFocus(t *testing.T) {
 	if a.addTab() {
 		t.Fatal("达到上限后 addTab 应失败")
 	}
-	if !strings.Contains(a.notice, "最多") {
-		t.Fatalf("上限提示 = %q", a.notice)
+	if !strings.Contains(strings.Join(a.toasts.pending, "\n"), "最多") {
+		t.Fatalf("上限提示应进 toast 队列，pending = %q", a.toasts.pending)
 	}
 }
 

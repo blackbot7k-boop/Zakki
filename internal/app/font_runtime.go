@@ -116,7 +116,7 @@ func (a *app) loadFontFamilies(win *mygo.Window) {
 			}
 			a.fonts.families, a.fonts.loaded = families, true
 			if len(issues) > 0 {
-				a.notice = locales.FontCacheUnavailable(strings.Join(issues, ", "))
+				a.showToast(locales.FontCacheUnavailable(strings.Join(issues, ", ")))
 			}
 			// 扫描改变字体选项状态：重绑设置页下拉并刷新已开的设置窗口。
 			a.settingsUI.syncDraftBindings()

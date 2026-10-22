@@ -70,6 +70,6 @@ func (a *app) exportTab(i int) {
 			mygo.Dialog.Error(locales.DialogExportFailedTitle(), err.Error())
 			return
 		}
-		a.runOnMain(func() { a.notice = locales.NoticeExported(filepath.Base(path)) })
+		a.runOnMain(func() { a.showToast(locales.NoticeExported(filepath.Base(path))) })
 	}()
 }

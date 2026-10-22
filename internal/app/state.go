@@ -111,10 +111,11 @@ func (a *app) load() error {
 	return nil
 }
 
-// reloadNotes 是用户显式要求重新读取磁盘文件的入口；失败维持写保护。
+// reloadNotes 是用户显式要求重新读取磁盘文件的入口；失败维持写保护，
+// 除 toast 外 load 里的警示也留在状态栏，直到重读成功。
 func (a *app) reloadNotes() {
 	if err := a.load(); err != nil {
-		a.notice = locales.StorageReadFailed(err.Error())
+		a.showToast(locales.StorageReadFailed(err.Error()))
 	}
 	a.refreshSettingsWindow()
 }

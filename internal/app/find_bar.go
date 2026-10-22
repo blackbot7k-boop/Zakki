@@ -220,7 +220,7 @@ func (a *app) replaceAll() {
 	}
 	if !a.findAllTabs {
 		if n := a.replaceAllCurrentTab(query, with); n > 0 {
-			a.notice = locales.FindReplacedCount(strconv.Itoa(n))
+			a.showToast(locales.FindReplacedCount(strconv.Itoa(n)))
 		}
 		return
 	}
@@ -267,7 +267,7 @@ func (a *app) replaceAllTabsNow(query, with string) int {
 			total += len(ms)
 		}
 	}
-	a.notice = locales.FindReplacedCount(strconv.Itoa(total))
+	a.showToast(locales.FindReplacedCount(strconv.Itoa(total)))
 	a.scheduleSave()
 	return total
 }

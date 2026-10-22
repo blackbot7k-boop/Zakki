@@ -7,7 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// statusWarn 状态栏警示文案：持久化错误优先，其次载入提示。
+// statusWarn 状态栏警示文案：持久化错误优先，其次载入/偏好异常。
+// 一次性操作提示已改为居中 toast（view_toast.go），不再占用状态栏。
 func (a *app) statusWarn() string {
 	msg := a.saveError()
 	if msg == "" {

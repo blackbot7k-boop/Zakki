@@ -179,6 +179,12 @@ type sourceSession struct {
 	prev                     liveSnapshot
 }
 
+// toastState 居中 toast 提示队列（view_toast.go）：动作回调在主线程排队，
+// 主窗口下一次构建时消费并交给 MyGo toast 引擎展示，自动消失。
+type toastState struct {
+	pending []string
+}
+
 // desktopRefs 窗口、菜单、托盘、全局热键与状态栏提示。
 type desktopRefs struct {
 	win           *mygo.Window
@@ -228,6 +234,7 @@ type app struct {
 	formatState
 	sourceEditorState
 	desktopRefs
+	toasts toastState
 	settingsWindowState
 	prefsRuntimeState
 	onboarding onboardingState
