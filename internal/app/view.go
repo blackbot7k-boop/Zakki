@@ -398,7 +398,9 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 		ContextMenu(a.editorContextMenu).
 		Label(locales.EditorContent()).
 		Fill().Grow(1).
-		Padding(14, 20).
+		// 与实时预览同一套内边距（含用户覆盖）：切源码模式不再横移文字。
+		// MyGo Padding 按 CSS 序：先上下后左右；md.padX 是左右内边距。
+		Padding(md.padY, md.padX).
 		FontSize(md.bodySize).Font(md.bodyFont).LineHeight(md.lineHeight).
 		FocusRing(false).
 		Background(a.paperBackground(md.background, dark, c.Vibrancy())).

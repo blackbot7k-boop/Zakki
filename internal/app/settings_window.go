@@ -66,6 +66,12 @@ type settingsUIState struct {
 	lineHeightErr   string
 	bodySizeDirty   bool
 	lineHeightDirty bool
+	padXText        string
+	padYText        string
+	padXErr         string
+	padYErr         string
+	padXDirty       bool
+	padYDirty       bool
 
 	// 保存页：笔记目录是否位于 git 工作区，按目录缓存（避免每帧探测）。
 	gitProbeDir  string
@@ -89,8 +95,10 @@ func (ui *settingsUIState) syncDraftFromPrefs(p preferences) {
 	ui.synced = clonePrefs(p)
 	ui.draftReady = true
 	ui.bodySizeDirty, ui.lineHeightDirty = false, false
+	ui.padXDirty, ui.padYDirty = false, false
 	ui.syncDraftBindings()
 	ui.bodySizeErr, ui.lineHeightErr = "", ""
+	ui.padXErr, ui.padYErr = "", ""
 	ui.keyErr, ui.keyErrID, ui.keyConflict = "", "", keymapConflict{}
 	ui.gitProbeDir = ""
 }
@@ -131,6 +139,8 @@ func (ui *settingsUIState) mergeDraftFromPrefs(p preferences) {
 	mergeString(&d.MonoFont, before.MonoFont, current.MonoFont)
 	mergeFloat(&d.BodySize, before.BodySize, current.BodySize, ui.bodySizeDirty)
 	mergeFloat(&d.LineHeight, before.LineHeight, current.LineHeight, ui.lineHeightDirty)
+	mergeFloat(&d.PadX, before.PadX, current.PadX, ui.padXDirty)
+	mergeFloat(&d.PadY, before.PadY, current.PadY, ui.padYDirty)
 
 	windowDraft, windowBefore, windowCurrent := &ui.draft.Window, old.Window, next.Window
 	mergeBool(&windowDraft.AlwaysOnTop, windowBefore.AlwaysOnTop, windowCurrent.AlwaysOnTop)
@@ -165,6 +175,14 @@ func (ui *settingsUIState) syncDraftBindings() {
 	if !ui.lineHeightDirty {
 		ui.lineHeightText = floatText(p.Appearance.LineHeight)
 		ui.lineHeightErr = ""
+	}
+	if !ui.padXDirty {
+		ui.padXText = floatText(p.Appearance.PadX)
+		ui.padXErr = ""
+	}
+	if !ui.padYDirty {
+		ui.padYText = floatText(p.Appearance.PadY)
+		ui.padYErr = ""
 	}
 }
 
@@ -319,6 +337,12 @@ func (ui *settingsUIState) applyAppearanceDraft(p *preferences) {
 	}
 	if !ui.lineHeightDirty && draft.LineHeight != before.LineHeight {
 		p.Appearance.LineHeight = draft.LineHeight
+	}
+	if !ui.padXDirty && draft.PadX != before.PadX {
+		p.Appearance.PadX = draft.PadX
+	}
+	if !ui.padYDirty && draft.PadY != before.PadY {
+		p.Appearance.PadY = draft.PadY
 	}
 }
 

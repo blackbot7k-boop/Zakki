@@ -204,6 +204,27 @@ func TestResolveStyleOverridesFollowTheme(t *testing.T) {
 
 func a_markdownLayoutClear() markdownLayout { return markdownLayoutByID("clear") }
 
+// TestResolveStylePaddingOverrides 内边距覆盖：无覆盖跟随排版主题（book 主题
+// 左右 32 / 上下 28），显式值优先，预览（override=false）不套覆盖。
+func TestResolveStylePaddingOverrides(t *testing.T) {
+	a := newTestApp(t)
+	a.prefs.Appearance.MarkdownTheme = "book"
+	s := a.resolveStyle(-1, false, true)
+	if s.padX != 32 || s.padY != 28 {
+		t.Fatalf("无覆盖应跟随主题: padX=%v padY=%v", s.padX, s.padY)
+	}
+	a.prefs.Appearance.PadX = 40
+	a.prefs.Appearance.PadY = 12
+	s2 := a.resolveStyle(-1, false, true)
+	if s2.padX != 40 || s2.padY != 12 {
+		t.Fatalf("内边距覆盖应优先: padX=%v padY=%v", s2.padX, s2.padY)
+	}
+	s3 := a.resolveStyle(-1, false, false)
+	if s3.padX != 32 || s3.padY != 28 {
+		t.Fatalf("预览不应套内边距覆盖: padX=%v padY=%v", s3.padX, s3.padY)
+	}
+}
+
 func TestSourceModeStyleUsesMonoFont(t *testing.T) {
 	a := newTestApp(t)
 	a.prefs.Appearance.MarkdownTheme = "book"

@@ -35,7 +35,9 @@ import (
 // windowRows（每行字数 × 行数），开窗时按当时的字号换算；旧像素值按默认排版换算。
 // 版本 12 以 storage / git 取代备份策略：backup 整节与 autosaveDelayMs 在读取时
 // 静默摘除（不迁移语义，含开发期写出的版本 12 带旧键文件），写回即为版本 12。
-const CurrentVersion = 12
+// 版本 13 新增 appearance.padX / padY（正文区左右 / 上下内边距覆盖，DIP；
+// 0 = 跟随排版主题）。旧文件从未写过这两个键，解码即零值 = 跟随，无需迁移。
+const CurrentVersion = 13
 
 // 整体风格：手账风格下颜色与排版由风格决定，colorTheme / markdownTheme 保留不动。
 const (
@@ -78,6 +80,9 @@ type Appearance struct {
 	MonoFont   string  `json:"monoFont"`
 	BodySize   float32 `json:"bodySize"`
 	LineHeight float32 `json:"lineHeight"`
+	// PadX 是正文区左右内边距，PadY 是上下内边距（DIP）；0 = 跟随排版主题。
+	PadX float32 `json:"padX"`
+	PadY float32 `json:"padY"`
 }
 
 type Window struct {
@@ -182,6 +187,8 @@ func (p Preferences) Validate(v AccelValidator) error {
 	}{
 		{"appearance.bodySize", p.Appearance.BodySize, 10, 40, true},
 		{"appearance.lineHeight", p.Appearance.LineHeight, 1, 3, true},
+		{"appearance.padX", p.Appearance.PadX, 8, 120, true},
+		{"appearance.padY", p.Appearance.PadY, 8, 120, true},
 	} {
 		if field.allowFollow && field.value == 0 {
 			continue

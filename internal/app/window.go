@@ -14,8 +14,8 @@ const (
 	minWindowHeight = 340
 )
 
-// windowMetrics 当前生效排版下列数 × 行数与窗口像素的换算量：正文字号与行高
-// 取覆盖值或排版主题默认，顶栏按平台（mac 38，Windows 隐藏标题栏 32）加状态栏。
+// windowMetrics 当前生效排版下列数 × 行数与窗口像素的换算量：正文字号、行高与
+// 内边距取覆盖值或排版主题默认，顶栏按平台（mac 38，Windows 隐藏标题栏 32）加状态栏。
 func windowMetrics(ap appearancePrefs, goos string) prefs.WindowMetrics {
 	layout := markdownLayoutByID(ap.EffectiveMarkdownTheme())
 	header := tabTrackHeight
@@ -31,6 +31,12 @@ func windowMetrics(ap appearancePrefs, goos string) prefs.WindowMetrics {
 	}
 	if ap.LineHeight > 0 {
 		m.LineHeight = ap.LineHeight
+	}
+	if ap.PadX > 0 {
+		m.PadX = ap.PadX
+	}
+	if ap.PadY > 0 {
+		m.PadY = ap.PadY
 	}
 	return m
 }

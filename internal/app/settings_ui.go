@@ -404,18 +404,47 @@ func (a *app) typographyOverrides(c *ui.Context) {
 				}
 			})
 		}
-		// 字号（10–40）/ 行高（1–3）：非法数字不提交，保留输入并显示行内错误。
+		// 字号（10–40）/ 行高（1–3）/ 内边距（8–120）：非法数字不提交，保留输入并显示行内错误。
 		a.floatOverrideRow(c, locales.FontSizeRow(), locales.OverrideFollowHint(), "bodySize")
 		a.floatOverrideRow(c, locales.LineHeightRow(), locales.OverrideLineHint(), "lineHeight")
+		a.floatOverrideRow(c, locales.PaddingXRow(), locales.OverridePadHint(), "padX")
+		a.floatOverrideRow(c, locales.PaddingYRow(), locales.OverridePadHint(), "padY")
 	})
+}
+
+// floatFieldState 返回数字覆盖字段的绑定目标：文本工作副本、行内错误、
+// 文本级 dirty 与草稿目标；未知字段返回 nil，调用方直接跳过。
+func (ui *settingsUIState) floatFieldState(field string) (text, errField *string, dirty *bool, target *float32) {
+	switch field {
+	case "bodySize":
+		return &ui.bodySizeText, &ui.bodySizeErr, &ui.bodySizeDirty, &ui.draft.Appearance.BodySize
+	case "lineHeight":
+		return &ui.lineHeightText, &ui.lineHeightErr, &ui.lineHeightDirty, &ui.draft.Appearance.LineHeight
+	case "padX":
+		return &ui.padXText, &ui.padXErr, &ui.padXDirty, &ui.draft.Appearance.PadX
+	case "padY":
+		return &ui.padYText, &ui.padYErr, &ui.padYDirty, &ui.draft.Appearance.PadY
+	}
+	return nil, nil, nil, nil
 }
 
 // floatOverrideRow 数字覆盖输入行；占位符显示当前排版主题的默认值。
 func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 	layout := markdownLayoutByID(a.settingsUI.draft.Appearance.EffectiveMarkdownTheme())
-	placeholder := floatText(layout.bodySize)
-	if field == "lineHeight" {
+	text, errField, _, _ := a.settingsUI.floatFieldState(field)
+	if text == nil {
+		return
+	}
+	var placeholder string
+	switch field {
+	case "lineHeight":
 		placeholder = floatText(layout.lineHeight)
+	case "padX":
+		placeholder = floatText(layout.padX)
+	case "padY":
+		placeholder = floatText(layout.padY)
+	default:
+		placeholder = floatText(layout.bodySize)
 	}
 	ui.Column(c).FillWidth().Gap(2).PaddingY(14).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
@@ -424,43 +453,21 @@ func (a *app) floatOverrideRow(c *ui.Context, label, detail, field string) {
 				ui.Text(c, detail).FontSize(11).TextColor(tMuted(c))
 			})
 			ui.Column(c).Width(200).Gap(2).Children(func() {
-				text := &a.settingsUI.bodySizeText
-				if field == "lineHeight" {
-					text = &a.settingsUI.lineHeightText
-				}
 				if ui.TextInput(c, text).Placeholder(placeholder).Changed() {
 					a.commitFloatField(field)
 				}
 			})
 		})
-		errText := a.settingsUI.bodySizeErr
-		if field == "lineHeight" {
-			errText = a.settingsUI.lineHeightErr
-		}
-		if errText != "" {
-			ui.Text(c, errText).FontSize(11).TextColor(c.Theme().Danger)
+		if *errField != "" {
+			ui.Text(c, *errField).FontSize(11).TextColor(c.Theme().Danger)
 		}
 	})
 }
 
-// commitFloatField 解析字号/行高输入：合法才提交，非法文本和错误跨帧保留。
+// commitFloatField 解析字号/行高/内边距输入：合法才提交，非法文本和错误跨帧保留。
 func (a *app) commitFloatField(field string) {
-	var text *string
-	var errField *string
-	var dirty *bool
-	var target *float32
-	switch field {
-	case "bodySize":
-		text = &a.settingsUI.bodySizeText
-		errField = &a.settingsUI.bodySizeErr
-		dirty = &a.settingsUI.bodySizeDirty
-		target = &a.settingsUI.draft.Appearance.BodySize
-	case "lineHeight":
-		text = &a.settingsUI.lineHeightText
-		errField = &a.settingsUI.lineHeightErr
-		dirty = &a.settingsUI.lineHeightDirty
-		target = &a.settingsUI.draft.Appearance.LineHeight
-	default:
+	text, errField, dirty, target := a.settingsUI.floatFieldState(field)
+	if text == nil {
 		return
 	}
 
@@ -479,10 +486,15 @@ func (a *app) commitFloatField(field string) {
 	*target = value
 
 	err := a.updatePreferences(func(p *preferences) {
-		if field == "bodySize" {
+		switch field {
+		case "bodySize":
 			p.Appearance.BodySize = value
-		} else {
+		case "lineHeight":
 			p.Appearance.LineHeight = value
+		case "padX":
+			p.Appearance.PadX = value
+		case "padY":
+			p.Appearance.PadY = value
 		}
 	})
 	if err != nil {

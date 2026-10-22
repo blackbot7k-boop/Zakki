@@ -75,7 +75,13 @@ func TestLiveFocusAppearance(t *testing.T) {
 						}
 						a.focusBlock(1, 0, 0)
 						tt.Frame()
-						if diff := focusPixelDiff(before, tt.Image(), region); diff != 0 {
+						// 排除新焦点块的光标：左内边距变化会移动光标列，其行盒
+						// 顶部可能探进比较区，与「未恢复预览」无关。
+						final, ok := tt.TextCaret()
+						if !ok {
+							t.Fatal("切走后光标消失")
+						}
+						if diff := focusPixelDiff(before, tt.Image(), region, final); diff != 0 {
 							t.Errorf("切走后未恢复预览：%d pixels", diff)
 						}
 						if got := a.tabs[0].Text; got != tc.text+"\n\n后续段落" {

@@ -3626,6 +3626,26 @@ func (msgs Messages) LineHeightRow() string {
 	return Catalog.Format(msgs.locale, "lineHeightRow", nil)
 }
 
+// PaddingXRow says "Horizontal padding"
+// in the language the app shows.
+func PaddingXRow() string { return In(i18n.Locale()).PaddingXRow() }
+
+// PaddingXRow says "Horizontal padding"
+// in the language of msgs.
+func (msgs Messages) PaddingXRow() string {
+	return Catalog.Format(msgs.locale, "paddingXRow", nil)
+}
+
+// PaddingYRow says "Vertical padding"
+// in the language the app shows.
+func PaddingYRow() string { return In(i18n.Locale()).PaddingYRow() }
+
+// PaddingYRow says "Vertical padding"
+// in the language of msgs.
+func (msgs Messages) PaddingYRow() string {
+	return Catalog.Format(msgs.locale, "paddingYRow", nil)
+}
+
 // OverrideFollowHint says "10–40; empty follows the Markdown theme"
 // in the language the app shows.
 func OverrideFollowHint() string { return In(i18n.Locale()).OverrideFollowHint() }
@@ -3644,6 +3664,16 @@ func OverrideLineHint() string { return In(i18n.Locale()).OverrideLineHint() }
 // in the language of msgs.
 func (msgs Messages) OverrideLineHint() string {
 	return Catalog.Format(msgs.locale, "overrideLineHint", nil)
+}
+
+// OverridePadHint says "8–120; empty follows the Markdown theme"
+// in the language the app shows.
+func OverridePadHint() string { return In(i18n.Locale()).OverridePadHint() }
+
+// OverridePadHint says "8–120; empty follows the Markdown theme"
+// in the language of msgs.
+func (msgs Messages) OverridePadHint() string {
+	return Catalog.Format(msgs.locale, "overridePadHint", nil)
 }
 
 // ErrNotNumber says "Enter a number"

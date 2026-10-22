@@ -65,6 +65,7 @@ func TestSettingsViewCardLayout(t *testing.T) {
 		"界面外观", "风格", "颜色主题",
 		"排版主题", "中文字体", "英文字体", "代码字体",
 		"主题", "排版", "语法配色", "恢复本页默认值",
+		"左右内边距", "上下内边距",
 	} {
 		if !tt.HasText(want) {
 			t.Fatalf("外观页缺少 %q: %v", want, tt.Texts())
@@ -325,5 +326,82 @@ func TestSettingsCodeThemePersists(t *testing.T) {
 	}
 	if saved.Appearance.CodeTheme != "" {
 		t.Fatalf("跟随文本应已落盘为空串: %+v", saved.Appearance)
+	}
+}
+
+// TestSettingsPaddingFieldsCommit 内边距字段：非法与越界值不提交并保留行内错误，
+// 合法值即时生效落盘，清空 = 跟随排版主题；解析后的样式与窗口换算同步吃覆盖。
+func TestSettingsPaddingFieldsCommit(t *testing.T) {
+	a := newTestApp(t)
+	a.settingsPage = pageGeneral
+	a.settingsUI.syncDraftFromPrefs(a.prefs)
+
+	// 越界值：保持 dirty 与行内错误，不得提交。
+	a.settingsUI.padXText = "4"
+	a.commitFloatField("padX")
+	if a.settingsUI.padXErr == "" || !a.settingsUI.padXDirty {
+		t.Fatalf("越界值必须保持 dirty 与行内错误: %+v", a.settingsUI)
+	}
+	if a.prefs.Appearance.PadX != 0 {
+		t.Fatalf("越界值不得提交: %v", a.prefs.Appearance.PadX)
+	}
+	// 非法数字：同样不提交。
+	a.settingsUI.padYText = "abc"
+	a.commitFloatField("padY")
+	if a.settingsUI.padYErr == "" {
+		t.Fatal("非法数字必须显示行内错误")
+	}
+
+	// 合法值提交并清 dirty/error。
+	a.settingsUI.padXText = "32"
+	a.commitFloatField("padX")
+	if a.prefs.Appearance.PadX != 32 || a.settingsUI.padXErr != "" || a.settingsUI.padXDirty {
+		t.Fatalf("合法值应提交: padX=%v err=%q dirty=%v", a.prefs.Appearance.PadX, a.settingsUI.padXErr, a.settingsUI.padXDirty)
+	}
+	a.settingsUI.padYText = "16"
+	a.commitFloatField("padY")
+	if a.prefs.Appearance.PadY != 16 {
+		t.Fatalf("上下内边距应提交: %v", a.prefs.Appearance.PadY)
+	}
+
+	// 已提交左右 32 / 上下 16：样式应两者都覆盖。
+	a.prefs.Appearance.MarkdownTheme = "book"
+	s := a.resolveStyle(-1, false, true)
+	if s.padX != 32 || s.padY != 16 {
+		t.Fatalf("样式应合并覆盖与主题: padX=%v padY=%v", s.padX, s.padY)
+	}
+	// 清空上下后，上下应回到主题默认（book 主题上下 28）。
+	a.settingsUI.padYText = ""
+	a.commitFloatField("padY")
+	s = a.resolveStyle(-1, false, true)
+	if s.padX != 32 || s.padY != 28 {
+		t.Fatalf("清空后上下应跟随主题: padX=%v padY=%v", s.padX, s.padY)
+	}
+
+	// 窗口尺寸换算同步吃覆盖：左右变宽同列数更宽，上下不动高度不变。
+	w0, h0 := defaultWindowSize(a.prefs)
+	a.prefs.Appearance.PadX = 60
+	a.prefs.Appearance.PadY = 40
+	w1, h1 := defaultWindowSize(a.prefs)
+	if w1 <= w0 || h1 <= h0 {
+		t.Fatalf("窗口尺寸应随内边距覆盖变大: %dx%d -> %dx%d", w0, h0, w1, h1)
+	}
+
+	// 清空 = 跟随主题；落盘含两个新键。逐个清：提交任一字段都会把另一个
+	// 非 dirty 字段的文本重播为当前偏好值。
+	a.settingsUI.padYText = ""
+	a.commitFloatField("padY")
+	a.settingsUI.padXText = ""
+	a.commitFloatField("padX")
+	if a.prefs.Appearance.PadX != 0 || a.prefs.Appearance.PadY != 0 {
+		t.Fatalf("清空应跟随主题: %+v", a.prefs.Appearance)
+	}
+	a.shutdownPreferences()
+	saved, err := decodePreferences(prefsReadRaw(t, a.preferencesPath()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Appearance.PadX != 0 || saved.Version != currentPreferencesVersion {
+		t.Fatalf("跟随语义应原样落盘: %+v", saved)
 	}
 }

@@ -563,7 +563,7 @@ type styleCache struct {
 }
 
 // resolveStyle 合并三层：颜色主题 + Markdown 排版 + 用户排版覆盖。
-// override 为 false 时忽略用户字体/字号/行高覆盖（预览卡片用）。
+// override 为 false 时忽略用户字体/字号/行高/内边距覆盖（预览卡片用）。
 func (a *app) resolveStyle(dot int, dark bool, override bool) resolvedStyle {
 	key := styleCacheKey{appearance: a.prefs.Appearance, dot: dot, dark: dark, override: override,
 		familyCount: len(a.fonts.families)}
@@ -626,6 +626,12 @@ func (a *app) computeStyle(dot int, dark bool, override bool) resolvedStyle {
 		if a.prefs.Appearance.LineHeight > 0 {
 			s.lineHeight = a.prefs.Appearance.LineHeight
 			s.codeLineHeigh = roundHalf(s.lineHeight*0.98 + 0.02)
+		}
+		if a.prefs.Appearance.PadX > 0 {
+			s.padX = a.prefs.Appearance.PadX
+		}
+		if a.prefs.Appearance.PadY > 0 {
+			s.padY = a.prefs.Appearance.PadY
 		}
 	}
 	return s

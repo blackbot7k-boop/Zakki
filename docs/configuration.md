@@ -86,7 +86,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 - **排版微调**：中文字体（霞鹜文楷 / 系统苹方 / 宋体 / 手写 / 手札体：手写与手札体同用
   霞鹜文楷 Lite，标题靠字号与装饰区分）、英文字体（JetBrains Mono，新装默认 / 跟随中文字体 / 系统英文字体 /
   Noteworthy / Bradley Hand / Fira Code）、代码字体（JetBrains Mono / SF Mono / Menlo /
-  Fira Code）、字号（10–40）、行高（1–3）；三个字体下拉均合并本机已装字体（`local:<家族名>`，
+  Fira Code）、字号（10–40）、行高（1–3）、左右内边距与上下内边距（8–120，清空跟随排版主题，
+  实时预览与源码模式共用同一套内边距）；三个字体下拉均合并本机已装字体（`local:<家族名>`，
   免下载），按家族名归类：中文字体只列含中文字形的家族，英文字体只列西文家族，代码字体只列
   等宽家族，日韩及其他文字、表情与符号字体都不列（系统接口不提供字符覆盖，名字识别不出的
   家族当作西文）。字体下拉分「推荐 / 本机字体」两组、可搜索，每项用该字体写一行样字
@@ -229,7 +230,7 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 
 ```json
 {
-  "version": 11,
+  "version": 13,
   "appearance": {
     "appearanceMode": "system",
     "language": "",
@@ -242,7 +243,9 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
     "latinFont": "jetbrains",
     "monoFont": "",
     "bodySize": 0,
-    "lineHeight": 0
+    "lineHeight": 0,
+    "padX": 0,
+    "padY": 0
   },
   "window": { "alwaysOnTop": false, "hideOnEscape": true, "rememberBounds": true },
   "storage": { "dataFile": "", "saveIntervalMs": 2000 },
@@ -260,6 +263,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
   三个字体字段除预设键外还允许 `local:<真实家族名>`（本机字体，仅按名字引用，不携带文件；
   经严格校验，不接受逗号/控制字符/首尾空白），`latinFont` / `monoFont` 另支持 `fira`。
 - `appearance.monoFont` 空串 = 跟随排版主题；`bodySize` / `lineHeight` 0 = 跟随。
+- `appearance.padX` / `padY` 是正文区左右 / 上下内边距覆盖（DIP，8–120）；
+  0 = 跟随排版主题。实时预览与源码编辑区共用：源码模式不再单独用固定留白。
 - `appearance.codeTheme` 空串 = 跟随文本（单色代码），其余取值 `soft`（柔和，默认）/ `vivid`（明快）；
   该键始终落盘（无 omitempty），空串是显式选择而非未设置。
 - 版本 2 起分成中西文两个键。旧文件（版本 1 或无 version）读取时把 `latinFont` 留空，
@@ -283,5 +288,8 @@ MyGo 的 `PathUserData` 同样指向此目录，窗口状态与更新器辅助�
 - 版本 12 起 `backup` 整节与 `advanced.autosaveDelayMs` 移除：任何不超过当前版本的文件
   读取时都会静默摘除这些旧键（不迁移语义，含开发期写出的版本 12 带旧键文件），
   写回即为干净的结构；真正超前的版本仍拒绝。`advanced` 只剩主窗口初始宽高。
+- 版本 13 新增 `appearance.padX` / `padY`（正文区左右 / 上下内边距覆盖，8–120，
+  0 = 跟随排版主题）：旧文件从未写过这两个键，缺键解码即零值 = 跟随，无需迁移；
+  同时修正实时预览内边距的上下 / 左右参数序，源码编辑区改用与预览同一套内边距。
 - 版本 3 起 `backup` 记录外部备份目录；版本 6 起收敛为单一 `backupDir`——这些备份语义
   已随版本 12 移除，历史细节不再维护。

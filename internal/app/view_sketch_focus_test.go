@@ -167,11 +167,22 @@ func TestSketchInputBackgroundGeometry(t *testing.T) {
 					if end {
 						x = caret.X - 2
 					}
-					pixel := tt.Image().At(int(math.Floor(float64(x))), int(math.Ceil(float64(caret.Y)))+1)
-					r, g, b, _ := pixel.RGBA()
-					dr, dg, db := int(r>>8)-int(target.R), int(g>>8)-int(target.G), int(b>>8)-int(target.B)
-					if dr*dr+dg*dg+db*db > 12 {
-						t.Errorf("底色没有覆盖原生文字边界：end=%t caret=%+v pixel=%v want=%v", end, caret, pixel, target)
+					// 光标内侧 3×3 邻域应至少一像素落在纸底（或装饰叠纸底）：
+					// 字形亚像素渲染与手账荧光笔的双笔叠边随内容水平位置浮动，
+					// 单像素可能恰好落进笔画；而原生底色一旦画出，邻域内任何
+					// 像素都不可能命中纸底，回归仍会被抓住。
+					base := int(math.Floor(float64(x)))
+					row := int(math.Ceil(float64(caret.Y))) + 1
+					covered := false
+					for dx := -1; dx <= 1 && !covered; dx++ {
+						for dy := -1; dy <= 1 && !covered; dy++ {
+							r, g, b, _ := tt.Image().At(base+dx, row+dy).RGBA()
+							dr, dg, db := int(r>>8)-int(target.R), int(g>>8)-int(target.G), int(b>>8)-int(target.B)
+							covered = dr*dr+dg*dg+db*db <= 12
+						}
+					}
+					if !covered {
+						t.Errorf("底色没有覆盖原生文字边界：end=%t caret=%+v want=%v", end, caret, target)
 					}
 				}
 			})

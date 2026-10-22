@@ -102,7 +102,7 @@ func TestPreferencesMigrateFontSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CurrentVersion || CurrentVersion != 12 {
+	if got.Version != CurrentVersion || CurrentVersion != 13 {
 		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, got.Version)
 	}
 	if got.Appearance.LatinFont != "" {
@@ -202,6 +202,45 @@ func TestPreferencesMigrateCodeThemeSoft(t *testing.T) {
 	}
 	if got := Default().Appearance.CodeTheme; got != "soft" {
 		t.Fatalf("全新安装默认应为 soft: %q", got)
+	}
+}
+
+// TestPreferencesMigratePadding 版本 13 新增 appearance.padX / padY（正文区
+// 左右 / 上下内边距覆盖，DIP）：旧文件从未写过这两个键，缺键解码即零值 = 跟随
+// 排版主题，无需迁移；带值文件原样读回；越界值拒绝，显式 0 表示跟随。
+func TestPreferencesMigratePadding(t *testing.T) {
+	v12, err := Decode([]byte(`{"version":12,"appearance":{"bodySize":18}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v12.Version != CurrentVersion {
+		t.Fatalf("版本应升到 %d，当前 %d", CurrentVersion, v12.Version)
+	}
+	if v12.Appearance.PadX != 0 || v12.Appearance.PadY != 0 {
+		t.Fatalf("缺键应跟随主题（零值）: %+v", v12.Appearance)
+	}
+	if v12.Appearance.BodySize != 18 {
+		t.Fatalf("迁移不得改动其余偏好: %+v", v12.Appearance)
+	}
+	set, err := Decode([]byte(`{"version":13,"appearance":{"padX":40,"padY":12}}`), testAccel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.Appearance.PadX != 40 || set.Appearance.PadY != 12 {
+		t.Fatalf("带值应原样读回: %+v", set.Appearance)
+	}
+	for _, raw := range []string{
+		`{"version":13,"appearance":{"padX":4}}`,
+		`{"version":13,"appearance":{"padY":120.5}}`,
+		`{"version":13,"appearance":{"padX":-8}}`,
+	} {
+		if _, err := Decode([]byte(raw), testAccel); err == nil {
+			t.Fatalf("越界内边距必须拒绝: %s", raw)
+		}
+	}
+	follow, err := Decode([]byte(`{"version":13,"appearance":{"padX":0,"padY":0}}`), testAccel)
+	if err != nil || follow.Appearance.PadX != 0 || follow.Appearance.PadY != 0 {
+		t.Fatalf("显式 0 表示跟随主题，必须接受: %+v %v", follow, err)
 	}
 }
 

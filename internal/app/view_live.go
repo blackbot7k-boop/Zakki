@@ -65,7 +65,8 @@ func (a *app) livePane(c *ui.Context, t *ui.Theme, dark bool) {
 		a.virt.endFrame(list.Bounds())
 		list.Fill().Background(a.paperBackground(style.background, dark, c.Vibrancy())).
 			TrackScroll(&a.liveScroll).
-			Padding(style.padX, style.padY).Gap(style.blockGap).
+			// MyGo Padding 按 CSS 序：先上下后左右；padX 是左右内边距。
+			Padding(style.padY, style.padX).Gap(style.blockGap).
 			TextColor(style.text).Font(style.bodyFont).FontSize(style.bodySize).LineHeight(style.lineHeight)
 		if style.sketch {
 			// 纸面画在滚动视口上而不是内容行上：内容比视口短时，下方空白同样是纸。
