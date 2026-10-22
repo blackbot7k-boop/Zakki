@@ -983,9 +983,9 @@ func TestBeginRenameCommitsPrevious(t *testing.T) {
 	}
 }
 
-// TestTabTooltipShowsShortcutAndPreview 圆点悬停提示：名称 + 切换快捷键，
-// 第二行取正文首个非空行并去掉行首 Markdown 标记，过长截断。
-func TestTabTooltipShowsShortcutAndPreview(t *testing.T) {
+// TestTabTooltipShowsNameAndShortcut 圆点悬停提示只显示名称与切换快捷键，
+// 不包含正文内容。
+func TestTabTooltipShowsNameAndShortcut(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	key := func(i int) string {
@@ -996,25 +996,11 @@ func TestTabTooltipShowsShortcutAndPreview(t *testing.T) {
 		return b.displayName()
 	}
 	a.tabs[0].Name, a.tabs[0].Text = "", "\n  \n## 购物清单\n- 牛奶"
-	if got, want := a.tabTooltip(0), locales.TabN("1")+"  "+key(0)+"\n购物清单"; got != want {
+	if got, want := a.tabTooltip(0), locales.TabN("1")+"  "+key(0); got != want {
 		t.Fatalf("未命名标签提示 = %q, want %q", got, want)
 	}
-	a.tabs[1].Name, a.tabs[1].Text = "工作", ""
+	a.tabs[1].Name, a.tabs[1].Text = "工作", "工作\n买菜"
 	if got, want := a.tabTooltip(1), "工作  "+key(1); got != want {
-		t.Fatalf("空标签提示 = %q, want %q", got, want)
-	}
-	a.tabs[2].Name, a.tabs[2].Text = "", strings.Repeat("字", tabTooltipPreviewRunes+5)
-	want := locales.TabN("3") + "  " + key(2) + "\n" + strings.Repeat("字", tabTooltipPreviewRunes) + "…"
-	if got := a.tabTooltip(2); got != want {
-		t.Fatalf("长首行应截断: %q", got)
-	}
-	// 正文首行与标签名相同时不重复展示，取下一个非空行。
-	a.tabs[3].Name, a.tabs[3].Text = "待办", "待办\n买菜"
-	if got, want := a.tabTooltip(3), "待办  "+key(3)+"\n买菜"; got != want {
-		t.Fatalf("重名首行应去重: %q, want %q", got, want)
-	}
-	a.tabs[3].Text = "待办"
-	if got, want := a.tabTooltip(3), "待办  "+key(3); got != want {
-		t.Fatalf("全文仅重名行时应无预览: %q, want %q", got, want)
+		t.Fatalf("命名标签提示 = %q, want %q（不应包含正文）", got, want)
 	}
 }

@@ -74,35 +74,11 @@ func (a *app) menuTitle(i int) string {
 	return locales.TabN(fmt.Sprint(i + 1))
 }
 
-// tabTooltipPreviewRunes 悬停提示里正文首行的截断长度。
-const tabTooltipPreviewRunes = 40
-
-// tabTooltip 顶栏圆点的悬停提示：标签名 + 切换快捷键，第二行是正文首个
-// 非空行（去掉行首 Markdown 标记），让未命名的圆点也能认出内容；
-// 与标签名相同的行不重复展示。
+// tabTooltip 顶栏圆点的悬停提示：标签名 + 切换快捷键。
 func (a *app) tabTooltip(i int) string {
-	name := a.menuTitle(i)
-	tip := name
+	tip := a.menuTitle(i)
 	if b, ok := parsedFixedBinding(fmt.Sprintf("tab%d", i+1)); ok {
 		tip += "  " + b.displayName()
-	}
-	rest := a.tabs[i].Text
-	for rest != "" {
-		var line string
-		line, rest, _ = strings.Cut(rest, "\n")
-		line = strings.TrimSpace(strings.TrimLeft(line, "#>-*+ \t"))
-		if line == "" || line == name {
-			continue
-		}
-		n := 0
-		for at := range line {
-			if n == tabTooltipPreviewRunes {
-				line = line[:at] + "…"
-				break
-			}
-			n++
-		}
-		return tip + "\n" + line
 	}
 	return tip
 }
