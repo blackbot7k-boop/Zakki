@@ -4963,3 +4963,23 @@ func PrefsPausedForNotes(err string) string { return In(i18n.Locale()).PrefsPaus
 func (msgs Messages) PrefsPausedForNotes(err string) string {
 	return Catalog.Format(msgs.locale, "prefsPausedForNotes", map[string]any{"err": err})
 }
+
+// PinTopOn says "Turn Off Keep on Top"
+// in the language the app shows.
+func PinTopOn() string { return In(i18n.Locale()).PinTopOn() }
+
+// PinTopOn says "Turn Off Keep on Top"
+// in the language of msgs.
+func (msgs Messages) PinTopOn() string {
+	return Catalog.Format(msgs.locale, "pinTopOn", nil)
+}
+
+// StatusPreview says "Preview"
+// in the language the app shows.
+func StatusPreview() string { return In(i18n.Locale()).StatusPreview() }
+
+// StatusPreview says "Preview"
+// in the language of msgs.
+func (msgs Messages) StatusPreview() string {
+	return Catalog.Format(msgs.locale, "statusPreview", nil)
+}

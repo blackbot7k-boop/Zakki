@@ -6,6 +6,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/egoist/mygo/ui"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -246,6 +247,27 @@ func TestPersistenceLoadFields(t *testing.T) {
 }
 
 // ---- 3. v1 → v2 迁移与 v2 修复 ----
+
+// TestToggleTooltipsFollowState 置顶与源码图标的悬停提示随状态切换。
+func TestToggleTooltipsFollowState(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 560, 200)
+	tt.Frame()
+	if _, ok := tt.Find("置顶"); !ok {
+		t.Fatalf("未置顶应提示置顶: %v", tt.Texts())
+	}
+	a.cfg.AlwaysOnTop = true
+	tt.Frame()
+	if _, ok := tt.Find("取消置顶"); !ok {
+		t.Fatalf("置顶后应提示取消置顶: %v", tt.Texts())
+	}
+	a.cfg.Source = true
+	tt.Frame()
+	if _, ok := tt.Find("实时预览"); !ok {
+		t.Fatalf("源码模式应提示切回实时预览: %v", tt.Texts())
+	}
+}
 
 // TestSwitchTabDoesNotTouchFile 切换标签是纯导航：不产生待写快照，
 // 活动标签随下次真实保存或退出最终保存顺带落盘。

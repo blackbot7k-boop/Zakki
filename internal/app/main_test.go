@@ -90,14 +90,14 @@ func TestView(t *testing.T) {
 		t.Errorf("勾选后源文本应变为 [x]，得到 %q", a.tabs[1].Text)
 	}
 
-	// 源码模式切换（底栏眼睛图标，⌘⇧P 同）。
+	// 源码模式切换（底栏眼睛图标，⌘⇧P 同）；提示显示点击后进入的状态。
 	if err := tt.Click("源码"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.cfg.Source {
 		t.Error("点击源码后应进入源码模式")
 	}
-	if err := tt.Click("源码"); err != nil {
+	if err := tt.Click("实时预览"); err != nil {
 		t.Fatal(err)
 	}
 	if a.cfg.Source {

@@ -538,5 +538,7 @@
   "storageUnsaved": "Unsaved changes",
   "storageSavedAt": "Saved at {time}",
   "commonChoose": "Choose",
-  "prefsPausedForNotes": "Preferences file is unavailable, note saving is paused: {err}"
+  "prefsPausedForNotes": "Preferences file is unavailable, note saving is paused: {err}",
+  "pinTopOn": "Turn Off Keep on Top",
+  "statusPreview": "Preview"
 }

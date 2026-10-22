@@ -345,7 +345,11 @@ func (a *app) iconPin(c *ui.Context, t *ui.Theme, dark bool) {
 	if a.cfg.AlwaysOnTop {
 		svg, ink = iconPinFilled, style.accent
 	}
-	if chromeIcon(c, "pin-top", svg, locales.PinTop(), ink).Clicked() {
+	label := locales.PinTop()
+	if a.cfg.AlwaysOnTop {
+		label = locales.PinTopOn()
+	}
+	if chromeIcon(c, "pin-top", svg, label, ink).Clicked() {
 		a.withWindow(func() {
 			a.setAlwaysOnTop(!a.cfg.AlwaysOnTop)
 		})
@@ -482,7 +486,11 @@ func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 
 		ui.Row(c).Shrink(0).AlignItems(ui.Center).Children(func() {
 			// 源码模式开关（Lucide eye）：默认实时预览，打开后全文源码 + 语法高亮。
-			a.iconStatusToggle(c, "sb-source", iconPreview, iconEyeFilled, locales.StatusSource(), a.cfg.Source, t, dark, func() {
+			sourceLabel := locales.StatusSource()
+			if a.cfg.Source {
+				sourceLabel = locales.StatusPreview()
+			}
+			a.iconStatusToggle(c, "sb-source", iconPreview, iconEyeFilled, sourceLabel, a.cfg.Source, t, dark, func() {
 				a.toggleSourceMode()
 			})
 		})
