@@ -5,15 +5,16 @@
 
 | 报告 | 说明 |
 |---|---|
+| [2026-10-22-review-remediation.md](2026-10-22-review-remediation.md) | 本轮 19 项代码审查问题的修复、回归证据与验证范围 |
 | [2026-10-18-performance-review.md](2026-10-18-performance-review.md) | 窗口唤起、编辑/预览/撤销优化与剩余瓶颈 |
 | [2026-10-18-startup-shutdown-review.md](2026-10-18-startup-shutdown-review.md) | 首帧后后台任务、启动/关窗原生实测 |
 | [2026-10-18-focus-rendering-review.md](2026-10-18-focus-rendering-review.md) | 聚焦前后样式差异（已修复，保留根因记录） |
 
 汇总数据见 [performance/summary.json](../performance/summary.json)；复现脚本见 [performance/](../performance/)。
 
-## 仍未解决的性能与 I/O 项（摘自 2026-10-18 性能报告）
+## 仍未解决的性能项（摘自报告并按当前实现校正）
 
-- **大块内部布局**：整张表格、超长无空行段落仍是单块，`ui.List` 虚拟化无法限制块内布局成本。
-- **同步安全备份**：`backupNow`、清空、写回、删标签前的备份仍在主线程等待完成。
-- **目录升级迁移**：`datamigrate` 合并旧备份路径可能一次性读入大量备份正文（仅影响该迁移路径）。
-- **外部卷与 Git**：镜像目录扫描、`.git` 探测、Git 任务尚无超时/后台缓存；默认 Metal 冷启动长尾需真机复验。
+- **超长单段落布局**：代码块和表格已经具备块内行虚拟化，但没有空行的超长单段落仍需整体排版。
+- **原生冷启动**：默认 Metal 冷启动的长尾仍需在目标硬件与正式签名包上持续复验。
+
+旧报告保留当时的测量背景；其中已经完成的备份、目录迁移和 Git 超时整改不再列为当前问题。
