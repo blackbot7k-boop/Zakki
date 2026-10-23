@@ -100,6 +100,21 @@ func contentBackground(base ui.Color, dark, vibrancy bool) ui.Color {
 	return ui.RGBA(255, 255, 255, 0.58)
 }
 
+// readableTextColor 优先保留主题文字色；若它在实际栏背景上不足 4.5:1，
+// 则退到黑白中对比更高的一侧。
+func readableTextColor(bg ui.Color, preferred ...ui.Color) ui.Color {
+	for _, ink := range preferred {
+		if contrastRatio(ink, bg) >= 4.5 {
+			return ink
+		}
+	}
+	light, dark := ui.RGB(255, 255, 255), ui.RGB(28, 28, 30)
+	if contrastRatio(light, bg) >= contrastRatio(dark, bg) {
+		return light
+	}
+	return dark
+}
+
 // chromeColor 顶栏/底栏/查找条的中性半透明层：窗口有系统材质（Vibrancy）
 // 时半透明叠在材质上；没有材质的平台按回退强度与主题背景混合，
 // 不影响功能。
@@ -469,11 +484,11 @@ func (a *app) editorPane(c *ui.Context, t *ui.Theme, dark bool) {
 func (a *app) statusBar(c *ui.Context, t *ui.Theme, dark bool) {
 	style := a.resolveStyle(-1, dark, true)
 	bg := a.chromeColor(style.status, dark, c.Vibrancy())
-	fg := a.tabAccent(a.active, dark)
+	fg := readableTextColor(bg, t.TextMuted, t.Text)
 	// 窄窗口里文字单行截断（悬停看全文），图标固定不被挤出。
 	ui.Row(c).Height(statusBarHeight).Background(bg).
 		Padding(0, headerPadX, 0, 14).Gap(8).AlignItems(ui.Center).Children(func() {
-		// 标签色小标识：不随标签换底色，只留这一点颜色。
+		// 标签原色只用于小标识，不承担小号正文或错误文字。
 		ui.Box(c).Width(8).Height(8).Radius(999).Background(a.tabColor(a.active)).Shrink(0)
 		lines, words, chars := a.docStats(a.activeTab().Text)
 		stats := locales.StatsLinesWordsChars(lines, words, chars)

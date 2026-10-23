@@ -4,7 +4,25 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
+
+func TestReadableStatusTextMeetsContrast(t *testing.T) {
+	for _, tc := range []struct {
+		bg        ui.Color
+		preferred ui.Color
+	}{
+		{bg: ui.Hex("#f4f1ec"), preferred: ui.Hex("#948d84")},
+		{bg: ui.Hex("#25262a"), preferred: ui.Hex("#777a82")},
+		{bg: ui.Hex("#efefef"), preferred: ui.Hex("#202124")},
+	} {
+		got := readableTextColor(tc.bg, tc.preferred)
+		if ratio := contrastRatio(got, tc.bg); ratio < 4.5 {
+			t.Errorf("status contrast = %.2f, want >= 4.5 (ink=%v bg=%v)", ratio, got, tc.bg)
+		}
+	}
+}
 
 func TestDocStatsDebouncesLongDocs(t *testing.T) {
 	a := newTestApp(t)
