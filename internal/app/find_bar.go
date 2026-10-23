@@ -188,7 +188,7 @@ func (a *app) findQueryField(c *ui.Context, t *ui.Theme) {
 		if a.query != "" && a.tabHitCount(a.active) == 0 && !a.findAllTabs {
 			color = t.Danger
 		}
-		ui.Text(c, count).FontSize(12).TextColor(color).SingleLine().Shrink(0)
+		ui.Text(c, count).FontSize(12).TextColor(color).SingleLine().MinWidth(0).Shrink(1).Tooltip(count)
 	})
 }
 
