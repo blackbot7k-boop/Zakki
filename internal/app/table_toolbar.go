@@ -15,7 +15,7 @@ const (
 
 func (a *app) tableToolButton(c *ui.Context, t *ui.Theme, key, label string, icon *ui.SVG, selected bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).
-		Size(28, 28).Radius(4).Cursor(ui.CursorPointer).FocusRing(false).
+		Size(28, 28).Radius(4).Cursor(ui.CursorPointer).FocusRing(true).
 		Disabled(a.mdComposing)
 	ink := t.TextMuted
 	if selected {
@@ -97,24 +97,28 @@ func (a *app) tableToolbar(c *ui.Context, t *ui.Theme, blk liveBlock) {
 
 func (a *app) tableSizePicker(c *ui.Context, t *ui.Theme) {
 	ui.Text(c, locales.TableSizeAt(a.tableTools.hoverCols, a.tableTools.hoverRows)).FontSize(12).Bold()
-	// Build all hit targets first so every cell uses the same hover rectangle,
-	// including cells earlier in build order. Elements stay local to this pass.
+	// 先构建全部命中目标，让每格使用同一帧的悬停矩形；元素不跨帧保存。
 	var cells []ui.Element
-	ui.Column(c).Gap(2).Children(func() {
-		for row := 1; row <= tablePickerRows; row++ {
-			ui.Row(c.Key(fmt.Sprintf("size-row-%d", row))).Gap(2).Children(func() {
-				for col := 1; col <= tablePickerCols; col++ {
-					btn := ui.ButtonBase(c.Key(fmt.Sprintf("size-col-%d", col))).
-						Size(20, 20).Radius(1).Border(1, t.Border).FocusRing(false).
-						Label(locales.TablePickSize(col, row)).Cursor(ui.CursorPointer)
-					btn.OnClick(func() {
-						a.liveClickHandled = true
-						a.requestTableResize(row, col)
-					})
-					cells = append(cells, btn)
-				}
-			})
-		}
+	ui.Scroll(c.Key("table-size-grid")).MaxHeight(210).Children(func() {
+		ui.Column(c).Gap(2).Children(func() {
+			for row := 1; row <= tablePickerRows; row++ {
+				ui.Row(c.Key(fmt.Sprintf("size-row-%d", row))).Gap(2).Children(func() {
+					for col := 1; col <= tablePickerCols; col++ {
+						btn := ui.ButtonBase(c.Key(fmt.Sprintf("size-col-%d", col))).
+							Size(28, 28).Radius(2).Border(1, t.Border).FocusRing(true).
+							Label(locales.TablePickSize(col, row)).Cursor(ui.CursorPointer)
+						if btn.Focused() {
+							btn.ScrollIntoView()
+						}
+						btn.OnClick(func() {
+							a.liveClickHandled = true
+							a.requestTableResize(row, col)
+						})
+						cells = append(cells, btn)
+					}
+				})
+			}
+		})
 	})
 	target := -1
 	for i, cell := range cells {

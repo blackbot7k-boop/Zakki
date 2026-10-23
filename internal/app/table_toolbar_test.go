@@ -266,9 +266,17 @@ func TestTableToolbarSmallWindowAndThemes(t *testing.T) {
 			tt.SetDark(dark)
 			tableToolClick(t, tt, "单元格 2,1")
 			tableToolClick(t, tt, "调整表格大小")
+			first, ok := tt.Find("1 列 1 行")
+			if !ok || first.W < 28 || first.H < 28 || first.X < 0 || first.Y < 0 || first.X+first.W > 300 || first.Y+first.H > 340 {
+				t.Fatalf("picker target too small or clipped at minimum window size: %+v", first)
+			}
+			tt.Scroll(first.X+first.W/2, first.Y+first.H/2, 0, 1000)
+			for range 3 {
+				tt.Frame()
+			}
 			r, ok := tt.Find("8 列 10 行")
-			if !ok || r.X < 0 || r.Y < 0 || r.X+r.W > 300 || r.Y+r.H > 340 {
-				t.Fatalf("picker clipped at minimum window size: %+v", r)
+			if !ok || r.W < 28 || r.H < 28 || r.X < 0 || r.Y < 0 || r.X+r.W > 300 || r.Y+r.H > 340 {
+				t.Fatalf("scrolled picker target too small or clipped: %+v", r)
 			}
 			tableToolClick(t, tt, "8 列 10 行")
 			if a.tableTools.open || len(a.mdBlocks()[a.mdActive].table.rows) != 10 {

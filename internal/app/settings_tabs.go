@@ -17,9 +17,9 @@ import (
 	"zakki/locales"
 )
 
-// settingsTabRowHeight 标签列表的固定行高：行内一行排开
-// （取色器色块、名称、当前标记、删除图标）。
-const settingsTabRowHeight float32 = 34
+// settingsTabRowHeight 标签列表的固定行高：一行容纳 30 DIP 的取色、
+// 前后移动与删除按钮，并保留清晰的键盘焦点轮廓。
+const settingsTabRowHeight float32 = 40
 
 // tabsPage 标签设置页：标签列表（拖拽排序、取色、行内重命名、删除）。
 // 顶栏外观项在「外观」页（见 settings_ui.go 的 tabAppearanceSection）。
@@ -117,10 +117,10 @@ func (a *app) settingsTabRow(c *ui.Context, i int) {
 			s.tabWellColors[i] = a.tabColor(i)
 			s.tabWellSeeded[i] = s.tabWellColors[i]
 		}
-		// 小圆点与顶栏同形：点开 Popover 里的取色器（含常用色色板）。
+		// 圆点保留标签原色，按钮命中区扩大到 30 DIP 并保留焦点环。
 		dot := ui.ButtonBase(c.Key(fmt.Sprintf("tabdot-%d", tb.ID))).
-			Label(locales.TabColorOf(a.tabs[i].Color)).
-			Size(18, 18).Radius(9).Cursor(ui.CursorPointer)
+			Label(locales.TabColorOf(a.tabs[i].Color)).Tooltip(locales.TabColorOf(a.tabs[i].Color)).
+			Size(30, 30).Radius(7).Cursor(ui.CursorPointer).FocusRing(true)
 		dot.Draw(func(p *ui.Painter, r ui.Rect) {
 			var path ui.Path
 			path.Circle(r.X+r.W/2, r.Y+r.H/2, 7)
@@ -154,7 +154,8 @@ func (a *app) settingsTabRow(c *ui.Context, i int) {
 			}
 		}
 		del := ui.ButtonBase(c.Key(fmt.Sprintf("tabdel-%d", tb.ID))).Label(locales.TabDelete(a.menuTitle(i))).
-			Size(26, 26).Radius(6).Cursor(ui.CursorPointer).
+			Tooltip(locales.TabDelete(a.menuTitle(i))).
+			Size(30, 30).Radius(6).Cursor(ui.CursorPointer).FocusRing(true).
 			AlignItems(ui.Center).Justify(ui.Center).Disabled(len(a.tabs) <= 1)
 		del.Children(func() {
 			ui.Icon(c, iconTrash).Size(14, 14).TextColor(c.Theme().TextMuted)
