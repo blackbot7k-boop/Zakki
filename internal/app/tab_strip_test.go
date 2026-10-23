@@ -374,6 +374,30 @@ func TestTabContextMenuDeleteAndRename(t *testing.T) {
 	a.cancelRename()
 }
 
+func TestTabContextMenuMoveUsesStableID(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 400, 540)
+	wantID := a.tabs[1].ID
+	if err := tt.RightClick("标签 2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	menu := strings.Join(tt.Menu(), ",")
+	for _, want := range []string{locales.TabMoveEarlier(), locales.TabMoveLater()} {
+		if !strings.Contains(menu, want) {
+			t.Fatalf("右键菜单缺 %q: %q", want, menu)
+		}
+	}
+	if err := tt.ChooseMenuItem(locales.TabMoveLater()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.tabs[2].ID != wantID {
+		t.Fatalf("应按稳定 ID 向后移动右键标签: index=%d", a.tabIndexByID(wantID))
+	}
+}
+
 // TestSettingsTabListDragReorder 设置页标签列表拖拽排序：按住行左空白
 // （避开按钮）竖拖一行，Reorder 回调按 List 语义重排并落盘。
 func TestSettingsTabListDragReorder(t *testing.T) {

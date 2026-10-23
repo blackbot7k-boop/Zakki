@@ -153,6 +153,8 @@ func (a *app) settingsTabRow(c *ui.Context, i int) {
 				a.beginSettingsRename(i)
 			}
 		}
+		a.settingsTabMoveButton(c, tb.ID, -1, iconChevronUp, locales.TabMoveEarlier(), i <= 0)
+		a.settingsTabMoveButton(c, tb.ID, 1, iconChevronDown, locales.TabMoveLater(), i >= len(a.tabs)-1)
 		del := ui.ButtonBase(c.Key(fmt.Sprintf("tabdel-%d", tb.ID))).Label(locales.TabDelete(a.menuTitle(i))).
 			Tooltip(locales.TabDelete(a.menuTitle(i))).
 			Size(30, 30).Radius(6).Cursor(ui.CursorPointer).FocusRing(true).
@@ -165,6 +167,22 @@ func (a *app) settingsTabRow(c *ui.Context, i int) {
 				a.confirmDeleteTab(cur)
 			}
 		})
+	})
+}
+
+// settingsTabMoveButton 提供拖拽之外的键盘可聚焦排序入口；动作按稳定 ID
+// 重新定位，避免同一帧的其他标签变化把目标移错。
+func (a *app) settingsTabMoveButton(c *ui.Context, id uint64, dir int, icon *ui.SVG, label string, disabled bool) {
+	btn := ui.ButtonBase(c.Key(fmt.Sprintf("tabmove-%d-%d", id, dir))).Label(label).Tooltip(label).
+		Size(30, 30).Radius(6).Cursor(ui.CursorPointer).FocusRing(true).Disabled(disabled).
+		AlignItems(ui.Center).Justify(ui.Center)
+	btn.Children(func() {
+		ui.Icon(c, icon).Size(15, 15).TextColor(c.Theme().TextMuted)
+	})
+	btn.OnClick(func() {
+		if i := a.tabIndexByID(id); i >= 0 && a.moveTab(i, dir) {
+			a.reseedTabWells()
+		}
 	})
 }
 

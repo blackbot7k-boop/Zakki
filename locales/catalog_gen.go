@@ -260,6 +260,26 @@ func (msgs Messages) TabColorOf(color string) string {
 	return Catalog.Format(msgs.locale, "tabColorOf", map[string]any{"color": color})
 }
 
+// TabMoveEarlier says "Move Earlier"
+// in the language the app shows.
+func TabMoveEarlier() string { return In(i18n.Locale()).TabMoveEarlier() }
+
+// TabMoveEarlier says "Move Earlier"
+// in the language of msgs.
+func (msgs Messages) TabMoveEarlier() string {
+	return Catalog.Format(msgs.locale, "tabMoveEarlier", nil)
+}
+
+// TabMoveLater says "Move Later"
+// in the language the app shows.
+func TabMoveLater() string { return In(i18n.Locale()).TabMoveLater() }
+
+// TabMoveLater says "Move Later"
+// in the language of msgs.
+func (msgs Messages) TabMoveLater() string {
+	return Catalog.Format(msgs.locale, "tabMoveLater", nil)
+}
+
 // TabMaxReached says "At the limit of {max, number} tabs: delete one to add another"
 // in the language the app shows.
 func TabMaxReached(max int) string { return In(i18n.Locale()).TabMaxReached(max) }
@@ -3228,6 +3248,66 @@ func OnboardWindowTitle() string { return In(i18n.Locale()).OnboardWindowTitle()
 // in the language of msgs.
 func (msgs Messages) OnboardWindowTitle() string {
 	return Catalog.Format(msgs.locale, "onboardWindowTitle", nil)
+}
+
+// OnboardCloseTitle says "Finish setting up Zakki?"
+// in the language the app shows.
+func OnboardCloseTitle() string { return In(i18n.Locale()).OnboardCloseTitle() }
+
+// OnboardCloseTitle says "Finish setting up Zakki?"
+// in the language of msgs.
+func (msgs Messages) OnboardCloseTitle() string {
+	return Catalog.Format(msgs.locale, "onboardCloseTitle", nil)
+}
+
+// OnboardCloseMessage says "Choose what to do before closing setup."
+// in the language the app shows.
+func OnboardCloseMessage() string { return In(i18n.Locale()).OnboardCloseMessage() }
+
+// OnboardCloseMessage says "Choose what to do before closing setup."
+// in the language of msgs.
+func (msgs Messages) OnboardCloseMessage() string {
+	return Catalog.Format(msgs.locale, "onboardCloseMessage", nil)
+}
+
+// OnboardCloseDetail says "You can keep setting up, create notes with the default settings, or exit without creating a notes file."
+// in the language the app shows.
+func OnboardCloseDetail() string { return In(i18n.Locale()).OnboardCloseDetail() }
+
+// OnboardCloseDetail says "You can keep setting up, create notes with the default settings, or exit without creating a notes file."
+// in the language of msgs.
+func (msgs Messages) OnboardCloseDetail() string {
+	return Catalog.Format(msgs.locale, "onboardCloseDetail", nil)
+}
+
+// OnboardCloseContinue says "Continue Setup"
+// in the language the app shows.
+func OnboardCloseContinue() string { return In(i18n.Locale()).OnboardCloseContinue() }
+
+// OnboardCloseContinue says "Continue Setup"
+// in the language of msgs.
+func (msgs Messages) OnboardCloseContinue() string {
+	return Catalog.Format(msgs.locale, "onboardCloseContinue", nil)
+}
+
+// OnboardCloseUseDefaults says "Use Default Settings"
+// in the language the app shows.
+func OnboardCloseUseDefaults() string { return In(i18n.Locale()).OnboardCloseUseDefaults() }
+
+// OnboardCloseUseDefaults says "Use Default Settings"
+// in the language of msgs.
+func (msgs Messages) OnboardCloseUseDefaults() string {
+	return Catalog.Format(msgs.locale, "onboardCloseUseDefaults", nil)
+}
+
+// OnboardCloseExit says "Exit {app}"
+// in the language the app shows.
+func OnboardCloseExit(app string) string { return In(i18n.Locale()).OnboardCloseExit(app) }
+
+// OnboardCloseExit says "Exit {app}"
+// in the language of msgs.
+func (msgs Messages) OnboardCloseExit(app string) string {
+	return Catalog.Format(msgs.locale, "onboardCloseExit", map[string]any{"app": app})
 }
 
 // OnboardStep says "Setup · Step {step, number} / {total, number}"

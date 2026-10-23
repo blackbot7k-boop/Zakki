@@ -491,8 +491,9 @@ type tabDrag uint64
 
 // tabDrop 待执行的拖拽重排：松手那帧仍在构建标签条，帧末再改标签次序。
 type tabDrop struct {
-	id uint64
-	to int
+	id  uint64
+	to  int
+	dir int // 菜单移动方向；0 表示拖拽的绝对插入位
 }
 
 // tabDropIndex 标签条局部横坐标 x 对应的插入位（List 语义：移到第 to 个之前）。
@@ -540,16 +541,19 @@ func (a *app) tabStripDrop(strip ui.Element, slots []tabSlotGeom) int {
 
 // ---- 标签右键菜单 ----
 
-// tabContextMenu 标签右键菜单：重命名、导出与删除，动作与菜单栏/快捷键同一实现；
-// 项尾展示当前平台的固定快捷键，删除前加分隔线（破坏性项独立成组）。
-// 只剩一个标签时禁用删除（至少保留一个）。
+// tabContextMenu 标签右键菜单：重命名、前后移动、导出与删除，动作与
+// 设置页/菜单栏/快捷键复用同一标签操作；删除前加分隔线（破坏性项独立成组）。
+// 只剩一个标签时禁用删除，首尾标签分别禁用越界移动。
 // 动作记为待执行、帧末跑（Chosen 在选中后的下一帧报告），不在构建期改状态。
 func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 	return func(m *ui.Menu) {
+		tabID := a.tabs[i].ID
 		rename := m.Item(locales.MenuRenameTab())
 		if b, ok := parsedFixedBinding("renameTab"); ok {
 			rename.Shortcut(b.mods, b.key)
 		}
+		earlier := m.Item(locales.TabMoveEarlier()).Disabled(i <= 0)
+		later := m.Item(locales.TabMoveLater()).Disabled(i >= len(a.tabs)-1)
 		export := m.Item(locales.MenuExportMarkdown())
 		m.Separator()
 		dele := m.Item(locales.MenuDeleteTab()).Disabled(len(a.tabs) <= 1)
@@ -557,13 +561,19 @@ func (a *app) tabContextMenu(i int) func(*ui.Menu) {
 			dele.Shortcut(b.mods, b.key)
 		}
 		if rename.Chosen() {
-			a.menuRenamePending = a.tabs[i].ID
+			a.menuRenamePending = tabID
+		}
+		if earlier.Chosen() {
+			a.dropPending = tabDrop{id: tabID, dir: -1}
+		}
+		if later.Chosen() {
+			a.dropPending = tabDrop{id: tabID, dir: 1}
 		}
 		if dele.Chosen() {
-			a.menuDeletePending = a.tabs[i].ID
+			a.menuDeletePending = tabID
 		}
 		if export.Chosen() {
-			a.menuExportPending = a.tabs[i].ID
+			a.menuExportPending = tabID
 		}
 	}
 }
@@ -576,8 +586,16 @@ func (a *app) runTabMenuPending(c *ui.Context) {
 	a.menuRenamePending, a.menuDeletePending, a.menuExportPending = 0, 0, 0
 	if drop := a.dropPending; drop.id != 0 {
 		a.dropPending = tabDrop{}
-		if i := a.tabIndexByID(drop.id); i >= 0 && a.reorderTab(i, drop.to) {
-			c.Invalidate()
+		if i := a.tabIndexByID(drop.id); i >= 0 {
+			moved := false
+			if drop.dir != 0 {
+				moved = a.moveTab(i, drop.dir)
+			} else {
+				moved = a.reorderTab(i, drop.to)
+			}
+			if moved {
+				c.Invalidate()
+			}
 		}
 	}
 	if exported != 0 {
