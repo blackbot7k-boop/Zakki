@@ -253,6 +253,19 @@ func openInlineState(content string) map[spanKind]bool {
 	return state
 }
 
+// replaceProjectedInput 把一次可见文本编辑映射回 Markdown，并消费待输入格式。
+// 原生输入、菜单粘贴和右键粘贴必须共用这里，避免格式意图残留到下一次输入。
+func (a *app) replaceProjectedInput(p liveProjection, blk liveBlock, next string, caret, oldStart, oldEnd int) (raw string, sourceCaret int, wrapped bool) {
+	raw, sourceCaret = p.replaceSelection(next, caret, oldStart, oldEnd)
+	pre, post, cutStart, cutEnd := a.pendingWrapFor(p, oldStart, oldEnd, blk, sourceCaret)
+	if pre == "" && post == "" {
+		return raw, sourceCaret, false
+	}
+	raw, sourceCaret = applyMarkerWrap(raw, p.sourceOffset(oldStart), sourceCaret, pre, post, cutStart, cutEnd)
+	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
+	return raw, sourceCaret, true
+}
+
 // pendingWrapFor 计算「待输入格式」在本次输入上要生成的标记。
 // 返回插在输入前后的标记串，以及需一并删除的冗余闭合标记区间
 // （新 raw 坐标，恒在输入区之后，见 completedStyleAt）；

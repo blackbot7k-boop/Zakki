@@ -300,7 +300,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 				p = projectRegion(p.raw+"\n", p.end+1, p.end+1, false, false)
 			}
 		}
-		raw, caret := p.replaceSelection(a.mdVisible, cs, oldStart, oldEnd)
+		raw, caret, wrapped := a.replaceProjectedInput(p, blk, a.mdVisible, cs, oldStart, oldEnd)
 		kind := editInput
 		if a.nextEditIsPaste {
 			kind, a.nextEditIsPaste = editPaste, false
@@ -309,9 +309,7 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		}
 		a.pendingEditKind = kind
 		// 待输入格式：第一次输入/粘贴/IME 确认时生成有效 Markdown。
-		if pre, post, cutStart, cutEnd := a.pendingWrapFor(p, oldStart, oldEnd, blk, caret); pre != "" || post != "" {
-			raw, caret = applyMarkerWrap(raw, p.sourceOffset(oldStart), caret, pre, post, cutStart, cutEnd)
-			a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
+		if wrapped {
 			a.pendingEditKind = editCommand
 		}
 		startFence := !a.fenceDraft && kind == editInput && strings.Trim(p.raw, " ") == "" && isFenceDraftLine(raw)

@@ -179,7 +179,11 @@ func (a *app) replaceEditorSelection(text string, kind editKind) {
 	if a.cfg.Source {
 		a.applyDocResult(docResult{doc: next, selStart: caret, selEnd: caret, changed: next != visible})
 	} else {
-		a.mdDraft, caret = a.mdProjection.replaceSelection(next, caret, lo, hi)
+		blocks := a.mdBlocks()
+		if a.mdActive < 0 || a.mdActive >= len(blocks) {
+			return
+		}
+		a.mdDraft, caret, _ = a.replaceProjectedInput(a.mdProjection, blocks[a.mdActive], next, caret, lo, hi)
 		a.publishDraft(caret)
 		a.scrollActive = true
 		a.liveList.ScrollIntoView(a.mdActive)

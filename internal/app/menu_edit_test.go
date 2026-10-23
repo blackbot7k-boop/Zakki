@@ -112,6 +112,48 @@ func TestEditMenuCopyCutPasteAcrossParagraphs(t *testing.T) {
 	}
 }
 
+func TestPendingFormatPasteFromMenus(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		paste func(*testing.T, *app, *ui.Tester)
+	}{
+		{
+			name: "菜单栏",
+			paste: func(t *testing.T, a *app, tt *ui.Tester) {
+				chooseEditMenu(t, a, tt, "paste")
+			},
+		},
+		{
+			name: "右键菜单",
+			paste: func(t *testing.T, _ *app, tt *ui.Tester) {
+				chooseEditorContext(t, tt, "粘贴")
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newTestApp(t)
+			t.Cleanup(a.shutdown)
+			a.tabs[0].Text = "内容"
+			tt := ui.NewTester(a.view, 500, 600)
+			a.focusBlock(0, runeLen("内容"), runeLen("内容"))
+			tt.Frame()
+			a.execFormatCommand(cmdBold)
+			tt.SetClipboard("粘贴")
+			tc.paste(t, a, tt)
+			if got, want := a.tabs[0].Text, "内容**粘贴**"; got != want {
+				t.Fatalf("待输入格式粘贴=%q, want %q", got, want)
+			}
+			if len(a.mdPending) != 0 {
+				t.Fatalf("粘贴后待输入格式未消费: %+v", a.mdPending)
+			}
+			tt.Type("后")
+			if got, want := a.tabs[0].Text, "内容**粘贴后**"; got != want {
+				t.Fatalf("后续输入未沿用当前可见格式: %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestEditMenuSelectAllReplacesSourceDocument(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
