@@ -37,7 +37,7 @@ zakki/
 │   └── atomicfile/           # tmp+rename 原子写
 ├── resources/  docs/  patches/  vendor/
 ├── build/  .mygo/            # 生成目录，已 gitignore
-└── .github/workflows/ci.yml
+└── .github/workflows/        # ci.yml + release.yml
 ```
 
 ## 3. 依赖规则
@@ -105,7 +105,7 @@ flowchart TD
 
 ## 5. 编码规范
 
-- 自有非测试文件超过 **800 行必须拆分**（`vendor/` 除外）；`internal/app` 按 `live_*`、`view_*` 等前缀命名。
+- 自有非测试文件超过 **800 行必须拆分**（`vendor/` 与生成文件除外，如 `go tool mygo generate` 产物 `locales/catalog_gen.go`）；`internal/app` 按 `live_*`、`view_*` 等前缀命名。
 - 测试文件与被测文件同前缀。禁止 `util`/`common`/`helpers` 包名。
 - 注释用中文，只写代码表达不出的约束；导出标识符有 godoc。
 - `zakki.json`、`preferences.json` 格式与迁移语义是用户契约；改格式须递增版本、补迁移测试，并更新 architecture / configuration。
