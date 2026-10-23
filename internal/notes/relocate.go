@@ -7,25 +7,41 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"zakki/internal/atomicfile"
 )
+
+// RelocateResult 描述迁址是否已经提交。Committed 为 true 后，权威路径和偏好均已切换，
+// 后续错误只表示清理或持久性同步失败，调用方不得回退运行时偏好。
+type RelocateResult struct {
+	Committed bool
+}
+
+// RelocateCleanupError 表示迁址已经提交，但旧文件未能完成清理。
+type RelocateCleanupError struct {
+	Err error
+}
+
+func (e *RelocateCleanupError) Error() string { return e.Err.Error() }
+func (e *RelocateCleanupError) Unwrap() error { return e.Err }
 
 // Relocate 串行保存当前快照、校验新文件、持久化偏好，再切换权威路径。
 // persist 只能操作调用方已拍下的 prefs.Store 快照，不得回调本 Store。
-// 偏好成功后即使旧文件删除失败，DataPath 也必须反映已提交的新路径。
-func (s *Store) Relocate(target string, f File, persist func() error) error {
+// 偏好成功后即使旧文件删除失败，结果也会报告已提交，且 DataPath 保持新路径。
+func (s *Store) Relocate(target string, f File, persist func() error) (RelocateResult, error) {
 	target, err := canonicalPath(target)
 	if err != nil {
 		s.ReportPersist("迁址失败", err)
-		return err
+		return RelocateResult{}, err
 	}
 	s.mu.Lock()
 	if target == s.dataPath {
 		s.mu.Unlock()
-		return nil
+		return RelocateResult{}, nil
 	}
 	if s.stopped || s.closed {
 		s.mu.Unlock()
-		return errors.New("存储已停止")
+		return RelocateResult{}, errors.New("存储已停止")
 	}
 	req := s.acceptLocked(cloneFile(f))
 	s.pending = nil
@@ -35,28 +51,28 @@ func (s *Store) Relocate(target string, f File, persist func() error) error {
 	defer s.writeMu.Unlock()
 	old := s.DataPath()
 	if target == old {
-		return nil
+		return RelocateResult{}, nil
 	}
-	err = s.relocateLocked(old, target, req, persist)
+	result, err := s.relocateLocked(old, target, req, persist)
 	s.ReportPersist("迁址失败", err)
-	return err
+	return result, err
 }
 
-func (s *Store) relocateLocked(old, target string, req *pendingSave, persist func() error) error {
+func (s *Store) relocateLocked(old, target string, req *pendingSave, persist func() error) (RelocateResult, error) {
 	if _, err := os.Lstat(target); !errors.Is(err, os.ErrNotExist) {
 		if err == nil {
-			return fmt.Errorf("目标文件已存在：%s", target)
+			return RelocateResult{}, fmt.Errorf("目标文件已存在：%s", target)
 		}
-		return err
+		return RelocateResult{}, err
 	}
 	if err := s.saveRequest(req); err != nil {
-		return err
+		return RelocateResult{}, err
 	}
 	s.mu.Lock()
 	raw := bytes.Clone(s.savedContent)
 	s.mu.Unlock()
 	if err := writeExclusive(target, raw); err != nil {
-		return err
+		return RelocateResult{}, err
 	}
 	cleanup := func(cause error) error {
 		if err := os.Remove(target); err != nil {
@@ -82,17 +98,19 @@ func (s *Store) relocateLocked(old, target string, req *pendingSave, persist fun
 		return s.verifyDisk()
 	}
 	if err := check(); err != nil {
-		return cleanup(err)
+		return RelocateResult{}, cleanup(err)
 	}
 	// 本地 Git 命令与切换互斥；网络推送不占此门闩，旧推送由取消上下文中止。
 	s.gitGate.Lock()
 	defer s.gitGate.Unlock()
 	if err := check(); err != nil {
-		return cleanup(err)
+		return RelocateResult{}, cleanup(err)
 	}
+	var persistErr error
 	if persist != nil {
-		if err := persist(); err != nil {
-			return cleanup(err)
+		persistErr = persist()
+		if persistErr != nil && !atomicfile.IsCommitted(persistErr) {
+			return RelocateResult{}, cleanup(persistErr)
 		}
 	}
 	s.mu.Lock()
@@ -102,18 +120,22 @@ func (s *Store) relocateLocked(old, target string, req *pendingSave, persist fun
 	s.invalidateGitLocked(true)
 	s.armGitLocked()
 	s.mu.Unlock()
+	result := RelocateResult{Committed: true}
+	if persistErr != nil {
+		return result, fmt.Errorf("已切换，偏好目录同步失败，旧文件已保留：%w", persistErr)
+	}
 	// 偏好已提交，不再回退路径；外部修改过的旧文件不得删除。
 	oldRaw, err := os.ReadFile(old)
 	if err != nil {
-		return fmt.Errorf("已切换，读取旧文件失败：%w", err)
+		return result, &RelocateCleanupError{Err: fmt.Errorf("已切换，读取旧文件失败：%w", err)}
 	}
 	if !bytes.Equal(oldRaw, raw) {
-		return fmt.Errorf("已切换，旧文件发生外部修改：%w", ErrExternalChange)
+		return result, &RelocateCleanupError{Err: fmt.Errorf("已切换，旧文件发生外部修改：%w", ErrExternalChange)}
 	}
 	if err := s.stateRemove(old); err != nil {
-		return fmt.Errorf("已切换，删除旧文件失败：%w", err)
+		return result, &RelocateCleanupError{Err: fmt.Errorf("已切换，删除旧文件失败：%w", err)}
 	}
-	return nil
+	return result, nil
 }
 
 // writeExclusive 通过同目录临时文件和排他发布拒绝覆盖竞态中新建的目标。
@@ -138,6 +160,13 @@ func writeExclusive(path string, raw []byte) error {
 		return err
 	}
 	if err = os.Link(tmp.Name(), path); err != nil {
+		return err
+	}
+	// 候选文件的目录项必须先落盘，随后才允许偏好指向它并清理旧文件。
+	if err = atomicfile.SyncDir(filepath.Dir(path)); err != nil {
+		if cleanupErr := os.Remove(path); cleanupErr != nil {
+			return errors.Join(err, fmt.Errorf("移除未提交候选文件失败: %w", cleanupErr))
+		}
 		return err
 	}
 	return nil

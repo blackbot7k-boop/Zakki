@@ -107,23 +107,11 @@ func (a *app) applyStorageDir(path string) {
 		if next.Storage.DataFile == store.DataPath() {
 			return false, nil // 位置未变：保持文件与偏好原样
 		}
-		err = store.Relocate(next.Storage.DataFile, snapshot, func() error { return prefStore.SaveNow(next) })
-		return err == nil, err
+		result, err := store.Relocate(next.Storage.DataFile, snapshot, func() error { return prefStore.SaveNow(next) })
+		return result.Committed, err
 	}
 	complete := func(switched bool, err error) {
-		a.storageMoving = false
-		if switched {
-			a.prefs = next
-			a.settingsUI.syncDraftFromPrefs(next)
-			a.configureGit()
-		}
-		if err != nil {
-			a.storageError = locales.StorageMoveFailed(err.Error())
-		}
-		a.refreshSettingsWindow()
-		if a.win != nil {
-			a.win.Update(func() {})
-		}
+		a.finishStorageMove(next, switched, err)
 	}
 	if !a.ready {
 		sw, err := work()
@@ -136,6 +124,22 @@ func (a *app) applyStorageDir(path string) {
 			notify.Update(func() { complete(sw, err) })
 		}
 	}()
+}
+
+func (a *app) finishStorageMove(next preferences, switched bool, err error) {
+	a.storageMoving = false
+	if switched {
+		a.prefs = next
+		a.settingsUI.syncDraftFromPrefs(next)
+		a.configureGit()
+	}
+	if err != nil {
+		a.storageError = locales.StorageMoveFailed(err.Error())
+	}
+	a.refreshSettingsWindow()
+	if a.win != nil {
+		a.win.Update(func() {})
+	}
 }
 
 func (a *app) storageFailure() string {

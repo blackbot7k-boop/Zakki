@@ -41,6 +41,7 @@ type Store struct {
 	lastSaveErr string
 	stopped     bool
 	saveTimer   *time.Timer
+	writeJSON   func(string, any) error
 	issue       Issue
 }
 
@@ -49,7 +50,7 @@ func NewStore(path string, debounce time.Duration) *Store {
 	if debounce <= 0 {
 		debounce = 500 * time.Millisecond
 	}
-	return &Store{Path: path, Debounce: debounce}
+	return &Store{Path: path, Debounce: debounce, writeJSON: atomicfile.WriteJSON}
 }
 
 // SetIssue 设置异常状态（主线程）。
@@ -129,13 +130,14 @@ func (s *Store) WriteSnapshot(snap *Snapshot) error {
 	}
 	s.mu.Unlock()
 
-	err := atomicfile.WriteJSON(s.Path, snap.Prefs)
+	err := s.writeJSON(s.Path, snap.Prefs)
+	committed := err == nil || atomicfile.IsCommitted(err)
 
 	s.mu.Lock()
+	if committed && snap.Rev > s.writtenRev {
+		s.writtenRev = snap.Rev
+	}
 	if err == nil {
-		if snap.Rev > s.writtenRev {
-			s.writtenRev = snap.Rev
-		}
 		s.lastSaveErr = ""
 	} else if snap.Rev > s.lastErrRev {
 		s.lastErrRev = snap.Rev
@@ -153,7 +155,7 @@ func (s *Store) WriteInitial(p Preferences) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
-	err := atomicfile.WriteJSON(s.Path, p)
+	err := s.writeJSON(s.Path, p)
 	s.mu.Lock()
 	if err == nil {
 		s.lastSaveErr = ""

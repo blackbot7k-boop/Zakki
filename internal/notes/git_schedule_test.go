@@ -151,7 +151,7 @@ func TestGitGenerationStopsCommandsNotOnlyResults(t *testing.T) {
 				s.Close()
 			case "relocate":
 				target := filepath.Join(t.TempDir(), "zakki.json")
-				if err := s.Relocate(target, doc("迁址"), func() error { return nil }); err != nil {
+				if _, err := s.Relocate(target, doc("迁址"), func() error { return nil }); err != nil {
 					t.Fatal(err)
 				}
 				s.ConfigureGit(GitConfig{}, nil)

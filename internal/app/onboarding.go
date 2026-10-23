@@ -156,32 +156,39 @@ func (a *app) finishOnboarding(configured bool) {
 	next.Appearance = ap
 	snapshot, store, prefStore := a.snapshotFile(), a.notes, a.prefsStore
 	ob.phase, a.storageMoving = "saving", true
-	persist := func() error {
+	persist := func() (bool, error) {
 		abs, err := validateStorageDir(dir)
 		if err != nil {
-			return err
+			return false, err
 		}
 		next.Storage.DataFile = filepath.Join(abs, dataFileName)
 		if err := validatePrefs(next); err != nil {
-			return err
+			return false, err
 		}
 		if next.Storage.DataFile == store.DataPath() {
 			if err := store.SaveNow(snapshot); err != nil {
-				return err
+				return false, err
 			}
-			return prefStore.SaveNow(next)
+			if err := prefStore.SaveNow(next); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
-		return store.Relocate(next.Storage.DataFile, snapshot, func() error { return prefStore.SaveNow(next) })
+		result, err := store.Relocate(next.Storage.DataFile, snapshot, func() error { return prefStore.SaveNow(next) })
+		return result.Committed, err
 	}
-	complete := func(err error) {
+	complete := func(committed bool, err error) {
 		a.storageMoving = false
-		if err != nil {
+		if !committed {
 			ob.phase = "ready"
 			ob.dirErr = locales.OnboardWriteErr(err.Error())
 			return
 		}
 		a.prefs = next
 		a.applyPreferencesToRuntime()
+		if err != nil {
+			a.storageError = locales.StorageMoveFailed(err.Error())
+		}
 		ob.finished = true
 		if win := ob.obWin; win != nil {
 			win.Close()
@@ -190,15 +197,16 @@ func (a *app) finishOnboarding(configured bool) {
 	}
 	if win := ob.obWin; win != nil && a.ready {
 		go func() {
-			err := persist()
+			committed, err := persist()
 			win.Update(func() {
 				if a.onboarding.obWin == win {
-					complete(err)
+					complete(committed, err)
 				}
 			})
 		}()
 	} else {
-		complete(persist())
+		committed, err := persist()
+		complete(committed, err)
 	}
 }
 

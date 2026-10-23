@@ -31,7 +31,7 @@ type Store struct {
 	saveResult                             error
 	lastSaveErr                            string
 	lastSaveTime                           time.Time
-	diskKnown, diskExists                  bool
+	diskKnown, diskExists, syncPending     bool
 	diskHash                               [32]byte
 	savedContent                           []byte
 	stateWrite                             func(string, []byte) error
@@ -126,7 +126,7 @@ func (s *Store) Load() (f File, exists, hadTabs bool, err error) {
 		return File{}, false, false, err
 	}
 	s.mu.Lock()
-	s.diskKnown, s.diskExists, s.invalid = true, true, false
+	s.diskKnown, s.diskExists, s.invalid, s.syncPending = true, true, false, false
 	s.diskHash, s.savedContent = sha256.Sum256(raw), content
 	s.lastSaveErr = ""
 	s.mu.Unlock()

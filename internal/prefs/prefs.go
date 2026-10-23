@@ -287,7 +287,7 @@ func Decode(raw []byte, v AccelValidator) (Preferences, error) {
 	}
 	// codeTheme 不做空串补默认：空串是显式「跟随文本」，默认柔和由版本 5 迁移承担。
 	// codeIndent 只认 2 / 4 空格两档：版本 7 早期内部构建写过的 tab / space8
-	// 档位（未发布）归为 4 空格，缺键或空串补默认，非法取值仍由 Validate 拒绝。
+	// 档位（未发布）归为 2 空格，缺键或空串补默认，非法取值仍由 Validate 拒绝。
 	if p.Appearance.CodeIndent == "tab" || p.Appearance.CodeIndent == "space8" {
 		p.Appearance.CodeIndent = "space2"
 	}

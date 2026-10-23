@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"zakki/internal/atomicfile"
 )
 
 func TestRelocateCommitAndPendingUsesNewPath(t *testing.T) {
@@ -16,16 +18,25 @@ func TestRelocateCommitAndPendingUsesNewPath(t *testing.T) {
 	old := s.DataPath()
 	target := filepath.Join(t.TempDir(), "nested", "zakki.json")
 	start, release := make(chan struct{}), make(chan struct{})
-	done := make(chan error, 1)
+	type relocateDone struct {
+		result RelocateResult
+		err    error
+	}
+	done := make(chan relocateDone, 1)
 	go func() {
-		done <- s.Relocate(target, doc("迁址"), func() error { close(start); <-release; return nil })
+		result, err := s.Relocate(target, doc("迁址"), func() error { close(start); <-release; return nil })
+		done <- relocateDone{result: result, err: err}
 	}()
 	<-start
 	saved := make(chan struct{}, 1)
 	s.ScheduleSave(doc("最新"), 0, func() { saved <- struct{}{} })
 	close(release)
-	if err := <-done; err != nil {
-		t.Fatal(err)
+	completed := <-done
+	if completed.err != nil {
+		t.Fatal(completed.err)
+	}
+	if !completed.result.Committed {
+		t.Fatal("迁址成功必须报告已提交")
 	}
 	select {
 	case <-saved:
@@ -65,8 +76,12 @@ func TestRelocateFailuresLeaveAuthority(t *testing.T) {
 				writeRaw(t, parent, "x")
 				target = filepath.Join(parent, "zakki.json")
 			}
-			if err := s.Relocate(target, doc("迁址"), persist); err == nil {
+			result, err := s.Relocate(target, doc("迁址"), persist)
+			if err == nil {
 				t.Fatal("应失败")
+			}
+			if result.Committed {
+				t.Fatal("提交前失败不得报告已切换")
 			}
 			if s.DataPath() != old {
 				t.Fatal("失败不得切换")
@@ -102,8 +117,16 @@ func TestRelocateDeleteFailureReportsCommittedPath(t *testing.T) {
 	target := filepath.Join(dir, "zakki.json")
 	persisted := false
 	s.stateRemove = func(string) error { return errors.New("remove denied") }
-	if err := s.Relocate(target, doc("内容"), func() error { persisted = true; return nil }); err == nil {
+	result, err := s.Relocate(target, doc("内容"), func() error { persisted = true; return nil })
+	if err == nil {
 		t.Fatal("必须报告删除错误")
+	}
+	if !result.Committed {
+		t.Fatal("删除旧文件失败时迁址已经提交")
+	}
+	var cleanupErr *RelocateCleanupError
+	if !errors.As(err, &cleanupErr) {
+		t.Fatalf("提交后的错误类型 = %T, want *RelocateCleanupError", err)
 	}
 	if !persisted || s.DataPath() != target || s.LastSaveError() == "" {
 		t.Fatal("已提交偏好与路径不一致")
@@ -119,6 +142,40 @@ func TestRelocateDeleteFailureReportsCommittedPath(t *testing.T) {
 	}
 }
 
+func TestRelocateCommittedPreferenceErrorKeepsBothFiles(t *testing.T) {
+	s := newTestStore(t, nil)
+	if err := s.SaveNow(doc("内容")); err != nil {
+		t.Fatal(err)
+	}
+	old := s.DataPath()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "zakki.json")
+	wantErr := errors.New("directory sync failed")
+
+	result, err := s.Relocate(target, doc("内容"), func() error {
+		return &atomicfile.CommitError{Err: wantErr}
+	})
+
+	if !result.Committed || !atomicfile.IsCommitted(err) || !errors.Is(err, wantErr) {
+		t.Fatalf("迁址结果 = %+v, err=%v, want committed durability error", result, err)
+	}
+	if s.DataPath() != target {
+		t.Fatalf("权威路径 = %q, want %q", s.DataPath(), target)
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatalf("偏好持久性未确认时必须保留旧文件: %v", err)
+	}
+	if got := readFile(t, target).Tabs[0].Text; got != "内容" {
+		t.Fatalf("新文件内容 = %q", got)
+	}
+	if s.LastSaveError() == "" {
+		t.Fatal("目录同步失败必须如实上报")
+	}
+}
+
 func TestRelocateCanonicalAndSymlinkSamePath(t *testing.T) {
 	s := newTestStore(t, nil)
 	if err := s.SaveNow(doc("内容")); err != nil {
@@ -129,8 +186,12 @@ func TestRelocateCanonicalAndSymlinkSamePath(t *testing.T) {
 		t.Skip(err)
 	}
 	target := filepath.Join(link, "zakki.json")
-	if err := s.Relocate(target, doc("不能写"), func() error { t.Error("相同路径不能写偏好"); return nil }); err != nil {
+	result, err := s.Relocate(target, doc("不能写"), func() error { t.Error("相同路径不能写偏好"); return nil })
+	if err != nil {
 		t.Fatal(err)
+	}
+	if result.Committed {
+		t.Fatal("相同路径不应报告新提交")
 	}
 	if readFile(t, s.DataPath()).Tabs[0].Text != "内容" {
 		t.Fatal("相同地址必须无操作")
@@ -139,7 +200,11 @@ func TestRelocateCanonicalAndSymlinkSamePath(t *testing.T) {
 	if err := os.Symlink(s.DataPath(), fileLink); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Relocate(fileLink, doc("不能写"), func() error { t.Error("同文件不能写偏好"); return nil }); err != nil {
+	result, err = s.Relocate(fileLink, doc("不能写"), func() error { t.Error("同文件不能写偏好"); return nil })
+	if err != nil {
 		t.Fatal(err)
+	}
+	if result.Committed {
+		t.Fatal("同一文件不应报告新提交")
 	}
 }

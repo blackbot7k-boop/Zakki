@@ -26,6 +26,42 @@ func waitSaveState(t *testing.T, s *Store, check func() bool) {
 	t.Fatal("等待保存状态超时")
 }
 
+func TestCommittedWriteErrorPublishesDiskFingerprint(t *testing.T) {
+	s := newTestStore(t, nil)
+	if err := s.SaveNow(doc("old")); err != nil {
+		t.Fatal(err)
+	}
+	wantErr := errors.New("directory sync failed")
+	s.stateWrite = func(path string, raw []byte) error {
+		if err := atomicfile.WriteBytes(path, raw); err != nil {
+			return err
+		}
+		return &atomicfile.CommitError{Err: wantErr}
+	}
+
+	err := s.SaveNow(doc("new"))
+	if !atomicfile.IsCommitted(err) || !errors.Is(err, wantErr) {
+		t.Fatalf("首次保存错误 = %v, want committed error", err)
+	}
+	if got := readFile(t, s.DataPath()).Tabs[0].Text; got != "new" {
+		t.Fatalf("已提交内容 = %q, want new", got)
+	}
+
+	if err := s.SaveNow(doc("new")); !errors.Is(err, wantErr) {
+		t.Fatalf("目录同步仍失败时不得报保存成功或误判外部修改: %v", err)
+	}
+	if s.LastSaveError() == "" {
+		t.Fatal("同步成功前必须保留保存错误")
+	}
+	s.stateWrite = atomicfile.WriteBytes
+	if err := s.SaveNow(doc("new")); err != nil {
+		t.Fatalf("重试应重新同步已提交内容: %v", err)
+	}
+	if s.LastSaveError() != "" {
+		t.Fatalf("重新同步成功后应清除错误: %q", s.LastSaveError())
+	}
+}
+
 func TestSlowSaveCoalescesLatestReadySnapshot(t *testing.T) {
 	s := newTestStore(t, nil)
 	started, release := make(chan struct{}), make(chan struct{})

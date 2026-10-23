@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -208,6 +209,25 @@ func TestApplyStorageDirFailurePreservesOriginal(t *testing.T) {
 				assertOnlyStorageFiles(t, dir)
 			}
 		})
+	}
+}
+
+func TestFinishStorageMovePublishesCommittedPrefsAfterCleanupFailure(t *testing.T) {
+	a := newTestApp(t)
+	next := clonePrefs(a.prefs)
+	next.Storage.DataFile = filepath.Join(t.TempDir(), dataFileName)
+	a.storageMoving = true
+
+	a.finishStorageMove(next, true, errors.New("删除旧文件失败"))
+
+	if a.storageMoving {
+		t.Fatal("迁址完成后必须解除进行中状态")
+	}
+	if a.prefs.Storage.DataFile != next.Storage.DataFile || a.settingsUI.draft.Storage.DataFile != next.Storage.DataFile {
+		t.Fatalf("已提交迁址必须更新运行时偏好: prefs=%q draft=%q", a.prefs.Storage.DataFile, a.settingsUI.draft.Storage.DataFile)
+	}
+	if a.storageError == "" {
+		t.Fatal("旧文件清理失败仍必须如实报告")
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"time"
+
+	"zakki/internal/atomicfile"
 )
 
 type pendingSave struct {
@@ -152,21 +154,23 @@ func (s *Store) writeFile(f File) error {
 		return err
 	}
 	s.mu.Lock()
-	same := bytes.Equal(raw, s.savedContent) && s.diskExists
+	// 已发布但未同步目录的内容仍须重写，不能因字节相同提前报成功。
+	same := bytes.Equal(raw, s.savedContent) && s.diskExists && !s.syncPending
 	path := s.dataPath
 	s.mu.Unlock()
 	if same {
 		return nil
 	}
-	if err = s.stateWrite(path, raw); err != nil {
+	if err = s.stateWrite(path, raw); err != nil && !atomicfile.IsCommitted(err) {
 		return err
 	}
 	s.mu.Lock()
 	s.diskKnown, s.diskExists = true, true
 	s.diskHash, s.savedContent = sha256.Sum256(raw), raw
+	s.syncPending = err != nil
 	s.lastSaveTime = s.now()
 	s.mu.Unlock()
-	return nil
+	return err
 }
 
 func (s *Store) stopTimerLocked() {
