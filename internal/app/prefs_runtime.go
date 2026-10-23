@@ -126,6 +126,12 @@ func (a *app) confirmRecoverPreferences() error {
 	}
 	a.setPrefsIssue(prefsIssue{})
 	a.prefsStore.BumpRev()
+	if err := a.openConfiguredNotes(); err != nil {
+		a.notes.SetSaveBlocked(true)
+		return err
+	}
+	// 笔记载入会恢复旧版内嵌外观；偏好仍是运行时设置的权威来源。
+	a.applyPreferencesToRuntime()
 	return nil
 }
 
@@ -181,6 +187,7 @@ func (a *app) applyPreferencesToRuntime() {
 		a.appliedLocale = p.Appearance.Language
 	}
 	a.applyAlwaysOnTop()
+	a.applyMinimumWindowSize()
 }
 
 func (a *app) saveInterval() time.Duration {

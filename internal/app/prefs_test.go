@@ -155,6 +155,65 @@ func TestPrefsBrokenFileRecovery(t *testing.T) {
 	}
 }
 
+func TestPrefsRecoveryReloadsNotesAndUnblocksSaving(t *testing.T) {
+	a := newTestApp(t)
+	a.tabs[0].Text = "磁盘中的笔记"
+	if err := a.saveNow(); err != nil {
+		t.Fatal(err)
+	}
+	persistWriteRaw(t, a.preferencesPath(), `{"version":1, bad`)
+	if err := a.loadPreferences(); err == nil {
+		t.Fatal("损坏偏好必须报错")
+	}
+	a.notes.SetSaveBlocked(true)
+	a.tabs[0].Text = "恢复前的临时内容"
+
+	if err := a.confirmRecoverPreferences(); err != nil {
+		t.Fatal(err)
+	}
+
+	if a.notes.SaveBlocked() {
+		t.Fatal("成功重载笔记后必须解除写保护")
+	}
+	if got := a.tabs[0].Text; got != "磁盘中的笔记" {
+		t.Fatalf("恢复后应立即载入磁盘笔记，得到 %q", got)
+	}
+	a.tabs[0].Text = "恢复后可以保存"
+	if err := a.saveNow(); err != nil {
+		t.Fatalf("恢复后保存失败: %v", err)
+	}
+	if got := persistReadSaved(t, a.notes.DataPath()).Tabs[0].Text; got != "恢复后可以保存" {
+		t.Fatalf("恢复后的修改未落盘: %q", got)
+	}
+}
+
+func TestPrefsRecoveryKeepsNotesBlockedWhenReloadFails(t *testing.T) {
+	a := newTestApp(t)
+	persistWriteRaw(t, a.notes.DataPath(), `{"version":3, bad`)
+	persistWriteRaw(t, a.preferencesPath(), `{"version":1, bad`)
+	if err := a.loadPreferences(); err == nil {
+		t.Fatal("损坏偏好必须报错")
+	}
+	a.notes.SetSaveBlocked(true)
+
+	if err := a.confirmRecoverPreferences(); err == nil {
+		t.Fatal("笔记重载失败必须返回错误")
+	}
+
+	if !a.notes.SaveBlocked() {
+		t.Fatal("笔记重载失败必须保持写保护")
+	}
+	if a.currentPrefsIssue().Kind != prefsIssueNone {
+		t.Fatal("偏好文件已经修复，不应继续标记为损坏")
+	}
+	if _, err := decodePreferences(prefsReadRaw(t, a.preferencesPath())); err != nil {
+		t.Fatalf("恢复后的偏好文件应保持有效: %v", err)
+	}
+	if got := string(prefsReadRaw(t, a.notes.DataPath())); got != `{"version":3, bad` {
+		t.Fatalf("损坏笔记原件不得被覆盖: %q", got)
+	}
+}
+
 func TestPrefsVersionTooNewBlocked(t *testing.T) {
 	a := newTestApp(t)
 	future := `{"version":99}`
