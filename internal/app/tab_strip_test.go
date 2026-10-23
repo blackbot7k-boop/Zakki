@@ -238,32 +238,31 @@ func TestCMotionRunsWithoutAdditionalInput(t *testing.T) {
 	}
 }
 
-// TestHeaderHidesStripWithSingleTab 只有一个标签时顶栏不渲染标签区；
-// 恢复多标签后标签区重新出现，且不残留旧几何导致的动画。
-func TestHeaderHidesStripWithSingleTab(t *testing.T) {
+// TestHeaderKeepsNamedSingleTab 单标签已有名称时仍渲染身份与菜单入口；
+// 未命名单标签才隐藏标签区。恢复多标签后标签区照常出现。
+func TestHeaderKeepsNamedSingleTab(t *testing.T) {
 	a := newTestApp(t)
 	a.tabs = a.tabs[:1]
 	tt := ui.NewTester(func(c *ui.Context) { a.header(c, c.Theme(), false) }, 420, 38)
 	tt.Frame()
-	if !a.tabStripHidden() {
-		t.Fatal("单标签应隐藏标签区")
+	if !a.tabStripHidden() || tt.HasText("标签 1") {
+		t.Fatalf("未命名单标签应隐藏标签区, texts=%q", tt.Texts())
 	}
-	if tt.HasText("标签 1") {
-		t.Fatalf("单标签顶栏不应有标签元素, texts=%q", tt.Texts())
+	a.tabs[0].Name = "项目日志"
+	tt.Frame()
+	if a.tabStripHidden() || !tt.HasText("项目日志") {
+		t.Fatalf("已命名单标签应保留身份与菜单入口, texts=%q", tt.Texts())
 	}
-	// 新增第二个标签：标签区恢复，当前标签以同大圆点呈现。
+	// 新增第二个标签：标签区继续显示，当前标签仍保留名称。
 	a.tabs = append(a.tabs, tab{ID: 2})
 	tt.Frame()
-	if a.tabStripHidden() {
-		t.Fatal("多标签应显示标签区")
-	}
-	if !tt.HasText("标签 1") {
-		t.Fatalf("恢复后应有当前标签胶囊, texts=%q", tt.Texts())
+	if a.tabStripHidden() || !tt.HasText("项目日志") {
+		t.Fatalf("恢复多标签后应有当前标签胶囊, texts=%q", tt.Texts())
 	}
 }
 
-// TestTabDotShapesRender 圆点填充、圆环描边；当前标记与其余标记同大。
-// 已去掉的形状视为非法，载入时回退圆点。
+// TestTabDotShapesRender 圆点填充、圆环描边；当前标记增加不参与布局的
+// 中性外轮廓。已去掉的形状视为非法，载入时回退圆点。
 func TestTabDotShapesRender(t *testing.T) {
 	a := newTestApp(t)
 	a.tabs = a.tabs[:1]

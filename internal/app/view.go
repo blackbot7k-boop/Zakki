@@ -169,7 +169,7 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 					a.win.Hide()
 				}
 			})
-		// 只有一个标签（且不在重命名）时不渲染标签区：顶栏只剩关闭与置顶。
+		// 单个未命名标签可隐藏；已有名称或正在重命名时仍显示身份和右键入口。
 		if a.tabStripHidden() {
 			a.resetTabStripLayout()
 		} else {
@@ -181,9 +181,11 @@ func (a *app) header(c *ui.Context, t *ui.Theme, dark bool) {
 	})
 }
 
-// tabStripHidden 报告顶栏是否应隐藏标签区：只有一个标签（且不在重命名）
-// 时不需要圆点与胶囊指示器，顶栏只剩关闭与置顶。
-func (a *app) tabStripHidden() bool { return len(a.tabs) <= 1 && a.renaming == 0 }
+// tabStripHidden 报告顶栏是否应隐藏标签区：单个未命名标签且不在重命名时
+// 可以省略标记；一旦命名就保留标题与上下文菜单入口。
+func (a *app) tabStripHidden() bool {
+	return len(a.tabs) == 1 && a.displayTitle(0) == "" && a.renaming == 0
+}
 
 // resetTabStripLayout 清掉上一帧的标签几何与动画状态：隐藏期间不追踪布局，
 // 恢复多标签时从头排布，不会从旧几何补间。
