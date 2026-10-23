@@ -46,6 +46,47 @@ func visibleLine(tt *ui.Tester, n int, top, bottom float32) int {
 	return -1
 }
 
+func TestVirtualRowsCacheInvalidatesWithGeometryStyle(t *testing.T) {
+	base := resolvedStyle{
+		bodyFont: "Body", monoFont: "Mono", codeSize: 14, lineHeight: 1.5,
+		codeLineHeigh: 1.4, tablePadX: 8, tablePadY: 6,
+	}
+	cases := []struct {
+		name   string
+		kind   blockKind
+		change func(*resolvedStyle)
+	}{
+		{"代码字体", bkCode, func(s *resolvedStyle) { s.monoFont = "Other Mono" }},
+		{"代码字号", bkCode, func(s *resolvedStyle) { s.codeSize++ }},
+		{"代码行高", bkCode, func(s *resolvedStyle) { s.codeLineHeigh += 0.1 }},
+		{"表格正文字体", bkTable, func(s *resolvedStyle) { s.bodyFont = "Other Body" }},
+		{"表格代码字体", bkTable, func(s *resolvedStyle) { s.monoFont = "Other Mono" }},
+		{"表格字号", bkTable, func(s *resolvedStyle) { s.codeSize++ }},
+		{"表格行高", bkTable, func(s *resolvedStyle) { s.lineHeight += 0.1 }},
+		{"表格横向留白", bkTable, func(s *resolvedStyle) { s.tablePadX++ }},
+		{"表格纵向留白", bkTable, func(s *resolvedStyle) { s.tablePadY++ }},
+		{"表格排版变体", bkTable, func(s *resolvedStyle) { s.sketch = true }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			v := liveVirtState{}
+			v.beginFrame(0)
+			old := v.entry(virtualRowsKey("same", tc.kind, base), 1)
+			old.record(0, 99)
+
+			changed := base
+			tc.change(&changed)
+			fresh := v.entry(virtualRowsKey("same", tc.kind, changed), 1)
+			if fresh == old {
+				t.Fatal("几何样式变化后复用了旧行高缓存")
+			}
+			if got, want := fresh.height(0, 12), float32(12); got != want {
+				t.Fatalf("几何样式变化后行高=%v, want 未实测估值 %v", got, want)
+			}
+		})
+	}
+}
+
 func TestVirtualCodeBlockScrollsAndClicks(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)

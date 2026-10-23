@@ -17,8 +17,33 @@ const (
 
 // virtKey 区分块内虚拟化的缓存条目：同一块内容在同一种排版下行高一致。
 type virtKey struct {
-	raw  string
-	kind blockKind
+	raw   string
+	kind  blockKind
+	style virtStyleKey
+}
+
+// virtStyleKey 只记录实际参与行布局的值；纯颜色变化不影响行高。
+type virtStyleKey struct {
+	bodyFont, monoFont string
+	size, lineHeight   float32
+	padX, padY         float32
+	sketch             bool
+}
+
+func virtualRowsKey(raw string, kind blockKind, md resolvedStyle) virtKey {
+	style := virtStyleKey{size: md.codeSize}
+	switch kind {
+	case bkCode:
+		style.monoFont = md.monoFont
+		style.lineHeight = md.codeLineHeigh
+	case bkTable:
+		style.bodyFont = md.bodyFont
+		style.monoFont = md.monoFont
+		style.lineHeight = md.lineHeight
+		style.padX, style.padY = md.tablePadX, md.tablePadY
+		style.sketch = md.sketch
+	}
+	return virtKey{raw: raw, kind: kind, style: style}
 }
 
 type virtRows struct {

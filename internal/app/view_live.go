@@ -532,7 +532,7 @@ func (a *app) renderCodePreview(c *ui.Context, t *ui.Theme, md resolvedStyle, bl
 			}
 		}
 		est := md.codeSize * md.codeLineHeigh
-		a.virtualRows(c, virtKey{blk.raw, bkCode}, len(shown), est, -1, func(i int) ui.Element {
+		a.virtualRows(c, virtualRowsKey(blk.raw, bkCode, md), len(shown), est, -1, func(i int) ui.Element {
 			source := ""
 			if i < len(lines) {
 				source = lines[i]

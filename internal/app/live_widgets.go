@@ -226,7 +226,7 @@ func (a *app) tableGrid(c *ui.Context, t *ui.Theme, md resolvedStyle, blk liveBl
 	}
 	est := md.codeSize*md.lineHeight + 2*md.tablePadY + 1
 	grid.Children(func() {
-		a.virtualRows(c, virtKey{blk.raw, bkTable}, len(blk.table.rows), est, pin, func(row int) ui.Element {
+		a.virtualRows(c, virtualRowsKey(blk.raw, bkTable, md), len(blk.table.rows), est, pin, func(row int) ui.Element {
 			cells, index := blk.table.rows[row], firstCell[row]
 			return ui.Row(c.Key(fmt.Sprintf("row-%d", row))).FillWidth().Children(func() {
 				for col := 0; col < cols; col++ {
