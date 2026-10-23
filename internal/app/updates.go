@@ -31,9 +31,16 @@ func updateMenuItem() *mygo.MenuItem {
 }
 
 func (a *app) finishQuit(event *mygo.QuitEvent) {
-	if err := a.shutdownForQuit(); err != nil {
+	var err error
+	if !a.onboarding.finished && (a.onboarding.obWin != nil || a.onboarding.exitWithoutSetup) {
+		err = a.shutdownOnboardingExit()
+	} else {
+		err = a.shutdownForQuit()
+	}
+	if err != nil {
 		// 更新器的重启也经过退出钩子；保存失败时保留运行中的编辑会话。
 		event.PreventDefault()
+		a.onboarding.exitWithoutSetup = false
 		a.showToast(locales.SaveFailedQuitCancelled(err.Error()))
 		slog.Error("保存失败，已取消退出或更新重启", "error", err)
 		if a.ready {

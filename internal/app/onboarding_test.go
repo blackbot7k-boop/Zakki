@@ -3,6 +3,8 @@ package app
 // 首启向导：全新安装判定、配置应用、跳过语义与视图渲染。
 
 import (
+	"image"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +24,51 @@ func TestFirstRunDetection(t *testing.T) {
 	}
 	if a.firstRun() {
 		t.Fatal("数据文件已存在不应判定为全新安装")
+	}
+}
+
+func TestOnboardingCloseDecision(t *testing.T) {
+	for _, tc := range []struct {
+		button int
+		err    error
+		want   onboardingCloseDecision
+	}{
+		{button: 0, want: onboardingCloseContinue},
+		{button: 1, want: onboardingCloseDefaults},
+		{button: 2, want: onboardingCloseExit},
+		{button: 2, err: os.ErrPermission, want: onboardingCloseContinue},
+		{button: -1, want: onboardingCloseContinue},
+	} {
+		if got := onboardingCloseDecisionFor(tc.button, tc.err); got != tc.want {
+			t.Errorf("button=%d err=%v: got %d, want %d", tc.button, tc.err, got, tc.want)
+		}
+	}
+}
+
+func TestOnboardingCloseConfirmGate(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	if !a.beginOnboardingCloseConfirm() || a.beginOnboardingCloseConfirm() {
+		t.Fatal("关闭确认应只允许一个在途对话框")
+	}
+	a.onboarding.closeConfirming = false
+	a.onboarding.phase = "saving"
+	if a.beginOnboardingCloseConfirm() {
+		t.Fatal("保存期间不应允许关闭")
+	}
+}
+
+func TestShutdownOnboardingExitDoesNotCreateNotes(t *testing.T) {
+	a := newTestApp(t)
+	path := a.notes.DataPath()
+	if err := a.shutdownOnboardingExit(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("退出首启向导不应创建笔记文件: stat err=%v", err)
+	}
+	if !a.firstRun() {
+		t.Fatal("不完成设置直接退出后，下次启动仍应进入向导")
 	}
 }
 
@@ -305,4 +352,262 @@ func TestOnboardingSketchStyle(t *testing.T) {
 	if ap.Style != styleSketch || ap.ColorTheme != "classic" || ap.MarkdownTheme != "sonnet" {
 		t.Fatalf("向导应只写风格、颜色与排版保持标准默认: %+v", ap)
 	}
+}
+
+// 标签数步进器：减号、数字、加号同高，符号落在各自格子的中心。
+func TestOnboardingTabStepperAligned(t *testing.T) {
+	a := newTestApp(t)
+	a.onboarding.step = 2
+	a.onboarding.tabCount = 7
+	a.onboarding.tabCountText = "7"
+	tt := ui.NewTester(a.onboardingView, 640, 560)
+	tt.Frame()
+	img := tt.Image()
+	minus, ok := tt.Find("−")
+	if !ok {
+		t.Fatalf("缺少减号: %v", tt.Texts())
+	}
+	plus, ok := tt.Find("+")
+	if !ok {
+		t.Fatalf("缺少加号: %v", tt.Texts())
+	}
+	mb := mustChrome(t, img, minus, "−")
+	pb := mustChrome(t, img, plus, "+")
+	nb, ok := chromeBetween(img, mb, pb)
+	if !ok {
+		t.Fatal("减号和加号之间找不到数字框")
+	}
+	digit, ok := darkGlyph(img, nb)
+	if !ok {
+		t.Fatal("数字框里没有数字")
+	}
+	for _, item := range []struct {
+		name  string
+		glyph ui.Rect
+		box   [4]int
+	}{
+		{"−", minus, mb},
+		{"7", digit, nb},
+		{"+", plus, pb},
+	} {
+		h := item.box[3] - item.box[1]
+		if absInt(h-(mb[3]-mb[1])) > 2 {
+			t.Fatalf("%q 高 %d，减号高 %d", item.name, h, mb[3]-mb[1])
+		}
+		gx := item.glyph.X + item.glyph.W/2
+		gy := item.glyph.Y + item.glyph.H/2
+		cx := float32(item.box[0]+item.box[2]) / 2
+		cy := float32(item.box[1]+item.box[3]) / 2
+		if math.Abs(float64(gx-cx)) > 3 || math.Abs(float64(gy-cy)) > 3 {
+			t.Fatalf("%q 符号中心 (%.1f,%.1f) 框 %v 格子中心 (%.1f,%.1f)", item.name, gx, gy, item.box, cx, cy)
+		}
+	}
+}
+
+func mustChrome(t *testing.T, img *image.RGBA, glyph ui.Rect, name string) [4]int {
+	t.Helper()
+	x0, y0, x1, y1, ok := chromeBox(img, glyph)
+	if !ok {
+		t.Fatalf("%s 找不到控件外框", name)
+	}
+	return [4]int{x0, y0, x1, y1}
+}
+
+// chromeBetween 取两个控件之间、与它们同一行的那一个外框。
+func chromeBetween(img *image.RGBA, left, right [4]int) ([4]int, bool) {
+	y := (left[1] + left[3]) / 2
+	x := left[2] + 1
+	for x < right[0] && segmentPixel(img, x, y) == 'W' {
+		x++
+	}
+	if x >= right[0] {
+		return [4]int{}, false
+	}
+	x0, y0, x1, y1, ok := chromeBox(img, ui.Rect{X: float32(x), Y: float32(y), W: 1, H: 1})
+	if !ok {
+		return [4]int{}, false
+	}
+	return [4]int{x0, y0, x1, y1}, true
+}
+
+func darkGlyph(img *image.RGBA, box [4]int) (ui.Rect, bool) {
+	minx, miny := box[2], box[3]
+	maxx, maxy := box[0], box[1]
+	n := 0
+	for y := box[1]; y <= box[3]; y++ {
+		for x := box[0]; x <= box[2]; x++ {
+			if segmentPixel(img, x, y) != 'D' {
+				continue
+			}
+			n++
+			if x < minx {
+				minx = x
+			}
+			if y < miny {
+				miny = y
+			}
+			if x > maxx {
+				maxx = x
+			}
+			if y > maxy {
+				maxy = y
+			}
+		}
+	}
+	if n < 8 {
+		return ui.Rect{}, false
+	}
+	return ui.Rect{X: float32(minx), Y: float32(miny), W: float32(maxx - minx + 1), H: float32(maxy - miny + 1)}, true
+}
+
+func chromeBox(img *image.RGBA, glyph ui.Rect) (x0, y0, x1, y1 int, ok bool) {
+	sx, sy := int(glyph.X+glyph.W/2), int(glyph.Y+glyph.H/2)
+	b := img.Bounds()
+	if sx < b.Min.X || sy < b.Min.Y || sx >= b.Max.X || sy >= b.Max.Y {
+		return 0, 0, 0, 0, false
+	}
+	seen := map[[2]int]bool{}
+	q := [][2]int{{sx, sy}}
+	seen[[2]int{sx, sy}] = true
+	x0, y0, x1, y1 = sx, sy, sx, sy
+	for len(q) > 0 {
+		p := q[0]
+		q = q[1:]
+		for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			nx, ny := p[0]+d[0], p[1]+d[1]
+			key := [2]int{nx, ny}
+			if seen[key] || nx < b.Min.X || ny < b.Min.Y || nx >= b.Max.X || ny >= b.Max.Y {
+				continue
+			}
+			if segmentPixel(img, nx, ny) == 'W' {
+				continue
+			}
+			seen[key] = true
+			q = append(q, key)
+			if nx < x0 {
+				x0 = nx
+			}
+			if ny < y0 {
+				y0 = ny
+			}
+			if nx > x1 {
+				x1 = nx
+			}
+			if ny > y1 {
+				y1 = ny
+			}
+		}
+	}
+	return x0, y0, x1, y1, x1-x0 > 8 && y1-y0 > 8
+}
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// 分段轨道被拉到与字体下拉同宽时，每一段应等分轨道，选中底铺满自己那一格。
+func TestOnboardingSegmentedCellsEqual(t *testing.T) {
+	a := newTestApp(t)
+	a.onboarding.step = 1
+	a.onboarding.languageIndex = 1
+	a.onboarding.modeIndex = 0
+	a.onboarding.styleIndex = 0
+	tt := ui.NewTester(a.onboardingView, 640, 560)
+	tt.Frame()
+
+	assertSegmentCells(t, tt, []string{"English", "简体中文"}, 1)
+	assertSegmentCells(t, tt, []string{"跟随系统", "浅色", "深色"}, 0)
+	assertSegmentCells(t, tt, []string{"标准", "手账"}, 0)
+}
+
+func assertSegmentCells(t *testing.T, tt *ui.Tester, labels []string, selected int) {
+	t.Helper()
+	rects := make([]ui.Rect, len(labels))
+	for i, label := range labels {
+		r, ok := tt.Find(label)
+		if !ok {
+			t.Fatalf("缺少分段 %q: %v", label, tt.Texts())
+		}
+		rects[i] = r
+	}
+	y := int(rects[0].Y) - 2
+	track0, track1, sel0, sel1, ok := segmentSpans(tt.Image(), y)
+	if !ok {
+		t.Fatalf("%v 在 y=%d 找不到分段轨道", labels, y)
+	}
+	trackW := track1 - track0 + 1
+	cell := float32(trackW) / float32(len(labels))
+	for i, r := range rects {
+		cx := r.X + r.W/2
+		want := float32(track0) + (float32(i)+0.5)*cell
+		if math.Abs(float64(cx-want)) > 10 {
+			t.Fatalf("%q 中心 %.1f，等分中心 %.1f（轨道 %d–%d）", labels[i], cx, want, track0, track1)
+		}
+	}
+	selW := sel1 - sel0 + 1
+	if math.Abs(float64(selW)-float64(cell)) > 16 {
+		t.Fatalf("%q 选中底宽 %d，等分约 %.1f（轨道 %d–%d）", labels[selected], selW, cell, track0, track1)
+	}
+}
+
+// segmentSpans 在文字上方的分段内边距上量轨道与选中白底。
+// 轨道两端是灰边，选中格是夹在灰底之间的白底。
+func segmentSpans(img *image.RGBA, y int) (track0, track1, sel0, sel1 int, ok bool) {
+	if y < 0 || y >= img.Bounds().Dy() {
+		return 0, 0, 0, 0, false
+	}
+	track0, track1 = -1, -1
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		if segmentPixel(img, x, y) == 'G' {
+			if track0 < 0 {
+				track0 = x
+			}
+			track1 = x
+		}
+	}
+	if track0 < 0 {
+		return 0, 0, 0, 0, false
+	}
+	sel0, sel1 = -1, -1
+	run0 := -1
+	for x := track0; x <= track1; x++ {
+		inside := segmentPixel(img, x, y) != 'G'
+		if inside && run0 < 0 {
+			run0 = x
+		}
+		if (!inside || x == track1) && run0 >= 0 {
+			end := x - 1
+			if inside && x == track1 {
+				end = x
+			}
+			if end-run0+1 > sel1-sel0 {
+				sel0, sel1 = run0, end
+			}
+			run0 = -1
+		}
+	}
+	return track0, track1, sel0, sel1, sel0 >= 0
+}
+
+func segmentPixel(img *image.RGBA, x, y int) byte {
+	i := img.PixOffset(x, y)
+	r, g, b := img.Pix[i], img.Pix[i+1], img.Pix[i+2]
+	if r >= 250 && g >= 250 && b >= 250 {
+		return 'W'
+	}
+	if r >= 200 && g >= 200 && b >= 200 && abs8(r, g) < 12 && abs8(g, b) < 12 {
+		return 'G'
+	}
+	return 'D'
+}
+
+func abs8(a, b uint8) int {
+	d := int(a) - int(b)
+	if d < 0 {
+		return -d
+	}
+	return d
 }

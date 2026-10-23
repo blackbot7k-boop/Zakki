@@ -15,11 +15,37 @@ import (
 
 const onboardingLastStep = 2
 
+type onboardingCloseDecision uint8
+
+const (
+	onboardingCloseContinue onboardingCloseDecision = iota
+	onboardingCloseDefaults
+	onboardingCloseExit
+)
+
+// onboardingCloseDecisionFor 把原生对话框结果收敛为可测试决策；关闭对话框
+// 或对话框失败都等同继续设置，绝不隐式接受默认值。
+func onboardingCloseDecisionFor(button int, err error) onboardingCloseDecision {
+	if err != nil {
+		return onboardingCloseContinue
+	}
+	switch button {
+	case 1:
+		return onboardingCloseDefaults
+	case 2:
+		return onboardingCloseExit
+	default:
+		return onboardingCloseContinue
+	}
+}
+
 type onboardingState struct {
 	obWin                                *mygo.Window
 	step                                 int
 	phase                                string
 	finished                             bool
+	closeConfirming                      bool
+	exitWithoutSetup                     bool
 	dirDraft                             string
 	tabCount                             int
 	tabCountText                         string
@@ -60,15 +86,45 @@ func (a *app) openOnboarding() {
 	win := mygo.NewWindow(mygo.WindowOptions{Title: locales.OnboardWindowTitle(), Width: 640, Height: 560, MinWidth: 520, MinHeight: 500, StateKey: "onboarding-v2", Content: ui.View(a.onboardingView)})
 	a.onboarding.obWin = win
 	win.OnClose(func(e *mygo.CloseEvent) {
-		if a.onboarding.finished {
+		if a.onboarding.finished || a.onboarding.exitWithoutSetup {
 			return
 		}
 		e.PreventDefault()
-		if a.onboarding.phase == "saving" {
+		if !a.beginOnboardingCloseConfirm() {
 			return
 		}
-		a.onboarding.preparation.stop()
-		a.finishOnboarding(false)
+		buttons := []string{
+			locales.OnboardCloseContinue(),
+			locales.OnboardCloseUseDefaults(),
+			locales.OnboardCloseExit(appName),
+		}
+		go func() {
+			res, err := mygo.Dialog.Message(mygo.MessageOptions{
+				Parent:        win,
+				Type:          mygo.MessageQuestion,
+				Title:         locales.OnboardCloseTitle(),
+				Message:       locales.OnboardCloseMessage(),
+				Detail:        locales.OnboardCloseDetail(),
+				Buttons:       buttons,
+				DefaultButton: 0,
+				CancelButton:  0,
+			})
+			win.Update(func() {
+				if a.onboarding.obWin != win || a.onboarding.finished {
+					return
+				}
+				a.onboarding.closeConfirming = false
+				switch onboardingCloseDecisionFor(res.Button, err) {
+				case onboardingCloseDefaults:
+					a.onboarding.preparation.stop()
+					a.finishOnboarding(false)
+				case onboardingCloseExit:
+					a.onboarding.preparation.stop()
+					a.onboarding.exitWithoutSetup = true
+					mygo.App.Quit()
+				}
+			})
+		}()
 	})
 	win.OnClosed(func() {
 		a.onboarding.preparation.stop()
@@ -78,7 +134,30 @@ func (a *app) openOnboarding() {
 	win.Show()
 }
 
+// beginOnboardingCloseConfirm 为关闭确认加重入门禁；保存提交期间不能关闭。
+func (a *app) beginOnboardingCloseConfirm() bool {
+	ob := &a.onboarding
+	if ob.finished || ob.exitWithoutSetup || ob.closeConfirming || ob.phase == "saving" {
+		return false
+	}
+	ob.closeConfirming = true
+	return true
+}
+
 func (a *app) abandonOnboarding() { a.onboarding.preparation.stop(); a.finishOnboarding(false) }
+
+// shutdownOnboardingExit 只保存已经明确应用的偏好，不创建默认笔记文件；
+// 下次启动仍会进入首启向导。
+func (a *app) shutdownOnboardingExit() error {
+	a.onboarding.preparation.stop()
+	a.notes.SetStopped(true)
+	if err := a.shutdownPreferences(); err != nil {
+		a.notes.SetStopped(false)
+		return err
+	}
+	a.notes.Close()
+	return nil
+}
 
 // 下载与注册成功只进入就绪页，必须由开始按钮显式提交。
 func (a *app) submitOnboarding() {

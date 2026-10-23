@@ -75,6 +75,52 @@ func (a *app) onboardingView(c *ui.Context) {
 	})
 }
 
+// filledSegmented 是等分轨道的分段选择。ui.Segmented 按文字宽度排段，
+// 轨道被拉到固定宽度时选中底只包住文案，右侧留下空轨道。
+func filledSegmented(c *ui.Context, selected *int, labels ...string) ui.Element {
+	t := c.Theme()
+	parts := ui.SegmentedBase(c, selected, len(labels))
+	track := parts.Track.FillWidth().AlignItems(ui.Stretch).
+		Padding(t.Space(0.5)).Gap(t.Space(0.5)).
+		Radius(t.Radius).Background(t.Surface).Border(1, t.Border)
+	track.Children(func() {
+		for i, label := range labels {
+			seg := parts.Segment(i).Grow(1).
+				Padding(t.Space(1), t.Space(3)).
+				Radius(segmentInnerRadius(t)).
+				TextColor(t.Text)
+			switch {
+			case i == *selected:
+				seg.Background(segmentSelectedColor(t)).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.12))
+			case seg.Pressed():
+				seg.Background(t.SurfacePressed)
+			case seg.Hovered():
+				seg.Background(t.SurfaceHover)
+			default:
+				seg.Background(ui.Transparent)
+			}
+			seg.Children(func() { ui.Text(c, label).SingleLine() })
+		}
+	})
+	return track
+}
+
+func segmentInnerRadius(t *ui.Theme) float32 {
+	r := t.Radius - t.Space(0.5)
+	if r < 0 {
+		return 0
+	}
+	return r
+}
+
+// segmentSelectedColor 与 ui.Segmented 的浅色选中底一致：浅色用页面背景，深色用按下表面。
+func segmentSelectedColor(t *ui.Theme) ui.Color {
+	if t.Dark {
+		return t.SurfacePressed
+	}
+	return t.Background
+}
+
 func obRow(c *ui.Context, label string, control func()) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Children(func() {
 		ui.Text(c, label).Grow(1)
@@ -87,7 +133,7 @@ func (a *app) obAppearance(c *ui.Context) {
 	ui.Text(c, locales.OnboardAppearanceTitle()).FontSize(23).Bold()
 	ui.Column(c).FillWidth().Gap(14).Padding(12, 0, 0, 0).Children(func() {
 		obRow(c, locales.LanguageRow(), func() {
-			ui.Segmented(c.Key("ob-language"), &ob.languageIndex, "English", "简体中文").Label(locales.LanguageRow()).OnChange(func() {
+			filledSegmented(c.Key("ob-language"), &ob.languageIndex, "English", "简体中文").Label(locales.LanguageRow()).OnChange(func() {
 				tag := "en"
 				if ob.languageIndex == 1 {
 					tag = "zh-Hans"
@@ -99,12 +145,12 @@ func (a *app) obAppearance(c *ui.Context) {
 			})
 		})
 		obRow(c, locales.OnboardMode(), func() {
-			ui.Segmented(c.Key("ob-mode"), &ob.modeIndex, locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()).Label(locales.OnboardMode()).OnChange(func() {
+			filledSegmented(c.Key("ob-mode"), &ob.modeIndex, locales.ModeFollowSystem(), locales.ModeLight(), locales.ModeDark()).Label(locales.OnboardMode()).OnChange(func() {
 				ob.appearance.AppearanceMode = []string{"system", "light", "dark"}[ob.modeIndex]
 			})
 		})
 		obRow(c, locales.OnboardStyle(), func() {
-			ui.Segmented(c.Key("ob-style"), &ob.styleIndex, locales.StyleStandard(), locales.StyleSketch()).Label(locales.OnboardStyle()).OnChange(func() {
+			filledSegmented(c.Key("ob-style"), &ob.styleIndex, locales.StyleStandard(), locales.StyleSketch()).Label(locales.OnboardStyle()).OnChange(func() {
 				ob.appearance.Style = []string{styleStandard, styleSketch}[ob.styleIndex]
 			})
 		})
@@ -123,9 +169,14 @@ func (a *app) obNotes(c *ui.Context) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Text(c, locales.OnboardTabCountTitle()).Grow(1)
 			ui.Text(c, locales.OnboardTabRange(MaxTabCount)).FontSize(12).TextColor(tMuted(c))
-			ui.Button(c.Key("ob-minus"), "−").Size(28, 26).Label(locales.OnboardFewerTabs()).Disabled(ob.tabCount <= 1).OnClick(func() { a.setTabCount(ob.tabCount - 1) })
-			ui.TextInput(c.Key("ob-count"), &ob.tabCountText).Width(40).Label(locales.OnboardTabCountTitle()).OnChange(a.commitTabCountText)
-			ui.Button(c.Key("ob-plus"), "+").Size(28, 26).Label(locales.OnboardMoreTabs()).Disabled(ob.tabCount >= MaxTabCount).OnClick(func() { a.setTabCount(ob.tabCount + 1) })
+			// 按钮默认左右内边距是 14pt，28pt 宽时符号会被挤到右侧；数字框按文字左对齐，
+			// 而且比按钮更高。三格同高，符号在格子里居中。
+			ui.Button(c.Key("ob-minus"), "−").Size(28, 28).Padding(0).Center().
+				Label(locales.OnboardFewerTabs()).Disabled(ob.tabCount <= 1).OnClick(func() { a.setTabCount(ob.tabCount - 1) })
+			ui.TextInput(c.Key("ob-count"), &ob.tabCountText).Size(40, 28).Padding(0, 4).TextAlign(ui.Center).
+				Label(locales.OnboardTabCountTitle()).OnChange(a.commitTabCountText)
+			ui.Button(c.Key("ob-plus"), "+").Size(28, 28).Padding(0).Center().
+				Label(locales.OnboardMoreTabs()).Disabled(ob.tabCount >= MaxTabCount).OnClick(func() { a.setTabCount(ob.tabCount + 1) })
 		})
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
 			ui.Text(c, locales.StorageChooseTitle()).Bold()
