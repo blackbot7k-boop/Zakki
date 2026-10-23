@@ -158,7 +158,10 @@ func (a *app) createWindow() {
 	a.winOpen = true
 	a.hidden = false
 	a.loadFontFamilies(win)
-	win.OnShow(func() { a.hidden = false })
+	win.OnShow(func() {
+		a.hidden = false
+		a.applyMinimumWindowSize()
+	})
 	win.OnHide(func() { a.hidden = true })
 	win.OnFocus(func() { win.Update(func() {}) })
 	win.OnBlur(func() { a.setDocumentMenu(false) })
@@ -178,12 +181,13 @@ func (a *app) windowOptions() mygo.WindowOptions {
 		stateKey = "main"
 	}
 	width, height := defaultWindowSize(a.prefs)
+	minWidth, minHeight := minimumWindowSize(a.prefs)
 	opts := mygo.WindowOptions{
 		Title:       locales.WindowTitle(appName),
 		Width:       width,
 		Height:      height,
-		MinWidth:    minWindowWidth,
-		MinHeight:   minWindowHeight,
+		MinWidth:    minWidth,
+		MinHeight:   minHeight,
 		StateKey:    stateKey, // 开启时，上次窗口状态优先于配置尺寸
 		Frameless:   true,     // Tot 同款：无红绿灯、无标题栏，圆角阴影保留，顶栏自绘可拖动
 		Transparent: true,     // 透明窗口：页面透明处透出系统材质
