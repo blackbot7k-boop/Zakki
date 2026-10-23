@@ -74,6 +74,9 @@ func TestMenuStructureNoConfigEntries(t *testing.T) {
 			var labels []string
 			for _, child := range top.Submenu {
 				labels = append(labels, child.Label)
+				if child.ID == "find-replace" || strings.Contains(child.Label, "替换") {
+					t.Fatalf("编辑菜单不应再暴露查找替换: id=%q label=%q", child.ID, child.Label)
+				}
 			}
 			editJoined := strings.Join(labels, ",")
 			for _, want := range []string{"复制标签全文", "查找", "查找下一个", "查找上一个"} {
@@ -82,6 +85,9 @@ func TestMenuStructureNoConfigEntries(t *testing.T) {
 				}
 			}
 		}
+	}
+	if findMenuItem(menu, "find-replace") != nil {
+		t.Fatal("菜单树不应保留 find-replace 项")
 	}
 }
 

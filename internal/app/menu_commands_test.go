@@ -125,6 +125,19 @@ func TestValidateBinding(t *testing.T) {
 	mustErr("Space", "空格")
 }
 
+func TestFindReplaceBindingRemoved(t *testing.T) {
+	for _, goos := range []string{"darwin", "windows"} {
+		if got := fixedBindingByKeyForPlatform("findReplace", goos); got != "" {
+			t.Fatalf("%s 不应保留查找替换固定键: %q", goos, got)
+		}
+		for _, fixed := range fixedBindingsForPlatform(goos) {
+			if fixed.key == "findReplace" || fixed.acc == "Alt+CmdOrCtrl+F" {
+				t.Fatalf("%s 固定绑定仍暴露查找替换: %+v", goos, fixed)
+			}
+		}
+	}
+}
+
 func TestFindBindingConflict(t *testing.T) {
 	a := newTestApp(t)
 	// 固定键：搜索 ⌘F。

@@ -55,11 +55,9 @@ func (a *app) handleWindowShortcuts(c *ui.Context) {
 func (a *app) runFixedShortcut(key string) {
 	switch key {
 	case "find":
-		a.openFind(false, false)
-	case "findReplace":
-		a.openFind(true, false)
+		a.openFind(false)
 	case "findAllTabs":
-		a.openFind(false, true)
+		a.openFind(true)
 	case "findNext":
 		a.findOpenOrStep(1)
 	case "findPrev":

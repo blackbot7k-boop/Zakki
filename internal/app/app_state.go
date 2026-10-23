@@ -49,13 +49,10 @@ type findState struct {
 	query       string
 	matchIdx    int
 	jumpPending bool
-	// findFocus 查找条焦点绑定：1 = 查找框，2 = 替换框。
+	// findFocus 查找框的焦点绑定：1 = 查找框。
 	findFocus int
 	// findComposing 查找框上一帧是否在输入法组合中：组合中的 Enter 归输入法。
-	findComposing    bool
-	replaceOpen      bool
-	replaceText      string
-	replaceComposing bool
+	findComposing bool
 	// findAllTabs 跨标签查找：计数覆盖全部标签，上/下一个越过当前标签末尾时切到下一个有命中的标签。
 	findAllTabs bool
 	// tabHits 按标签 ID 缓存非当前标签的命中数（文本与查询都没变就不重扫）。
@@ -196,7 +193,6 @@ type desktopRefs struct {
 	miFind        *mygo.MenuItem
 	miFindNext    *mygo.MenuItem
 	miFindPrev    *mygo.MenuItem
-	miFindReplace *mygo.MenuItem
 	miFindAllTabs *mygo.MenuItem
 	miTop         *mygo.MenuItem
 	hotkeyAcc     string

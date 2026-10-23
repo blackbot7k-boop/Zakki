@@ -360,38 +360,6 @@ func (msgs Messages) DialogExportTitle() string {
 	return Catalog.Format(msgs.locale, "dialogExportTitle", nil)
 }
 
-// DialogReplaceAllTitle says "Replace in All Tabs"
-// in the language the app shows.
-func DialogReplaceAllTitle() string { return In(i18n.Locale()).DialogReplaceAllTitle() }
-
-// DialogReplaceAllTitle says "Replace in All Tabs"
-// in the language of msgs.
-func (msgs Messages) DialogReplaceAllTitle() string {
-	return Catalog.Format(msgs.locale, "dialogReplaceAllTitle", nil)
-}
-
-// DialogReplaceAllMessage says "Replace {total} matches in {tabs} tabs?"
-// in the language the app shows.
-func DialogReplaceAllMessage(total string, tabs string) string {
-	return In(i18n.Locale()).DialogReplaceAllMessage(total, tabs)
-}
-
-// DialogReplaceAllMessage says "Replace {total} matches in {tabs} tabs?"
-// in the language of msgs.
-func (msgs Messages) DialogReplaceAllMessage(total string, tabs string) string {
-	return Catalog.Format(msgs.locale, "dialogReplaceAllMessage", map[string]any{"total": total, "tabs": tabs})
-}
-
-// DialogReplaceAllDetail says "Only replacements in the current tab can be undone. Changes in other tabs are saved directly."
-// in the language the app shows.
-func DialogReplaceAllDetail() string { return In(i18n.Locale()).DialogReplaceAllDetail() }
-
-// DialogReplaceAllDetail says "Only replacements in the current tab can be undone. Changes in other tabs are saved directly."
-// in the language of msgs.
-func (msgs Messages) DialogReplaceAllDetail() string {
-	return Catalog.Format(msgs.locale, "dialogReplaceAllDetail", nil)
-}
-
 // FindPrev says "Previous"
 // in the language the app shows.
 func FindPrev() string { return In(i18n.Locale()).FindPrev() }
@@ -432,16 +400,6 @@ func (msgs Messages) FindClose() string {
 	return Catalog.Format(msgs.locale, "findClose", nil)
 }
 
-// FindReplaceToggle says "Toggle Replace"
-// in the language the app shows.
-func FindReplaceToggle() string { return In(i18n.Locale()).FindReplaceToggle() }
-
-// FindReplaceToggle says "Toggle Replace"
-// in the language of msgs.
-func (msgs Messages) FindReplaceToggle() string {
-	return Catalog.Format(msgs.locale, "findReplaceToggle", nil)
-}
-
 // FindAllTabs says "Search All Tabs"
 // in the language the app shows.
 func FindAllTabs() string { return In(i18n.Locale()).FindAllTabs() }
@@ -450,36 +408,6 @@ func FindAllTabs() string { return In(i18n.Locale()).FindAllTabs() }
 // in the language of msgs.
 func (msgs Messages) FindAllTabs() string {
 	return Catalog.Format(msgs.locale, "findAllTabs", nil)
-}
-
-// FindReplaceField says "Replace with"
-// in the language the app shows.
-func FindReplaceField() string { return In(i18n.Locale()).FindReplaceField() }
-
-// FindReplaceField says "Replace with"
-// in the language of msgs.
-func (msgs Messages) FindReplaceField() string {
-	return Catalog.Format(msgs.locale, "findReplaceField", nil)
-}
-
-// FindReplaceOne says "Replace"
-// in the language the app shows.
-func FindReplaceOne() string { return In(i18n.Locale()).FindReplaceOne() }
-
-// FindReplaceOne says "Replace"
-// in the language of msgs.
-func (msgs Messages) FindReplaceOne() string {
-	return Catalog.Format(msgs.locale, "findReplaceOne", nil)
-}
-
-// FindReplaceAll says "Replace All"
-// in the language the app shows.
-func FindReplaceAll() string { return In(i18n.Locale()).FindReplaceAll() }
-
-// FindReplaceAll says "Replace All"
-// in the language of msgs.
-func (msgs Messages) FindReplaceAll() string {
-	return Catalog.Format(msgs.locale, "findReplaceAll", nil)
 }
 
 // FindCountAll says "{cur}/{n} · {total} in {tabs} tabs"
@@ -492,26 +420,6 @@ func FindCountAll(cur string, n string, total string, tabs string) string {
 // in the language of msgs.
 func (msgs Messages) FindCountAll(cur string, n string, total string, tabs string) string {
 	return Catalog.Format(msgs.locale, "findCountAll", map[string]any{"cur": cur, "n": n, "total": total, "tabs": tabs})
-}
-
-// FindReplacedCount says "Replaced {n}"
-// in the language the app shows.
-func FindReplacedCount(n string) string { return In(i18n.Locale()).FindReplacedCount(n) }
-
-// FindReplacedCount says "Replaced {n}"
-// in the language of msgs.
-func (msgs Messages) FindReplacedCount(n string) string {
-	return Catalog.Format(msgs.locale, "findReplacedCount", map[string]any{"n": n})
-}
-
-// FindReplaceBackupFailed says "Safety backup failed; nothing was replaced"
-// in the language the app shows.
-func FindReplaceBackupFailed() string { return In(i18n.Locale()).FindReplaceBackupFailed() }
-
-// FindReplaceBackupFailed says "Safety backup failed; nothing was replaced"
-// in the language of msgs.
-func (msgs Messages) FindReplaceBackupFailed() string {
-	return Catalog.Format(msgs.locale, "findReplaceBackupFailed", nil)
 }
 
 // FindNoResults says "No results"
@@ -638,16 +546,6 @@ func MenuFindPrev() string { return In(i18n.Locale()).MenuFindPrev() }
 // in the language of msgs.
 func (msgs Messages) MenuFindPrev() string {
 	return Catalog.Format(msgs.locale, "menuFindPrev", nil)
-}
-
-// MenuFindReplace says "Find and Replace…"
-// in the language the app shows.
-func MenuFindReplace() string { return In(i18n.Locale()).MenuFindReplace() }
-
-// MenuFindReplace says "Find and Replace…"
-// in the language of msgs.
-func (msgs Messages) MenuFindReplace() string {
-	return Catalog.Format(msgs.locale, "menuFindReplace", nil)
 }
 
 // MenuFindAllTabs says "Find in All Tabs"

@@ -302,15 +302,7 @@ func (a *app) createMenu() *mygo.Menu {
 		Label:       locales.MenuFind(),
 		Accelerator: "CmdOrCtrl+F",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.withWindow(func() { a.openFind(false, false) })
-		},
-	}
-	a.miFindReplace = &mygo.MenuItem{
-		ID:          "find-replace",
-		Label:       locales.MenuFindReplace(),
-		Accelerator: "Alt+CmdOrCtrl+F",
-		Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.withWindow(func() { a.openFind(true, false) })
+			a.withWindow(func() { a.openFind(false) })
 		},
 	}
 	a.miFindAllTabs = &mygo.MenuItem{
@@ -318,7 +310,7 @@ func (a *app) createMenu() *mygo.Menu {
 		Label:       locales.MenuFindAllTabs(),
 		Accelerator: "Shift+CmdOrCtrl+F",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.withWindow(func() { a.openFind(false, true) })
+			a.withWindow(func() { a.openFind(true) })
 		},
 	}
 	a.miFindNext = &mygo.MenuItem{
@@ -378,7 +370,6 @@ func (a *app) createMenu() *mygo.Menu {
 	editItems := append(a.editMenuItems(),
 		mygo.Separator(),
 		a.miFind,
-		a.miFindReplace,
 		a.miFindAllTabs,
 		a.miFindNext,
 		a.miFindPrev,
