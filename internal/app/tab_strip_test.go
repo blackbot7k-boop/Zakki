@@ -37,13 +37,15 @@ func TestCTabStripSolidDotsAndSelectedSize(t *testing.T) {
 			t.Fatalf("dot center is not a solid tab color: %+v", center)
 		}
 		background := tabPixel(tt, cx, cy-15)
+		outline := activeIndicatorInk(false)
 		n := 0
 		for x := int(cx) - 16; x <= int(cx)+16; x++ {
 			p := tabPixel(tt, float32(x), cy)
-			distance := func(c color.NRGBA) int {
-				return absByte(p.R, c.R) + absByte(p.G, c.G) + absByte(p.B, c.B)
+			distance := func(r, g, b uint8) int {
+				return absByte(p.R, r) + absByte(p.G, g) + absByte(p.B, b)
 			}
-			if distance(center) < distance(background) {
+			toCenter := distance(center.R, center.G, center.B)
+			if toCenter < distance(background.R, background.G, background.B) && toCenter < distance(outline.R, outline.G, outline.B) {
 				n++
 			}
 		}
@@ -369,6 +371,30 @@ func TestTabContextMenuDeleteAndRename(t *testing.T) {
 		t.Fatalf("应切换到被右键的标签并进入重命名: active=%d renaming=%d", a.active, a.renaming)
 	}
 	a.cancelRename()
+}
+
+func TestTabContextMenuMoveUsesStableID(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 400, 540)
+	wantID := a.tabs[1].ID
+	if err := tt.RightClick("标签 2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	menu := strings.Join(tt.Menu(), ",")
+	for _, want := range []string{locales.TabMoveEarlier(), locales.TabMoveLater()} {
+		if !strings.Contains(menu, want) {
+			t.Fatalf("右键菜单缺 %q: %q", want, menu)
+		}
+	}
+	if err := tt.ChooseMenuItem(locales.TabMoveLater()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.tabs[2].ID != wantID {
+		t.Fatalf("应按稳定 ID 向后移动右键标签: index=%d", a.tabIndexByID(wantID))
+	}
 }
 
 // TestSettingsTabListDragReorder 设置页标签列表拖拽排序：按住行左空白

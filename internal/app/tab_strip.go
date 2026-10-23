@@ -53,7 +53,8 @@ type tabSlotGeom struct{ w, cx float32 }
 
 func pillWidthOf(titleW float32) float32 { return pillHeight + max(0, titleW) }
 
-// equalTabWidths 未命名时每个标记一样大。当前标签只靠颜色区分。
+// equalTabWidths 未命名时每个标记一样大；当前项另绘中性外轮廓，
+// 不改变槽位宽度。
 func equalTabWidths(n int) []float32 {
 	widths := make([]float32, n)
 	for i := range widths {
@@ -361,6 +362,28 @@ func activeDotInk(color ui.Color, dark bool) ui.Color {
 	return color.Mix(ui.RGB(0, 0, 0), 0.18)
 }
 
+// activeIndicatorBody 返回当前项中性轮廓的几何；只扩大绘制边界，
+// 不参与槽位布局，因此圆点、圆环和标题胶囊切换时都不会位移。
+func activeIndicatorBody(body tabBody) tabBody {
+	const outset = float32(4)
+	body.w += outset
+	body.h += outset
+	return body
+}
+
+func activeIndicatorInk(dark bool) ui.Color {
+	if dark {
+		return ui.Hex("#f2f2f4")
+	}
+	return ui.Hex("#303034")
+}
+
+func paintActiveIndicator(p *ui.Painter, body tabBody, cy float32, dark bool) {
+	body = activeIndicatorBody(body)
+	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
+	p.StrokePath(&path, 1.5, activeIndicatorInk(dark))
+}
+
 func paintBody(p *ui.Painter, body tabBody, ink ui.Color, cy float32) {
 	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
 	p.FillPath(&path, ink)
@@ -405,10 +428,10 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		}
 		paintTabDot(p, r.X+s.cx, cy, muteTabInk(a.morphDotInk(ids[i], dark), dark), shape)
 	}
-	// 有名字时恢复色条：标题写在当前标签上，字色按底色取对比色。
-	// 没名字时仍是同大圆点或圆环，只靠颜色区分当前标签。
+	// 当前项除颜色外始终有一圈中性轮廓；圆点与圆环共用同一几何。
 	if bodyShowsTitle(body) || a.renaming != 0 {
 		paintBody(p, body, body.color, cy)
+		paintActiveIndicator(p, body, cy, dark)
 		if a.renaming != 0 {
 			return
 		}
@@ -423,9 +446,11 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 	}
 	if shape == tabDotShapeRing {
 		paintTabDot(p, body.cx, cy, activeDotInk(body.color, dark), shape)
+		paintActiveIndicator(p, body, cy, dark)
 		return
 	}
 	paintBody(p, body, activeDotInk(body.color, dark), cy)
+	paintActiveIndicator(p, body, cy, dark)
 }
 
 func fitTabTitle(s string, limit float32, measure func(string) float32) (string, float32) {
