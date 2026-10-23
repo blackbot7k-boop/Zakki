@@ -80,18 +80,17 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePa
 
 	runeOff := 0
 	inCode := false
+	var opening fenceMarker
 	codeLang := ""
 	for _, line := range strings.Split(text, "\n") {
 		lineRunes := utf8.RuneCountInString(line)
 		trimmed := strings.TrimSpace(line)
+		fence, opens := parseFenceOpeningLine(line)
 		styledLine := false
 		switch {
-		case strings.HasPrefix(trimmed, "```"):
-			inCode = !inCode
+		case inCode && isFenceClosingLine(line, opening):
+			inCode = false
 			codeLang = ""
-			if inCode {
-				codeLang = codehl.Lang(fenceInfo(trimmed))
-			}
 			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
 			styledLine = true
 		case inCode:
@@ -104,6 +103,12 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePa
 			} else {
 				add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
 			}
+			styledLine = true
+		case opens:
+			inCode = true
+			opening = fence
+			codeLang = codehl.Lang(fenceInfo(line))
+			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: t.TextMuted})
 			styledLine = true
 		case isHeading(trimmed):
 			add(ui.TextRange{Start: runeOff, End: runeOff + lineRunes, Color: accent, Weight: 700})

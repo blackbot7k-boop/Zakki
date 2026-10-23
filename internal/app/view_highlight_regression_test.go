@@ -88,6 +88,48 @@ func TestEditorRangesExactScanOracle(t *testing.T) {
 	}
 }
 
+func TestEditorRangesFenceSemantics(t *testing.T) {
+	theme := &ui.Theme{TextMuted: ui.Hex("#777777")}
+	accent := ui.Hex("#cc3333")
+	cases := []struct {
+		name string
+		text string
+	}{
+		{
+			name: "波浪线围栏",
+			text: "~~~go\npackage main\n~~~\n# tail",
+		},
+		{
+			name: "长围栏包含短 marker",
+			text: "````go\n```\npackage main\n````\n# tail",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ranges := editorRanges(tc.text, "", theme, accent)
+			lineStart := 0
+			for _, line := range strings.Split(tc.text, "\n") {
+				lineEnd := lineStart + utf8.RuneCountInString(line)
+				wantColor, wantWeight := theme.TextMuted, 0
+				if line == "# tail" {
+					wantColor, wantWeight = accent, 700
+				}
+				found := false
+				for _, tr := range ranges {
+					if tr.Start == lineStart && tr.End == lineEnd && tr.Color == wantColor && tr.Weight == wantWeight {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("行 %q 未按预期着色 color=%v weight=%d: %#v", line, wantColor, wantWeight, ranges)
+				}
+				lineStart = lineEnd + 1
+			}
+		})
+	}
+}
+
 func TestEditorRangesSearchRejectsWholeHeading(t *testing.T) {
 	theme := &ui.Theme{TextMuted: ui.Hex("#777777")}
 	accent := ui.Hex("#cc3333")
