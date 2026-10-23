@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "Latest Release 不是正式版本: $tag" >&2
             exit 1
           fi
@@ -44,10 +44,20 @@ jobs:
       - name: 校验版本与更新私钥配置
         env:
           MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          PREVIOUS_VERSION: ${{ steps.previous-release.outputs.version }}
         run: |
           set -euo pipefail
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo '只允许 vX.Y.Z 正式版本；测试包不要使用正式更新渠道。' >&2
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo '只允许规范的 vX.Y.Z 正式版本；测试包不要使用正式更新渠道。' >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          IFS=. read -r new_major new_minor new_patch <<< "$version"
+          IFS=. read -r old_major old_minor old_patch <<< "$PREVIOUS_VERSION"
+          if ! (( new_major > old_major ||
+                  new_major == old_major && new_minor > old_minor ||
+                  new_major == old_major && new_minor == old_minor && new_patch > old_patch )); then
+            echo "新版本 $version 必须严格高于当前 Latest $PREVIOUS_VERSION。" >&2
             exit 1
           fi
           jq -e --arg tag "$GITHUB_REF_NAME" --arg repo "$GITHUB_REPOSITORY" '
