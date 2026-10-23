@@ -168,7 +168,7 @@ func (a *app) afterEnter(start, end int) {
 			lines := strings.Split(a.activeTab().Text, "\n")
 			if blk.start < len(lines) {
 				lines[blk.start] = strings.TrimPrefix(lines[blk.start], bare)
-				a.applyDocEditAt(strings.Join(lines, "\n"), a.blockRuneOffset(blk.start), true)
+				a.applyDocEditAt(strings.Join(lines, "\n"), a.blockRuneOffset(a.mdActive), true)
 				return
 			}
 		}
@@ -299,7 +299,7 @@ func (a *app) backspaceAtBlockStart() {
 		lines := strings.Split(a.activeTab().Text, "\n")
 		if cur.start < len(lines) {
 			lines[cur.start] = strings.TrimPrefix(lines[cur.start], m)
-			a.applyDocEditAt(strings.Join(lines, "\n"), a.blockRuneOffset(cur.start), true)
+			a.applyDocEditAt(strings.Join(lines, "\n"), a.blockRuneOffset(i), true)
 		}
 		return
 	}

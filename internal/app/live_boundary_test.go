@@ -72,6 +72,34 @@ func TestLiveBackspaceBoundary(t *testing.T) {
 	}
 }
 
+func TestEmptyListExitAfterMultilineBlockKeepsCaret(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		key   ui.Key
+		caret int
+	}{
+		{name: "Enter", key: ui.KeyEnter, caret: 2},
+		{name: "Backspace", key: ui.KeyBackspace, caret: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newTestApp(t)
+			t.Cleanup(a.shutdown)
+			a.tabs[0].Text = "甲\n乙\n\n- \n\n尾"
+			tt := ui.NewTester(a.view, 400, 540)
+			a.focusBlock(2, tc.caret, tc.caret)
+			tt.Frame()
+			tt.Key(0, tc.key)
+			if got, want := a.tabs[0].Text, "甲\n乙\n\n\n\n尾"; got != want {
+				t.Fatalf("退出空列表后文档=%q, want %q", got, want)
+			}
+			tt.Type("X")
+			if got, want := a.tabs[0].Text, "甲\n乙\n\nX\n\n尾"; got != want {
+				t.Fatalf("退出空列表后光标错误: 文档=%q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestLiveParagraphSplitRoundTrip(t *testing.T) {
 	for _, text := range []string{"甲乙", "甲乙\n\n尾", "# 标题"} {
 		// Hidden heading prefixes are no longer caret positions.
