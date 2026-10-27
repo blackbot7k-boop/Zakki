@@ -70,11 +70,12 @@ flowchart TD
 
    | 包 | 允许依赖的 internal 包 |
    |---|---|
-   | `app` | `markdown`、`codehl`、`notes`、`prefs`、`atomicfile`、`fonts` |
+   | `app` | `markdown`、`codehl`、`notes`、`prefs`、`atomicfile`、`fonts`、`sysnotify` |
    | `markdown` | 无 |
    | `codehl` | 无 |
    | `atomicfile` | 无 |
    | `fonts` | 无 |
+   | `sysnotify` | 无 |
    | `notes` | `atomicfile` |
    | `prefs` | `atomicfile`、`fonts` |
 
