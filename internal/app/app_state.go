@@ -94,6 +94,7 @@ type liveEditorState struct {
 	liveFocus          int
 	selSyncStart       int
 	selSyncEnd         int
+	timePop            timePopoverState
 	// selDoc 文档级全选：Cmd+A 选中全部块后，复制/剪切/删除/输入按
 	// 文档区间语义在 app 层拦截，不进单块控件。selDocStart/End 为文档 rune 偏移。
 	selDoc                 bool
@@ -227,6 +228,7 @@ type app struct {
 	tabStripState
 	findState
 	liveEditorState
+	reminders reminderScheduler
 	formatState
 	sourceEditorState
 	desktopRefs

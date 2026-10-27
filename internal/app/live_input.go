@@ -5,7 +5,22 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/internal/markdown"
 )
+
+// splitKeepTimeSuffix 在拆分点之后除空白外不带任何可见文本时，把行尾时间令牌
+// 留在左侧，避免仅把时间拆到新行；右侧还有正文时不动令牌，它本就属于右侧文本。
+func splitKeepTimeSuffix(left, right string) (string, string) {
+	rest, ts := markdown.SplitTimeSuffix(right)
+	if ts == nil {
+		return left, right
+	}
+	if strings.TrimRight(rest, " \t") != "" {
+		return left, right
+	}
+	return strings.TrimRight(left, " \t") + " " + right[len(rest):], ""
+}
 
 func (a *app) recordKeyHint(ev ui.InputEvent) bool {
 	if a.mdComposing {
@@ -180,6 +195,9 @@ func (a *app) afterEnter(start, end int) {
 		}
 		left := a.mdDraft[:runeToByte(a.mdDraft, lo)]
 		right := a.mdDraft[runeToByte(a.mdDraft, hi):]
+		if blk.hasTime {
+			left, right = splitKeepTimeSuffix(left, right)
+		}
 		prefix := listContinuePrefix(blk)
 		a.mdDraft = left + "\n" + prefix + right
 		caret := utf8.RuneCountInString(left) + 1 + utf8.RuneCountInString(prefix)
@@ -215,6 +233,9 @@ func (a *app) afterEnter(start, end int) {
 	}
 	left := a.mdDraft[:runeToByte(a.mdDraft, lo)]
 	right := a.mdDraft[runeToByte(a.mdDraft, hi):]
+	if blk.hasTime {
+		left, right = splitKeepTimeSuffix(left, right)
+	}
 	a.mdDraft = left + "\n\n" + right
 	a.publishDraft(utf8.RuneCountInString(left) + 2)
 }

@@ -158,6 +158,41 @@
   "keymapHotkeyKeptOld": "; kept the previous shortcut {binding}",
   "editorContent": "Content",
   "editorTaskDone": "Done: {text}",
+  "cmdTaskTime": "Set Time…",
+  "timePopDate": "Date",
+  "timePopClock": "Time",
+  "timePopAlert": "Alert (early)",
+  "timePopClear": "Clear Time",
+  "timePopDone": "Done",
+  "timeAlertNone": "None",
+  "timeAlertAtTime": "At time",
+  "timeAlertMin": "{n} min early",
+  "timeAlertHour": "1 h early",
+  "timeAlertDay": "1 d early",
+  "timeChipToday": "Today {time}",
+  "timeChipTomorrow": "Tomorrow {time}",
+  "timeChipWeekday": "{weekday} {time}",
+  "timeChipDate": "{month} {day} {time}",
+  "timeChipDateYear": "{month} {day}, {year} {time}",
+  "timeWeekday1": "Mon",
+  "timeWeekday2": "Tue",
+  "timeWeekday3": "Wed",
+  "timeWeekday4": "Thu",
+  "timeWeekday5": "Fri",
+  "timeWeekday6": "Sat",
+  "timeWeekday7": "Sun",
+  "timeMonth1": "Jan",
+  "timeMonth2": "Feb",
+  "timeMonth3": "Mar",
+  "timeMonth4": "Apr",
+  "timeMonth5": "May",
+  "timeMonth6": "Jun",
+  "timeMonth7": "Jul",
+  "timeMonth8": "Aug",
+  "timeMonth9": "Sep",
+  "timeMonth10": "Oct",
+  "timeMonth11": "Nov",
+  "timeMonth12": "Dec",
   "editorTableCell": "Cell {row, number},{col, number}",
   "linkOverlay": "Link",
   "linkText": "Link text",
@@ -367,6 +402,54 @@
   "@editorTaskDone": {
     "description": "Accessibility label of a checked task item"
   },
+  "@cmdTaskTime": {
+    "description": "Menu command to set the time of the current line"
+  },
+  "@timePopDate": {
+    "description": "Caption of the date field in the time popover"
+  },
+  "@timePopClock": {
+    "description": "Caption of the time-of-day field in the time popover"
+  },
+  "@timePopAlert": {
+    "description": "Caption of the alert tier picker in the time popover"
+  },
+  "@timePopClear": {
+    "description": "Button that removes the time of the current line"
+  },
+  "@timePopDone": {
+    "description": "Button that applies the time popover draft"
+  },
+  "@timeAlertNone": {
+    "description": "Alert tier: no alert"
+  },
+  "@timeAlertAtTime": {
+    "description": "Alert tier: alert exactly at the moment"
+  },
+  "@timeAlertMin": {
+    "description": "Alert tier: minutes early; {n} is the minute count"
+  },
+  "@timeAlertHour": {
+    "description": "Alert tier: one hour early"
+  },
+  "@timeAlertDay": {
+    "description": "Alert tier: one day early"
+  },
+  "@timeChipToday": {
+    "description": "Time chip label for a due moment today; {time} is HH:mm"
+  },
+  "@timeChipTomorrow": {
+    "description": "Time chip label for a due moment tomorrow; {time} is HH:mm"
+  },
+  "@timeChipWeekday": {
+    "description": "Time chip label within the next week; {weekday} is the weekday name, {time} is HH:mm"
+  },
+  "@timeChipDate": {
+    "description": "Time chip label within the same year; {month} and {day} are the date, {time} is HH:mm"
+  },
+  "@timeChipDateYear": {
+    "description": "Time chip label in another year; {year} {month} {day} are the date, {time} is HH:mm"
+  },
   "windowTitle": "{app} — quick notes",
   "@windowTitle": {
     "description": "Main window title"
@@ -541,5 +624,7 @@
   "commonChoose": "Choose",
   "prefsPausedForNotes": "Preferences file is unavailable, note saving is paused: {err}",
   "pinTopOn": "Turn Off Keep on Top",
-  "statusPreview": "Preview"
+  "statusPreview": "Preview",
+  "timeGuideTabName": "Time & Reminders",
+  "timeGuideBody": "# Time & Reminders\n\nAdd a time to a paragraph, list item, quote, heading or task.\n\n- Type `@` at the end of a line to open the time picker, or use the default shortcut ⌘⇧0.\n- Choose a date and time, optionally add an alert, then click Done. Click the time chip to change or clear it.\n- Focusing a timed entry keeps the same time chip and places the caret at the end. You can move around the chip and type on either side; click the chip to edit its time.\n\n```markdown\nSubmit report @2026-06-01 10:00 ~1h Attach the budget\n```\n\n`@` sets the event time (a deadline for tasks); `~1h` means an alert one hour earlier. Remove `~1h` to keep the time without an alert. The time chip may sit anywhere in the entry. Alerts include the readable text before and after it, not other entries.\n\nAlerts require Zakki to be running. Missed alerts are not replayed after restart, and completed tasks do not alert."
 }

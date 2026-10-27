@@ -14,6 +14,7 @@ type liveHit struct {
 	ref   ui.Handle
 	proj  liveProjection
 	font  ui.Font
+	spans []ui.Span
 }
 
 func bodyLiveFont(md resolvedStyle) ui.Font {
@@ -44,9 +45,22 @@ func (a *app) bindPreviewClick(el ui.Element, block int, proj liveProjection, fo
 	recordLiveHit(el, block, proj, font, hits)
 	el.Selectable().OnClick(func() {
 		a.liveClickHandled = true
+		if blocks := a.mdBlocks(); block >= 0 && block < len(blocks) && a.hitTimeObject(el, blocks[block]) {
+			return
+		}
 		s, e := el.TextSelection()
-		a.focusBlock(block, proj.sourceOffset(s), proj.sourceOffset(e))
+		a.focusPreviewBlock(block, proj.sourceOffset(s), proj.sourceOffset(e))
 	})
+}
+
+// focusPreviewBlock 首次点击时间行时默认把光标放在源码末尾；
+// 已聚焦后的定位与拖选保留原来的精确偏移。
+func (a *app) focusPreviewBlock(block, start, end int) {
+	blocks := a.mdBlocks()
+	if block != a.mdActive && block >= 0 && block < len(blocks) && blocks[block].hasTime && start == end {
+		start, end = -1, -1
+	}
+	a.focusBlock(block, start, end)
 }
 
 // focusNearestHit 把指针落进垂直方向最近的一段文字。
@@ -94,10 +108,14 @@ func (a *app) focusHit(c *ui.Context, h liveHit) {
 	if el := c.Resolve(h.ref); h.proj.text != "" && el.Valid() {
 		x, y, _ := el.PointerPosition()
 		b := el.Bounds()
-		caret = visibleCaretAt(h.proj.text, h.font, b.W, b.H, x, y)
+		if len(h.spans) > 0 {
+			caret = visibleCaretInLayout(h.proj.text, ui.ShapeRichText(h.spans, h.font, b.W), b.H, x, y)
+		} else {
+			caret = visibleCaretAt(h.proj.text, h.font, b.W, b.H, x, y)
+		}
 	}
 	src := h.proj.sourceOffset(caret)
-	a.focusBlock(h.block, src, src)
+	a.focusPreviewBlock(h.block, src, src)
 }
 
 // visibleCaretAt 用与预览相同的字体和换行宽度做一次排版，把点击换算成可见文字偏移。
@@ -110,7 +128,10 @@ func visibleCaretAt(text string, font ui.Font, width, height, x, y float32) int 
 	if font.Size <= 0 {
 		font.Size = 16
 	}
-	layout := ui.ShapeText(text, font, width)
+	return visibleCaretInLayout(text, ui.ShapeText(text, font, width), height, x, y)
+}
+
+func visibleCaretInLayout(text string, layout *ui.TextLayout, height, x, y float32) int {
 	if _, shapedH := layout.Size(); shapedH > 1 && height > 1 {
 		y *= shapedH / height
 	}

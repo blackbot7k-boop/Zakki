@@ -138,9 +138,9 @@ func TestPersistenceLoadFields(t *testing.T) {
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},
 		{
-			name:       "缺 dots 给欢迎文本",
+			name:       "缺 dots 给欢迎和时间说明",
 			raw:        `{"version":1,"active":2}`,
-			wantTexts:  []string{welcomeText, "", "", "", "", "", ""},
+			wantTexts:  []string{welcomeText, timeGuideText(), "", "", "", "", ""},
 			wantActive: 2,
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},
@@ -196,7 +196,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 		{
 			name:       "v2 缺 tabs 视为首次运行",
 			raw:        `{"version":2,"active":0}`,
-			wantTexts:  []string{welcomeText, "", "", "", "", "", ""},
+			wantTexts:  []string{welcomeText, timeGuideText(), "", "", "", "", ""},
 			wantActive: 0,
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},

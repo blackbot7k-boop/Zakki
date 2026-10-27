@@ -300,11 +300,10 @@ func (a *app) rebuildInitialTabs(n int) {
 	for i := range a.tabs {
 		a.tabs[i] = tab{ID: uint64(i + 1), Color: tabPaletteColors[i]}
 	}
-	text := welcomeTextFor(n)
-	a.tabs[0].Text = text
+	a.seedInitialContent()
 	a.syncNextTabID()
 	a.clampActive()
-	a.resyncLive(utf8.RuneCountInString(text))
+	a.resyncLive(utf8.RuneCountInString(a.tabs[0].Text))
 }
 
 func (a *app) obPickFolder() { a.chooseStorageDirAsync(a.onboarding.obWin, a.obApplyFolder) }

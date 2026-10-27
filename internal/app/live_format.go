@@ -50,6 +50,8 @@ func (a *app) execFormatCommand(id string) {
 		a.execPrefix(prefixOrdered)
 	case cmdTask:
 		a.execPrefix(prefixTask)
+	case cmdTaskTime:
+		a.openTimePopoverAtCaret()
 	case cmdCodeBlock:
 		a.execCodeBlock()
 	case cmdRule:

@@ -1658,6 +1658,432 @@ func (msgs Messages) EditorTaskDone(text string) string {
 	return Catalog.Format(msgs.locale, "editorTaskDone", map[string]any{"text": text})
 }
 
+// CmdTaskTime says "Set Time…"
+// in the language the app shows.
+//
+// Menu command to set the time of the current line
+func CmdTaskTime() string { return In(i18n.Locale()).CmdTaskTime() }
+
+// CmdTaskTime says "Set Time…"
+// in the language of msgs.
+//
+// Menu command to set the time of the current line
+func (msgs Messages) CmdTaskTime() string {
+	return Catalog.Format(msgs.locale, "cmdTaskTime", nil)
+}
+
+// TimePopDate says "Date"
+// in the language the app shows.
+//
+// Caption of the date field in the time popover
+func TimePopDate() string { return In(i18n.Locale()).TimePopDate() }
+
+// TimePopDate says "Date"
+// in the language of msgs.
+//
+// Caption of the date field in the time popover
+func (msgs Messages) TimePopDate() string {
+	return Catalog.Format(msgs.locale, "timePopDate", nil)
+}
+
+// TimePopClock says "Time"
+// in the language the app shows.
+//
+// Caption of the time-of-day field in the time popover
+func TimePopClock() string { return In(i18n.Locale()).TimePopClock() }
+
+// TimePopClock says "Time"
+// in the language of msgs.
+//
+// Caption of the time-of-day field in the time popover
+func (msgs Messages) TimePopClock() string {
+	return Catalog.Format(msgs.locale, "timePopClock", nil)
+}
+
+// TimePopAlert says "Alert (early)"
+// in the language the app shows.
+//
+// Caption of the alert tier picker in the time popover
+func TimePopAlert() string { return In(i18n.Locale()).TimePopAlert() }
+
+// TimePopAlert says "Alert (early)"
+// in the language of msgs.
+//
+// Caption of the alert tier picker in the time popover
+func (msgs Messages) TimePopAlert() string {
+	return Catalog.Format(msgs.locale, "timePopAlert", nil)
+}
+
+// TimePopClear says "Clear Time"
+// in the language the app shows.
+//
+// Button that removes the time of the current line
+func TimePopClear() string { return In(i18n.Locale()).TimePopClear() }
+
+// TimePopClear says "Clear Time"
+// in the language of msgs.
+//
+// Button that removes the time of the current line
+func (msgs Messages) TimePopClear() string {
+	return Catalog.Format(msgs.locale, "timePopClear", nil)
+}
+
+// TimePopDone says "Done"
+// in the language the app shows.
+//
+// Button that applies the time popover draft
+func TimePopDone() string { return In(i18n.Locale()).TimePopDone() }
+
+// TimePopDone says "Done"
+// in the language of msgs.
+//
+// Button that applies the time popover draft
+func (msgs Messages) TimePopDone() string {
+	return Catalog.Format(msgs.locale, "timePopDone", nil)
+}
+
+// TimeAlertNone says "None"
+// in the language the app shows.
+//
+// Alert tier: no alert
+func TimeAlertNone() string { return In(i18n.Locale()).TimeAlertNone() }
+
+// TimeAlertNone says "None"
+// in the language of msgs.
+//
+// Alert tier: no alert
+func (msgs Messages) TimeAlertNone() string {
+	return Catalog.Format(msgs.locale, "timeAlertNone", nil)
+}
+
+// TimeAlertAtTime says "At time"
+// in the language the app shows.
+//
+// Alert tier: alert exactly at the moment
+func TimeAlertAtTime() string { return In(i18n.Locale()).TimeAlertAtTime() }
+
+// TimeAlertAtTime says "At time"
+// in the language of msgs.
+//
+// Alert tier: alert exactly at the moment
+func (msgs Messages) TimeAlertAtTime() string {
+	return Catalog.Format(msgs.locale, "timeAlertAtTime", nil)
+}
+
+// TimeAlertMin says "{n} min early"
+// in the language the app shows.
+//
+// Alert tier: minutes early; {n} is the minute count
+func TimeAlertMin(n string) string { return In(i18n.Locale()).TimeAlertMin(n) }
+
+// TimeAlertMin says "{n} min early"
+// in the language of msgs.
+//
+// Alert tier: minutes early; {n} is the minute count
+func (msgs Messages) TimeAlertMin(n string) string {
+	return Catalog.Format(msgs.locale, "timeAlertMin", map[string]any{"n": n})
+}
+
+// TimeAlertHour says "1 h early"
+// in the language the app shows.
+//
+// Alert tier: one hour early
+func TimeAlertHour() string { return In(i18n.Locale()).TimeAlertHour() }
+
+// TimeAlertHour says "1 h early"
+// in the language of msgs.
+//
+// Alert tier: one hour early
+func (msgs Messages) TimeAlertHour() string {
+	return Catalog.Format(msgs.locale, "timeAlertHour", nil)
+}
+
+// TimeAlertDay says "1 d early"
+// in the language the app shows.
+//
+// Alert tier: one day early
+func TimeAlertDay() string { return In(i18n.Locale()).TimeAlertDay() }
+
+// TimeAlertDay says "1 d early"
+// in the language of msgs.
+//
+// Alert tier: one day early
+func (msgs Messages) TimeAlertDay() string {
+	return Catalog.Format(msgs.locale, "timeAlertDay", nil)
+}
+
+// TimeChipToday says "Today {time}"
+// in the language the app shows.
+//
+// Time chip label for a due moment today; {time} is HH:mm
+func TimeChipToday(time_ string) string { return In(i18n.Locale()).TimeChipToday(time_) }
+
+// TimeChipToday says "Today {time}"
+// in the language of msgs.
+//
+// Time chip label for a due moment today; {time} is HH:mm
+func (msgs Messages) TimeChipToday(time_ string) string {
+	return Catalog.Format(msgs.locale, "timeChipToday", map[string]any{"time": time_})
+}
+
+// TimeChipTomorrow says "Tomorrow {time}"
+// in the language the app shows.
+//
+// Time chip label for a due moment tomorrow; {time} is HH:mm
+func TimeChipTomorrow(time_ string) string { return In(i18n.Locale()).TimeChipTomorrow(time_) }
+
+// TimeChipTomorrow says "Tomorrow {time}"
+// in the language of msgs.
+//
+// Time chip label for a due moment tomorrow; {time} is HH:mm
+func (msgs Messages) TimeChipTomorrow(time_ string) string {
+	return Catalog.Format(msgs.locale, "timeChipTomorrow", map[string]any{"time": time_})
+}
+
+// TimeChipWeekday says "{weekday} {time}"
+// in the language the app shows.
+//
+// Time chip label within the next week; {weekday} is the weekday name,
+// {time} is HH:mm
+func TimeChipWeekday(weekday string, time_ string) string {
+	return In(i18n.Locale()).TimeChipWeekday(weekday, time_)
+}
+
+// TimeChipWeekday says "{weekday} {time}"
+// in the language of msgs.
+//
+// Time chip label within the next week; {weekday} is the weekday name,
+// {time} is HH:mm
+func (msgs Messages) TimeChipWeekday(weekday string, time_ string) string {
+	return Catalog.Format(msgs.locale, "timeChipWeekday", map[string]any{"weekday": weekday, "time": time_})
+}
+
+// TimeChipDate says "{month} {day} {time}"
+// in the language the app shows.
+//
+// Time chip label within the same year; {month} and {day} are the date,
+// {time} is HH:mm
+func TimeChipDate(month string, day string, time_ string) string {
+	return In(i18n.Locale()).TimeChipDate(month, day, time_)
+}
+
+// TimeChipDate says "{month} {day} {time}"
+// in the language of msgs.
+//
+// Time chip label within the same year; {month} and {day} are the date,
+// {time} is HH:mm
+func (msgs Messages) TimeChipDate(month string, day string, time_ string) string {
+	return Catalog.Format(msgs.locale, "timeChipDate", map[string]any{"month": month, "day": day, "time": time_})
+}
+
+// TimeChipDateYear says "{month} {day}, {year} {time}"
+// in the language the app shows.
+//
+// Time chip label in another year; {year} {month} {day} are the date,
+// {time} is HH:mm
+func TimeChipDateYear(month string, day string, year string, time_ string) string {
+	return In(i18n.Locale()).TimeChipDateYear(month, day, year, time_)
+}
+
+// TimeChipDateYear says "{month} {day}, {year} {time}"
+// in the language of msgs.
+//
+// Time chip label in another year; {year} {month} {day} are the date,
+// {time} is HH:mm
+func (msgs Messages) TimeChipDateYear(month string, day string, year string, time_ string) string {
+	return Catalog.Format(msgs.locale, "timeChipDateYear", map[string]any{"month": month, "day": day, "year": year, "time": time_})
+}
+
+// TimeWeekday1 says "Mon"
+// in the language the app shows.
+func TimeWeekday1() string { return In(i18n.Locale()).TimeWeekday1() }
+
+// TimeWeekday1 says "Mon"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday1() string {
+	return Catalog.Format(msgs.locale, "timeWeekday1", nil)
+}
+
+// TimeWeekday2 says "Tue"
+// in the language the app shows.
+func TimeWeekday2() string { return In(i18n.Locale()).TimeWeekday2() }
+
+// TimeWeekday2 says "Tue"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday2() string {
+	return Catalog.Format(msgs.locale, "timeWeekday2", nil)
+}
+
+// TimeWeekday3 says "Wed"
+// in the language the app shows.
+func TimeWeekday3() string { return In(i18n.Locale()).TimeWeekday3() }
+
+// TimeWeekday3 says "Wed"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday3() string {
+	return Catalog.Format(msgs.locale, "timeWeekday3", nil)
+}
+
+// TimeWeekday4 says "Thu"
+// in the language the app shows.
+func TimeWeekday4() string { return In(i18n.Locale()).TimeWeekday4() }
+
+// TimeWeekday4 says "Thu"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday4() string {
+	return Catalog.Format(msgs.locale, "timeWeekday4", nil)
+}
+
+// TimeWeekday5 says "Fri"
+// in the language the app shows.
+func TimeWeekday5() string { return In(i18n.Locale()).TimeWeekday5() }
+
+// TimeWeekday5 says "Fri"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday5() string {
+	return Catalog.Format(msgs.locale, "timeWeekday5", nil)
+}
+
+// TimeWeekday6 says "Sat"
+// in the language the app shows.
+func TimeWeekday6() string { return In(i18n.Locale()).TimeWeekday6() }
+
+// TimeWeekday6 says "Sat"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday6() string {
+	return Catalog.Format(msgs.locale, "timeWeekday6", nil)
+}
+
+// TimeWeekday7 says "Sun"
+// in the language the app shows.
+func TimeWeekday7() string { return In(i18n.Locale()).TimeWeekday7() }
+
+// TimeWeekday7 says "Sun"
+// in the language of msgs.
+func (msgs Messages) TimeWeekday7() string {
+	return Catalog.Format(msgs.locale, "timeWeekday7", nil)
+}
+
+// TimeMonth1 says "Jan"
+// in the language the app shows.
+func TimeMonth1() string { return In(i18n.Locale()).TimeMonth1() }
+
+// TimeMonth1 says "Jan"
+// in the language of msgs.
+func (msgs Messages) TimeMonth1() string {
+	return Catalog.Format(msgs.locale, "timeMonth1", nil)
+}
+
+// TimeMonth2 says "Feb"
+// in the language the app shows.
+func TimeMonth2() string { return In(i18n.Locale()).TimeMonth2() }
+
+// TimeMonth2 says "Feb"
+// in the language of msgs.
+func (msgs Messages) TimeMonth2() string {
+	return Catalog.Format(msgs.locale, "timeMonth2", nil)
+}
+
+// TimeMonth3 says "Mar"
+// in the language the app shows.
+func TimeMonth3() string { return In(i18n.Locale()).TimeMonth3() }
+
+// TimeMonth3 says "Mar"
+// in the language of msgs.
+func (msgs Messages) TimeMonth3() string {
+	return Catalog.Format(msgs.locale, "timeMonth3", nil)
+}
+
+// TimeMonth4 says "Apr"
+// in the language the app shows.
+func TimeMonth4() string { return In(i18n.Locale()).TimeMonth4() }
+
+// TimeMonth4 says "Apr"
+// in the language of msgs.
+func (msgs Messages) TimeMonth4() string {
+	return Catalog.Format(msgs.locale, "timeMonth4", nil)
+}
+
+// TimeMonth5 says "May"
+// in the language the app shows.
+func TimeMonth5() string { return In(i18n.Locale()).TimeMonth5() }
+
+// TimeMonth5 says "May"
+// in the language of msgs.
+func (msgs Messages) TimeMonth5() string {
+	return Catalog.Format(msgs.locale, "timeMonth5", nil)
+}
+
+// TimeMonth6 says "Jun"
+// in the language the app shows.
+func TimeMonth6() string { return In(i18n.Locale()).TimeMonth6() }
+
+// TimeMonth6 says "Jun"
+// in the language of msgs.
+func (msgs Messages) TimeMonth6() string {
+	return Catalog.Format(msgs.locale, "timeMonth6", nil)
+}
+
+// TimeMonth7 says "Jul"
+// in the language the app shows.
+func TimeMonth7() string { return In(i18n.Locale()).TimeMonth7() }
+
+// TimeMonth7 says "Jul"
+// in the language of msgs.
+func (msgs Messages) TimeMonth7() string {
+	return Catalog.Format(msgs.locale, "timeMonth7", nil)
+}
+
+// TimeMonth8 says "Aug"
+// in the language the app shows.
+func TimeMonth8() string { return In(i18n.Locale()).TimeMonth8() }
+
+// TimeMonth8 says "Aug"
+// in the language of msgs.
+func (msgs Messages) TimeMonth8() string {
+	return Catalog.Format(msgs.locale, "timeMonth8", nil)
+}
+
+// TimeMonth9 says "Sep"
+// in the language the app shows.
+func TimeMonth9() string { return In(i18n.Locale()).TimeMonth9() }
+
+// TimeMonth9 says "Sep"
+// in the language of msgs.
+func (msgs Messages) TimeMonth9() string {
+	return Catalog.Format(msgs.locale, "timeMonth9", nil)
+}
+
+// TimeMonth10 says "Oct"
+// in the language the app shows.
+func TimeMonth10() string { return In(i18n.Locale()).TimeMonth10() }
+
+// TimeMonth10 says "Oct"
+// in the language of msgs.
+func (msgs Messages) TimeMonth10() string {
+	return Catalog.Format(msgs.locale, "timeMonth10", nil)
+}
+
+// TimeMonth11 says "Nov"
+// in the language the app shows.
+func TimeMonth11() string { return In(i18n.Locale()).TimeMonth11() }
+
+// TimeMonth11 says "Nov"
+// in the language of msgs.
+func (msgs Messages) TimeMonth11() string {
+	return Catalog.Format(msgs.locale, "timeMonth11", nil)
+}
+
+// TimeMonth12 says "Dec"
+// in the language the app shows.
+func TimeMonth12() string { return In(i18n.Locale()).TimeMonth12() }
+
+// TimeMonth12 says "Dec"
+// in the language of msgs.
+func (msgs Messages) TimeMonth12() string {
+	return Catalog.Format(msgs.locale, "timeMonth12", nil)
+}
+
 // EditorTableCell says "Cell {row, number},{col, number}"
 // in the language the app shows.
 func EditorTableCell(row int, col int) string { return In(i18n.Locale()).EditorTableCell(row, col) }
@@ -4990,4 +5416,24 @@ func StatusPreview() string { return In(i18n.Locale()).StatusPreview() }
 // in the language of msgs.
 func (msgs Messages) StatusPreview() string {
 	return Catalog.Format(msgs.locale, "statusPreview", nil)
+}
+
+// TimeGuideTabName says "Time & Reminders"
+// in the language the app shows.
+func TimeGuideTabName() string { return In(i18n.Locale()).TimeGuideTabName() }
+
+// TimeGuideTabName says "Time & Reminders"
+// in the language of msgs.
+func (msgs Messages) TimeGuideTabName() string {
+	return Catalog.Format(msgs.locale, "timeGuideTabName", nil)
+}
+
+// TimeGuideBody says "# Time & Reminders\n\nAdd a time to a paragraph, list item, quote, heading or task.\n\n- Type `@` at the end of a line to…"
+// in the language the app shows.
+func TimeGuideBody() string { return In(i18n.Locale()).TimeGuideBody() }
+
+// TimeGuideBody says "# Time & Reminders\n\nAdd a time to a paragraph, list item, quote, heading or task.\n\n- Type `@` at the end of a line to…"
+// in the language of msgs.
+func (msgs Messages) TimeGuideBody() string {
+	return Catalog.Format(msgs.locale, "timeGuideBody", nil)
 }

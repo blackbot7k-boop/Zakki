@@ -22,6 +22,7 @@ type liveProjection struct {
 	start, end   int // editable source region (prefixes/fences remain outside it)
 	units        []projectedRune
 	styles       []projectedStyle
+	objects      []int // 时间组件在可见文本中的单 rune 位置
 	cell, inline bool
 }
 
@@ -67,7 +68,11 @@ func projectBlock(b liveBlock) liveProjection {
 	case bkRule:
 		lo = hi
 	}
-	return projectRegion(b.raw, lo, hi, b.kind != bkCode, false)
+	p := projectRegion(b.raw, lo, hi, b.kind != bkCode, false)
+	if b.hasTime {
+		p = p.withTimeObject()
+	}
+	return p
 }
 
 // plainLineProjection 等价于 projectRegion(raw, lo, lo+行长, false, false)，
@@ -228,6 +233,9 @@ func (p liveProjection) replaceSelection(next string, caret, selectedStart, sele
 	}
 	raw := string(out)
 	projected := projectRegion(raw, p.start, p.end+len(out)-len(rs), p.inline, p.cell)
+	if len(p.objects) > 0 {
+		projected = projected.withTimeObject()
+	}
 	return raw, projected.sourceOffset(caret)
 }
 

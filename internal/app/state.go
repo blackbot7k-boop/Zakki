@@ -155,6 +155,23 @@ func welcomeTextFor(tabCount int) string {
 		shortcutText(locales.WelcomeBodyTips()) + "\n\n" + locales.WelcomeBodyFooter()
 }
 
+func timeGuideText() string { return shortcutText(locales.TimeGuideBody()) }
+
+// seedInitialContent 只由初始化入口调用，不为已有笔记补写说明。
+// 复用第二个标签；只选一个标签时合并到欢迎文本，保持用户选择的数量。
+func (a *app) seedInitialContent() {
+	if len(a.tabs) == 0 {
+		return
+	}
+	a.tabs[0].Text = welcomeTextFor(len(a.tabs))
+	if len(a.tabs) == 1 {
+		a.tabs[0].Text += "\n\n" + timeGuideText()
+		return
+	}
+	a.tabs[1].Name = locales.TimeGuideTabName()
+	a.tabs[1].Text = timeGuideText()
+}
+
 // welcomeText 默认标签数下的欢迎文案（测试与固定引用）。
 var welcomeText = welcomeTextFor(DefaultTabCount)
 
@@ -173,9 +190,8 @@ func (a *app) commitFirstRunData(tabCount int) error {
 		}
 		a.rebuildInitialTabs(tabCount)
 	} else if len(a.tabs) > 0 {
-		text := welcomeTextFor(len(a.tabs))
-		a.tabs[0].Text = text
-		a.resyncLive(utf8.RuneCountInString(text))
+		a.seedInitialContent()
+		a.resyncLive(utf8.RuneCountInString(a.tabs[0].Text))
 	}
 	err := a.notes.SaveNow(a.snapshotFile())
 	if err != nil {
@@ -189,16 +205,14 @@ func (a *app) persistFirstRunSnapshot() error {
 	return a.commitFirstRunData(0)
 }
 
-// initDefaults 首次运行/空文件：保证 7 个默认标签存在，标签 1 是
-// 欢迎文本。不改 active（空文件里 active 跟随磁盘数据）。
+// initDefaults 首次运行/空文件：生成欢迎与时间说明。
+// 不改 active（空文件里 active 跟随磁盘数据）。
 func (a *app) initDefaults() {
 	if len(a.tabs) == 0 {
 		a.tabs = defaultTabs()
 		a.syncNextTabID()
 	}
-	if len(a.tabs) > 0 {
-		a.tabs[0].Text = welcomeTextFor(len(a.tabs))
-	}
+	a.seedInitialContent()
 	a.clampActive()
 	a.resyncLive(utf8.RuneCountInString(a.tabs[0].Text))
 }
@@ -246,6 +260,8 @@ func (a *app) shutdown() {
 }
 
 func (a *app) shutdownForQuit() error {
+	// 在途提醒定时器随退出全部作废；错过的提醒不补发（ADR-0001）。
+	a.stopReminders()
 	if a.storageMoving {
 		return errors.New(locales.StorageMoving())
 	}

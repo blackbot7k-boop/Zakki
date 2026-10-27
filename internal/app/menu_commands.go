@@ -36,6 +36,7 @@ const (
 	cmdBullet       = "list.bullet"
 	cmdOrdered      = "list.ordered"
 	cmdTask         = "list.task"
+	cmdTaskTime     = "list.taskTime"
 	cmdCodeBlock    = "block.code"
 	cmdRule         = "insert.rule"
 	cmdTable        = "insert.table"
@@ -374,6 +375,7 @@ var commandRegistry = []commandDef{
 	{id: cmdBullet, name: "cmdBullet", group: "blocks", def: "CmdOrCtrl+Shift+8"},
 	{id: cmdOrdered, name: "cmdOrdered", group: "blocks", def: "CmdOrCtrl+Shift+7"},
 	{id: cmdTask, name: "cmdTask", group: "blocks", def: "CmdOrCtrl+Shift+9"},
+	{id: cmdTaskTime, name: "cmdTaskTime", group: "blocks", def: "CmdOrCtrl+Shift+0"},
 	{id: cmdCodeBlock, name: "cmdCodeBlock", group: "insert", def: "CmdOrCtrl+Alt+C"},
 	{id: cmdRule, name: "cmdRule", group: "insert", def: ""},
 	{id: cmdTable, name: "cmdTable", group: "insert", def: ""},
@@ -401,6 +403,8 @@ func commandDisplayName(def commandDef) string {
 		return locales.CmdOrdered()
 	case "cmdTask":
 		return locales.CmdTask()
+	case "cmdTaskTime":
+		return locales.CmdTaskTime()
 	case "cmdCodeBlock":
 		return locales.CmdCodeBlock()
 	case "cmdRule":

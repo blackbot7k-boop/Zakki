@@ -141,3 +141,42 @@ func TestEditorRangesSearchRejectsWholeHeading(t *testing.T) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
 }
+
+func TestEditorRangesTimeTokens(t *testing.T) {
+	theme := &ui.Theme{TextMuted: ui.Hex("#777777")}
+	accent := ui.Hex("#cc3333")
+	cases := []struct {
+		name string
+		text string
+		want []ui.TextRange
+	}{
+		{
+			name: "待办行时刻与提醒分色",
+			text: "- [ ] 交报告 @2026-06-01 10:00 ~1h",
+			want: []ui.TextRange{
+				{Start: 0, End: 2, Color: theme.TextMuted},
+				{Start: 2, End: 5, Color: accent, Weight: 600},
+				{Start: 10, End: 28, Color: accent},
+				{Start: 28, End: 31, Color: theme.TextMuted},
+			},
+		},
+		{
+			name: "仅时刻",
+			text: "牙医复诊 @2026-06-01 09:30",
+			want: []ui.TextRange{{Start: 5, End: 22, Color: accent}},
+		},
+		{
+			name: "CRLF 的回车不入色",
+			text: "x @2026-06-01 10:00\r",
+			want: []ui.TextRange{{Start: 2, End: 19, Color: accent}},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := editorRanges(tc.text, "", theme, accent)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}

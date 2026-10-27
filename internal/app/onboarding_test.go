@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"zakki/locales"
 )
 
 func TestFirstRunDetection(t *testing.T) {
@@ -107,7 +109,7 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	if p.Storage.DataFile != wantPath {
 		t.Fatalf("偏好未持久化: %+v", p.Storage)
 	}
-	// 数据：3 个标签，第 1 个含欢迎文本，其余为空；文件已落盘。
+	// 数据：3 个标签，前两个为欢迎和时间说明，其余为空；文件已落盘。
 	if len(a.tabs) != 3 {
 		t.Fatalf("标签数 = %d, want 3", len(a.tabs))
 	}
@@ -117,7 +119,10 @@ func TestOnboardingFinishAppliesConfig(t *testing.T) {
 	if want := welcomeTextFor(3); a.tabs[0].Text != want {
 		t.Fatalf("欢迎文案应匹配标签数: got %q", a.tabs[0].Text)
 	}
-	for i := 1; i < len(a.tabs); i++ {
+	if a.tabs[1].Text != timeGuideText() || a.tabs[1].Name != locales.TimeGuideTabName() {
+		t.Fatalf("第二个标签应为时间使用说明: %+v", a.tabs[1])
+	}
+	for i := 2; i < len(a.tabs); i++ {
 		if a.tabs[i].Text != "" {
 			t.Fatalf("标签 %d 应为空: %q", i+1, a.tabs[i].Text)
 		}
@@ -197,7 +202,8 @@ func TestOnboardingSkipKeepsCurrentStoragePath(t *testing.T) {
 		t.Fatalf("跳过应保留默认标签数: %d", len(a.tabs))
 	}
 	f := persistReadSaved(t, path)
-	if len(f.Tabs) != DefaultTabCount || f.Tabs[0].Text != welcomeTextFor(DefaultTabCount) {
+	if len(f.Tabs) != DefaultTabCount || f.Tabs[0].Text != welcomeTextFor(DefaultTabCount) ||
+		f.Tabs[1].Text != timeGuideText() || f.Tabs[1].Name != locales.TimeGuideTabName() {
 		t.Fatalf("默认内容未保存: %+v", f)
 	}
 	if a.firstRun() {

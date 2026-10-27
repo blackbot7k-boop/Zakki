@@ -255,6 +255,10 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 	}
 	body := tabBody{cx: slots[a.active].cx, w: slots[a.active].w, h: bodyH,
 		color: a.tabInk(a.active, dark), title: title, textW: textW}
+	if titleW > 0 {
+		palette := tabPillColors(body.color)
+		body.color, body.textColor = palette.background, palette.text
+	}
 	ids := make([]uint64, len(a.tabs))
 	for i := range ids {
 		ids[i] = a.tabs[i].ID
@@ -265,7 +269,7 @@ func (a *app) tabStrip(c *ui.Context, dark bool) {
 		a.builtActiveID = 0
 		a.tabViewportWidth = available
 	}
-	a.syncTabMorph(a.uiNow(c), c.Preferences().ReduceMotion, slots, ids, body)
+	a.syncTabMorph(a.uiNow(c), c.Preferences().ReduceMotion || a.renaming != 0, slots, ids, body)
 	if a.morph.active {
 		c.AnimationFrame()
 	}
@@ -320,7 +324,7 @@ func (a *app) tabSlot(c *ui.Context, i int, slot tabSlotGeom, reveal bool, slotT
 			ui.Box(c).Fill().PaddingX(pillPadX).Children(func() {
 				in := ui.TextInputBase(c.Key("tab-rename"), &a.renameDraft).
 					Label(locales.RenameTabField()).FontSize(pillTitleSize).Fill().
-					TextColor(pillTextColor(a.lastBody.color)).
+					TextColor(a.lastBody.textColor).
 					FocusBind(&a.renameFocus, 1).AutoFocus().
 					HandleInput(func(ev ui.InputEvent) bool { return a.handleRenameInput(ev) })
 				a.renameComposing = in.Composing()
@@ -581,7 +585,10 @@ func (a *app) toggleSourceMode() {
 }
 
 // onEdited 文本变化后统一入口。
-func (a *app) onEdited() { a.scheduleSave() }
+func (a *app) onEdited() {
+	a.rescheduleReminders()
+	a.scheduleSave()
+}
 
 // sourceRanges 缓存源码模式高亮区间：视图每帧重建，避免长文档每帧全文重算。
 func (a *app) sourceRanges(text, query string, t *ui.Theme, accent ui.Color) []ui.TextRange {

@@ -43,6 +43,8 @@ func Run() {
 		}
 	}
 	a.applyPreferencesToRuntime()
+	// 笔记就绪后接通系统通知投递并做首次提醒调度。
+	a.connectReminders()
 
 	// 语言切换（设置页或系统语言变化）后重建菜单与设置窗口文案；
 	// 原生窗口的界面由 MyGo 自动重绘。
@@ -256,7 +258,7 @@ func formatContextNote(id string) string {
 		return locales.CtxParagraphContext()
 	case cmdBody, cmdH1, cmdH2, cmdH3, cmdH4, cmdH5, cmdH6:
 		return locales.CtxBodyLines()
-	case cmdQuote, cmdBullet, cmdOrdered, cmdTask:
+	case cmdQuote, cmdBullet, cmdOrdered, cmdTask, cmdTaskTime:
 		return locales.CtxSelectedLines()
 	}
 	return ""

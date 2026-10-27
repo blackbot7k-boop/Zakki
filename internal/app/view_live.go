@@ -188,9 +188,9 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	}
 	a.mdProjection = p
 	beforeEdit := a.liveSnapshot()
-	oldStart, oldEnd := p.visibleOffset(a.mdCaret), p.visibleOffset(a.mdSelEnd)
+	oldStart, oldEnd := p.visibleSelection(a.mdCaret, a.mdSelEnd)
 	if a.selSyncStart >= 0 {
-		oldStart, oldEnd = p.visibleOffset(a.selSyncStart), p.visibleOffset(a.selSyncEnd)
+		oldStart, oldEnd = p.visibleSelection(a.selSyncStart, a.selSyncEnd)
 	}
 
 	a.captureClipboardService(c)
@@ -202,9 +202,10 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 	}
 	ta = ta.
 		Lines(1, 4096).
-		FillWidth().Grow(1).MinWidth(0).
+		MinWidth(0).
 		Font(md.bodyFont).FontSize(md.bodySize).LineHeight(md.lineHeight).
 		FocusRing(false)
+	ta = ta.FillWidth().Grow(1)
 	if !a.findOpen && !a.linkTool.open {
 		ta = ta.AutoFocus()
 	}
@@ -249,15 +250,28 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		}
 	}
 	ranges := p.textRangesInBlock(a.highlightQuery(), t, md, blk, a.prefs.Appearance.CodeTheme)
+	ranges = append(ranges, a.timeObjectRanges(c, md, blk, p)...)
+	if len(p.objects) > 0 {
+		a.paintTimeObjects(c, ta, md, blk)
+		if hits != nil && len(*hits) > 0 {
+			(*hits)[len(*hits)-1].spans = timeObjectSpans(p, p.textRanges(a.highlightQuery(), t, md), a.timeObjectRanges(c, md, blk, p))
+		}
+		ta.OnClick(func() {
+			a.hitTimeObject(c.Resolve(a.editorHandle), blk)
+		})
+	}
 	if a.selDoc {
 		for i := range ranges {
 			ranges[i].Background = ui.Color{}
 		}
 	}
 	ta.TextRanges(ranges...)
+	// 时间对象属于编辑器文字流，时间弹层锚在同一个编辑器上。
+	if a.timePop.open && a.timePop.line == blk.start {
+		a.timePopover(c, ta, blk)
+	}
 
-	// Native selections are visible offsets; the existing document pipeline
-	// continues to use source offsets. IME composition stays with the widget.
+	// 原生选区使用可见偏移，文档管线使用源码偏移；IME 组合仍由控件维护。
 	cs, ce := ta.TextSelection()
 	wasComposing := a.prevComposing
 	a.mdComposing = ta.Composing()
@@ -285,6 +299,8 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 			c.Invalidate()
 			return
 		}
+		// 行尾键入 @：占位符就地转化为时间弹层（像表格输入的即时转换）。
+		a.tryTimeTrigger(blk, &cs, &ce)
 		// 原生编辑应把光标推进到新内容之后，但 AX 整值替换会保留旧光标；
 		// 纯追加而光标仍停在前缀内时先吸附到末尾，否则下一个字符会插进中间。
 		if cs == ce {
@@ -374,7 +390,8 @@ func (a *app) activeText(c *ui.Context, t *ui.Theme, blk liveBlock, p liveProjec
 		s, e := a.selSyncStart, a.selSyncEnd
 		a.selSyncStart, a.selSyncEnd = -1, -1
 		if !a.mdComposing {
-			ta.SetTextSelection(p.visibleOffset(s), p.visibleOffset(max(e, s)))
+			vsStart, vsEnd := p.visibleSelection(s, max(e, s))
+			ta.SetTextSelection(vsStart, vsEnd)
 			vs, ve := ta.TextSelection()
 			a.mdCaret, a.mdSelEnd = p.sourceOffset(vs), p.sourceOffset(ve)
 		} else {
@@ -416,6 +433,11 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 		}
 		row = ui.Row(c.Key("blk-"+strconv.Itoa(i))).Gap(8).FillWidth().Padding(0, 0, pad, 0)
 		row.Children(func() { a.renderLiveBlock(c, t, dark, i, blk, hits) })
+		// 时间弹层锚在整行上：MyGo 的 AttachTo 语义是“锚点上的按压不算面板外”，
+		// 因此行内点击、聚焦、移动光标都不会关掉弹层；点其他块才关闭。
+		if a.timePop.open && a.timePop.line == blk.start {
+			a.timePopover(c, row, blk)
+		}
 		var mine []liveHit
 		if hits != nil {
 			mine = append([]liveHit(nil), (*hits)[before:]...)
@@ -425,6 +447,9 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 			recordLiveHit(row, i, projectRegion(blk.raw, n, n, false, false), ui.Font{}, hits)
 		}
 		row.OnClick(func() {
+			if a.liveClickHandled {
+				return
+			}
 			a.liveClickHandled = true
 			if len(mine) == 0 {
 				n := utf8.RuneCountInString(blk.raw)
@@ -443,6 +468,10 @@ func (a *app) liveBlockRow(c *ui.Context, t *ui.Theme, dark bool, i int, blk liv
 // renderLiveBlock 输出一个非焦点块的排版内容（列表现有 Row 内）。
 func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk liveBlock, hits *[]liveHit) {
 	md := a.resolveStyle(-1, dark, true)
+	if blk.hasTime {
+		a.renderTimeBlock(c, t, md, i, blk, hits)
+		return
+	}
 	switch blk.kind {
 	case bkTable:
 		a.tableGrid(c, t, md, blk, false)
@@ -455,11 +484,14 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk 
 				styleHeading(h, blk.level, md)
 				a.bindPreviewClick(h, i, proj, font, hits)
 			})
-			return
+		} else {
+			h := proj.searchContent(c, t, md, a.highlightQuery()).TextColor(t.Text)
+			if !blk.hasTime {
+				h = h.Grow(1)
+			}
+			styleHeading(h, blk.level, md)
+			a.bindPreviewClick(h, i, proj, font, hits)
 		}
-		h := proj.searchContent(c, t, md, a.highlightQuery()).TextColor(t.Text).Grow(1)
-		styleHeading(h, blk.level, md)
-		a.bindPreviewClick(h, i, proj, font, hits)
 	case bkRule:
 		ruleLine(c, md, uint32(blk.start))
 	case bkQuote:
@@ -467,12 +499,15 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk 
 		quoteBar(c, md, uint32(blk.start))
 		var quote ui.Element
 		if a.searchHitsBlock(blk, proj) {
-			quote = proj.searchContent(c, t, md, a.highlightQuery()).Grow(1).TextColor(t.TextMuted)
+			quote = proj.searchContent(c, t, md, a.highlightQuery()).TextColor(t.TextMuted)
 		} else {
-			quote = ui.RichText(c).Grow(1).TextColor(t.TextMuted)
+			quote = ui.RichText(c).TextColor(t.TextMuted)
 			quote.Children(func() {
 				renderInline(c, t, md, blk.text, blk.spans)
 			})
+		}
+		if !blk.hasTime {
+			quote = quote.Grow(1)
 		}
 		a.bindPreviewClick(quote, i, proj, bodyLiveFont(md), hits)
 	case bkCode:
@@ -482,19 +517,28 @@ func (a *app) renderLiveBlock(c *ui.Context, t *ui.Theme, dark bool, i int, blk 
 		listMarker(c, md, blk)
 		var text ui.Element
 		if a.searchHitsBlock(blk, proj) {
-			text = proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
+			text = proj.searchContent(c, t, md, a.highlightQuery())
 		} else {
-			text = inlineContent(c, t, md, blk.text, blk.spans).Grow(1)
+			text = inlineContent(c, t, md, blk.text, blk.spans)
+		}
+		if !blk.hasTime {
+			text = text.Grow(1)
 		}
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	case bkTask:
 		proj := a.previewProjection(blk)
 		a.taskCheckbox(c, blk, md)
-		text := proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
+		text := proj.searchContent(c, t, md, a.highlightQuery())
+		if !blk.hasTime {
+			text = text.Grow(1)
+		}
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	default:
 		proj := a.previewProjection(blk)
-		text := proj.searchContent(c, t, md, a.highlightQuery()).Grow(1)
+		text := proj.searchContent(c, t, md, a.highlightQuery())
+		if !blk.hasTime {
+			text = text.Grow(1)
+		}
 		a.bindPreviewClick(text, i, proj, bodyLiveFont(md), hits)
 	}
 }

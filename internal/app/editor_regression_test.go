@@ -290,35 +290,36 @@ func TestFindMenuFocusesQueryInsteadOfDocument(t *testing.T) {
 func TestUnfocusedPreviewMenuPasteAppendsAndRemainsEditable(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
-	a.tabs[0].Text, a.tabs[1].Text = "AAA", "BBB"
+	a.tabs[0].Text = "AAA"
 	tt := ui.NewTester(a.view, 500, 600)
-	a.switchTab(1)
+	tt.Frame()
+	a.blurLive() // 回到全预览态：无焦点块，菜单粘贴走追加路径
 	tt.Frame()
 	pasted := "## 标题\n\n正文"
 	tt.SetClipboard(pasted)
 	chooseEditMenu(t, a, tt, "paste")
-	if got, want := a.tabs[1].Text, "BBB\n"+pasted; got != want {
+	if got, want := a.tabs[0].Text, "AAA\n"+pasted; got != want {
 		t.Fatalf("未聚焦预览菜单粘贴=%q, want %q", got, want)
 	}
-	if got := a.tabs[0].Text; got != "AAA" {
+	if got := a.tabs[1].Text; got != "" {
 		t.Fatalf("菜单粘贴修改了非当前标签: %q", got)
 	}
 	for range 3 {
 		tt.Frame()
 	}
 	tt.Type("X")
-	wantWithTyping := "BBB\n" + pasted + "X"
-	if got := a.tabs[1].Text; got != wantWithTyping {
+	wantWithTyping := "AAA\n" + pasted + "X"
+	if got := a.tabs[0].Text; got != wantWithTyping {
 		t.Fatalf("菜单粘贴后焦点未恢复: %q, want %q", got, wantWithTyping)
 	}
-	waitForSavedTextAt(t, a, 1, wantWithTyping)
+	waitForSavedText(t, a, wantWithTyping)
 
 	chooseEditMenu(t, a, tt, "undo")
-	if got := a.tabs[1].Text; got != "BBB\n"+pasted {
+	if got := a.tabs[0].Text; got != "AAA\n"+pasted {
 		t.Fatalf("第一次撤销应只撤后续输入: %q", got)
 	}
 	chooseEditMenu(t, a, tt, "undo")
-	if got := a.tabs[1].Text; got != "BBB" {
+	if got := a.tabs[0].Text; got != "AAA" {
 		t.Fatalf("第二次撤销应只撤菜单粘贴: %q", got)
 	}
 }

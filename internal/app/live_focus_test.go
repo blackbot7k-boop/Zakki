@@ -74,7 +74,8 @@ func TestEmptyDotContentAreaFocusesEditor(t *testing.T) {
 		if err := tt.Click(fmt.Sprintf("标签 %d", i+1)); err != nil {
 			t.Fatal(err)
 		}
-		if a.active != i || a.mdActive != -1 || tt.Focused("内容") {
+		// 切换即聚焦空点的块编辑器，光标在末尾，可直接输入。
+		if a.active != i || a.mdActive != 0 || !tt.Focused("内容") {
 			t.Fatalf("switch to tab %d: active=%d block=%d focused=%v", i+1, a.active, a.mdActive, tt.Focused("内容"))
 		}
 		// 空点没有文字节点，点击内容区中部、底部或侧边均可输入。

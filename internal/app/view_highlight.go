@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"zakki/internal/codehl"
+	"zakki/internal/markdown"
 )
 
 // 每个 rune 占一位；判交只访问候选覆盖的字，不扫描已接受区间。
@@ -119,6 +120,18 @@ func editorRanges(text, query string, t *ui.Theme, accent ui.Color, cp ...codePa
 		}
 
 		if !styledLine {
+			// 时间令牌：@时刻 accent、~提醒 淡色；不把组件后的正文染色。
+			if found, ok := markdown.FindTimeToken(line); ok {
+				token := line[found.Start:found.End]
+				start := runeOff + utf8.RuneCountInString(line[:found.Start])
+				end := start + utf8.RuneCountInString(token)
+				dueEnd := end
+				if at := strings.LastIndex(token, " ~"); at >= 0 {
+					dueEnd = start + utf8.RuneCountInString(token[:at+1])
+					add(ui.TextRange{Start: dueEnd, End: end, Color: t.TextMuted})
+				}
+				add(ui.TextRange{Start: start, End: dueEnd, Color: accent})
+			}
 			if bi := strings.Index(line, "[ ]"); bi >= 0 {
 				mark := runeOff + utf8.RuneCountInString(line[:bi])
 				add(ui.TextRange{Start: mark, End: mark + 3, Color: accent, Weight: 600})
