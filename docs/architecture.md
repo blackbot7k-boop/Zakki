@@ -28,7 +28,8 @@
 | `internal/app/onboarding.go` / `internal/app/onboarding_view.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：640×560 独立窗口（`StateKey: "onboarding-v2"`），两页草稿式确认——① 语言（English/简体中文，选择即时 `App.SetLocale` 并写偏好）、明暗、风格（标准/手账，写 `appearance.style`，不强制字体）、中文字体、英文字体（预选 JetBrains Mono）；② 初始标签数 1–9 与笔记保存位置（预填当前数据目录，可换，始终可见；完成后 `Relocate` 到所选文件夹的 `zakki.json` 并持久化 `storage.dataFile`）。选择不触发下载；主按钮显示「完成设置」或「下载字体」，提交后冻结草稿，缺失字体经 `prepareFonts` 统一下载（总进度+单字体进度），完成后停在就绪页，点「开始使用」才写偏好与初始数据（`commitFirstRunData` 语义，失败留在向导）并进入主窗口；失败可重试、返回修改（作废旧下载批次）或改用系统字体。关窗明确询问继续设置、使用默认设置或退出应用；未完成设置时选择退出或直接退出应用均不创建笔记，下次启动仍显示向导；欢迎文案随标签数生成（`welcomeTextFor`）；主窗口等向导结束再创建。 |
 
 | `internal/atomicfile` | 笔记与偏好共用的持久写入：同目录随机临时文件 → 完整写入 → `Sync` → `Close` → rename → `SyncDir`；rename 后同步失败用 `CommitError` / `IsCommitted` 表明目标已替换。Windows 不执行目录句柄同步。 |
-| `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。时间令牌（`@时刻`、`~提前量`）的行内识别与原位更新在 `timeinline.go`，旧行尾解析与规范写出在 `rowtime.go`，`AlertTiers` 与弹层共用一份档位白名单。 |
+| `core/` | 共享数据内核（嵌套 module `zakki/core`，零第三方依赖的叶子）：时间令牌（`@`/`~`/`^`）解析与规范写回、重复规则与实例展开（ADR-0002）、gomobile JSON 边界入口。桌面 `internal/markdown` 与未来移动端从这一份实现消费语义；分层铁律见 [engineering-standard.md](engineering-standard.md) 第 3 节。 |
+| `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。时间令牌（`@时刻`、`~提前量`、`^重复`）的行内识别与原位更新（`timeinline.go`）与旧行尾解析（`rowtime.go`）已委托 `core`，本包只保留调用面并把行内代码/链接的保护区换算给 core；`AlertTiers` 与弹层共用一份档位白名单。 |
 | `internal/sysnotify` | 系统通知投递（无 MyGo 依赖）：v1 为"应用内定时器到点 + 系统通知投递"（ADR-0001），macOS 走 osascript、Windows 走 PowerShell WinRT toast，点击通知无回调；`Notifier` 接口留待后续 UNUserNotificationCenter 升级。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
 | `internal/notes` | `zakki.json` 磁盘模型与唯一权威文件的 `Store`：`store.go` 负载入（`Load` 返回文件存在性与原始 hadTabs，记住磁盘字节指纹）、写保护（损坏/高版本/外部改动时拒写，不产生副本）与路径状态；`save.go` 负责 `ScheduleSave`（首笔修改固定截止、后续输入只换快照不延期）、`SaveNow`、退出 `Shutdown` 与失败自动重试；`relocate.go` 负责 `Relocate` 单文件安全迁址；`git_sync.go` / `git_schedule.go` 负责对这一个文件的精确路径 Git 提交与按间隔推送（后台单 worker、代号门禁、本地写命令与迁址互斥、推送不占锁）。数据版本 3：排版主题旧 ID 随载入迁移为 `note`。
@@ -190,6 +191,7 @@ MyGo 更新器另外管理 `updater.json`，不改变应用偏好的 JSON 契约
 ## 测试接缝
 
 - **路径注入**：生产 `Run` 只调用一次 `resolveDataDir()`；解析结果传给 `mygo.App.SetPath(PathUserData, dir)` 与 `newAppAt(dir)`。系统数据根目录由 `mygoAppDataBase` 解析（macOS 为 `~/Library/Application Support/`，Windows 为 `%APPDATA%`）。
+- **共享内核测试**：`core` 嵌套 module 的用例（令牌簇、`^` 规则、实例展开）经 `go -C core` 执行，已纳入 `make test` / `make race`；架构检查在 `make arch-check` 中校验 core 的零依赖叶子身份。
 - **时钟注入**：`app.now func() time.Time`，生产 `time.Now`，测试给假时钟。
   创建后 `now` 只读，后台可安全读取。
 - **`newTestApp(t)`**（`main_test.go`）：注入 `t.TempDir()` 与固定时钟（2024-06-01），

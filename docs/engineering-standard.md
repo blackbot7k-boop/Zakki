@@ -25,11 +25,12 @@
 
 ```text
 zakki/
+├── core/                     # 共享数据内核（嵌套 module zakki/core，零第三方依赖）
 ├── locales/                  # i18n；mygo generate → catalog_gen.go
 ├── main.go
 ├── internal/
 │   ├── app/                  # 唯一可依赖 MyGo 的 internal 包
-│   ├── markdown/             # 解析、格式、表格纯函数
+│   ├── markdown/             # 解析、格式、表格纯函数（时间令牌委托 core）
 │   ├── codehl/               # 围栏代码块词法着色
 │   ├── notes/                # 唯一笔记文件 zakki.json、定时保存与 Git 同步
 │   ├── prefs/                # preferences.json
@@ -52,6 +53,7 @@ flowchart TD
     prefsPkg["internal/prefs"]
     fontsPkg["internal/fonts"]
     atomicPkg["internal/atomicfile"]
+    corePkg["core（嵌套 module）"]
     entry --> appPkg
     appPkg --> mdPkg
     appPkg --> hlPkg
@@ -61,6 +63,7 @@ flowchart TD
     prefsPkg --> atomicPkg
     prefsPkg --> fontsPkg
     notesPkg --> atomicPkg
+    mdPkg --> corePkg
 ```
 
 **必须**：
@@ -81,6 +84,11 @@ flowchart TD
 
 3. 新增包或依赖边：同一次提交更新本节与 `Makefile` 的 `ARCH_RULES`，并跑 `make arch-check`。
 4. 第三方依赖新增须在提交说明写明理由；当前仅 `github.com/egoist/mygo`。
+5. **共享内核 `core/`（嵌套 module `zakki/core`）铁律**：
+   - 叶子模块：零第三方依赖（`core/go.mod` 不得出现 `require`）、禁止依赖 MyGo 与任何 `zakki/internal/*`，`make arch-check` 直接校验；
+   - 单一事实源：时间令牌（`@`/`~`/`^`）与重复实例展开的语义只在 `core` 写一份，桌面 `internal/markdown` 与未来移动端（gomobile bind）都是消费方，禁止各自持拷贝；
+   - 对外边界只跨字符串、数值、布尔与 JSON（gomobile 形状）；
+   - 内部包 `markdown` 允许且仅允许额外依赖 `core`；测试随 `make test`/`make race` 经 `go -C core` 执行。
 
 机械校验：`make arch-check`（实现见根目录 `Makefile`，已纳入 `make check` 与 CI）。
 
