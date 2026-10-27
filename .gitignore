@@ -7,3 +7,7 @@ mygo_windows_*.syso
 /zakki
 **/mygo-update.key
 /zakki.exe
+
+# 本地 AI 技能工具产物
+.taste-skill/
+skills-lock.json
