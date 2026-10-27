@@ -10,6 +10,7 @@ ARCH_RULES := \
 	codehl: \
 	atomicfile: \
 	fonts: \
+	sysnotify: \
 	notes:atomicfile \
 	prefs:atomicfile,fonts
 
@@ -48,7 +49,7 @@ arch-check:
 			case ",$$allow," in *",$$dep,"*) ;; *) echo "  internal/$$pkg 不允许依赖 internal/$$dep"; fail=1;; esac; \
 		done; \
 	done; for dep in $$(go list -f '{{join .Imports "\n"}}' ./internal/app | grep '^zakki/internal/' | sed 's|zakki/internal/||'); do \
-		case " markdown codehl atomicfile notes prefs fonts " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
+		case " markdown codehl atomicfile notes prefs fonts sysnotify " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 
 check: fmt-check vet test race arch-check
@@ -57,6 +58,9 @@ check: fmt-check vet test race arch-check
 vendor:
 	go mod vendor
 	git apply patches/mygo-text-range-background.patch
+	git apply patches/mygo-textinput-objects.patch
+	git apply patches/mygo-shortcut-claimed-keys.patch
+	git apply patches/mygo-calendar-spacing.patch
 
 build:
 	@echo "==> go tool mygo build：打包通用 .app / .dmg 到 build/darwin-universal/"
