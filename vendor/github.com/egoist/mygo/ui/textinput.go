@@ -321,6 +321,9 @@ type TextRange struct {
 	Underline       bool
 	WavyUnderline   bool
 	DecorationColor Color
+	// ObjectWidth 与 ObjectHeight 为 U+FFFC 占位符保留基线以上的尺寸（DIP）。
+	// 普通文字忽略这两个属性；每个占位符仍是一个可编辑 rune。
+	ObjectWidth, ObjectHeight float32
 }
 
 // TextRanges 设置当前帧的文字区间。重叠时，各属性独立取最后一次设置的非零值。
@@ -332,6 +335,17 @@ func (e *node) TextRanges(ranges ...TextRange) *node {
 	}
 	for _, r := range ranges {
 		if r.End > r.Start {
+			if r.ObjectWidth > 0 || r.ObjectHeight > 0 {
+				objects := r
+				r.ObjectWidth, r.ObjectHeight = 0, 0
+				at := min(max(objects.Start, 0), ed.buf.n)
+				for _, ch := range ed.buf.slice(at, max(at, min(objects.End, ed.buf.n))) {
+					if ch == '\uFFFC' {
+						ed.ranges = append(ed.ranges, TextRange{Start: at, End: at + 1, ObjectWidth: objects.ObjectWidth, ObjectHeight: objects.ObjectHeight})
+					}
+					at++
+				}
+			}
 			ed.ranges = append(ed.ranges, r)
 			ed.apart = false
 		}
@@ -345,6 +359,7 @@ type rangeMerge struct {
 	points, starts                               []int
 	all, colors                                  rangeHeap
 	backgrounds                                  rangeHeap
+	objectWidths, objectHeights                  rangeHeap
 	weights                                      rangeHeap
 	fonts, italics                               rangeHeap
 	underlines, wavyUnderlines, decorationColors rangeHeap
@@ -364,6 +379,7 @@ func (ed *editor) sortRanges() {
 	slices.SortFunc(starts, func(a, b int) int { return given[a].Start - given[b].Start })
 	m.all, m.colors, m.backgrounds, m.weights = m.all[:0], m.colors[:0], m.backgrounds[:0], m.weights[:0]
 	m.fonts, m.italics = m.fonts[:0], m.italics[:0]
+	m.objectWidths, m.objectHeights = m.objectWidths[:0], m.objectHeights[:0]
 	m.underlines, m.wavyUnderlines, m.decorationColors = m.underlines[:0], m.wavyUnderlines[:0], m.decorationColors[:0]
 	out, next := ed.ranges[:0], 0
 	for k := 0; k+1 < len(points); k++ {
@@ -373,6 +389,12 @@ func (ed *editor) sortRanges() {
 			m.all.push(i)
 			if given[i].Color.A > 0 {
 				m.colors.push(i)
+			}
+			if given[i].ObjectWidth > 0 {
+				m.objectWidths.push(i)
+			}
+			if given[i].ObjectHeight > 0 {
+				m.objectHeights.push(i)
 			}
 			if given[i].Background.A > 0 {
 				m.backgrounds.push(i)
@@ -400,6 +422,12 @@ func (ed *editor) sortRanges() {
 			continue // between ranges
 		}
 		r := TextRange{Start: from, End: to}
+		if i, ok := m.objectWidths.top(given, from); ok {
+			r.ObjectWidth = given[i].ObjectWidth
+		}
+		if i, ok := m.objectHeights.top(given, from); ok {
+			r.ObjectHeight = given[i].ObjectHeight
+		}
 		if i, ok := m.colors.top(given, from); ok {
 			r.Color = given[i].Color
 		}

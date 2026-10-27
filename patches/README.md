@@ -25,6 +25,30 @@ IME 组合文本保持无区间样式，原区间在其两侧拆分／移动，�
 底层合并、布局 key 与组合区间测试在 vendor 的 `ui/textinput_background_test.go` 和 `ui/textinput_styles_test.go`；
 `make test` / `make race` 会显式执行这个包（普通 `go test ./...` 不遍历 vendor）。
 
+## 日期与时间面板
+
+`mygo-calendar-spacing.patch` 调整原生日期面板的列宽和行间距，给中文星期和日期格留出稳定的横向与纵向留白。
+
+应用层的时间弹层使用 `internal/app/live_timepopover.go`，保留原生 DateInput/TimeInput，并在应用层增加点击时刻浮出的小时／分钟滚轮面板。
+
+## 行内时间对象
+
+`mygo-textinput-objects.patch` 接在区间样式补丁之后，给 `TextRange` 增加单字符对象的宽高，并复用 MyGo 原有 `Span.ObjectWidth` / `ObjectHeight` 原生排版能力。对象参与 TextArea 段落的测量、换行与光标命中；真实几何供应用绘制时间文案和点击命中，避免另放一个不属于文字流的按钮。
+
+源码到可见文本的映射仍由应用维护：时间源码在可见缓冲中仅占一个 U+FFFC，原生移动、选区、IME 和删除处理这个单字符；应用负责无损回写源码与文档级撤销。预览与聚焦使用同样的对象尺寸和样式，不向磁盘保存占位符。
+
+## 快捷键优先于编辑器导航
+
+`mygo-shortcut-claimed-keys.patch` 调整 `ui/input.go` 的按键路由：已被登记为快捷键
+（窗口兑底或焦点链上的命令）的和弦不再交给聚焦的文本编辑器做词间移动／选区扩展，
+而是照常进入快捷键分发——菜单等价键在所有原生平台都优先于文本导航。未登记的和弦
+（如 Alt+→ 词间移动、Shift+方向键选区）行为不变。
+
+动机：⌘数字切标签后编辑器持有焦点，⌘⌥←/→（上/下一个标签）会被原生编辑器当作
+词间移动消费，窗口级兑底（Windows 的实际触发路径）收不到按键；macOS 有菜单
+accelerator 在系统层先消费，不受影响。回归测试在 vendor 的 `ui/shortcut_claimed_test.go`，
+`make test` / `make race` 会显式执行这个包。
+
 ## 刷新与升级
 
 ```sh
@@ -34,5 +58,7 @@ make check
 
 不要单独执行 `go mod vendor` 后提交，否则会丢失补丁。升级 MyGo 后，先检查上游是否已支持
 对应原生区间属性；若接口和行为等价，移除补丁并保留回归测试，再评估是否仍需提交 `vendor/`。
-补丁只修改 `ui/textinput.go`、`ui/editor_layout.go` 及同步后的 `ui/api_gen.go` 文档，
-另附上述两个底层测试文件；不批量改第三方格式。
+区间样式补丁修改 `ui/textinput.go`、`ui/editor_layout.go` 及同步后的 `ui/api_gen.go` 文档，
+另附上述两个底层测试文件。行内对象补丁还涉及 `ui/textarea.go` 的布局缓存、
+`ui/element.go` 与 `ui/paint.go` 的绘制回调、`ui/text_layout.go` 的索引说明，
+以及新增的 `ui/textobjects.go` 与 `ui/textobjects_test.go`；不批量改第三方格式。

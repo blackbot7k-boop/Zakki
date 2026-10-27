@@ -45,6 +45,7 @@ type area struct {
 	wrappedParams  text.Params
 	wrappedVersion uint64
 	wrappedCompose string
+	wrappedSpans   string
 }
 
 // wrappedHeight returns the height of the text, with an input method's
@@ -53,7 +54,8 @@ func (a *area) wrappedHeight(e *node, ed *editor, cw float32) float32 {
 	params := e.textParams(max(cw, 1))
 	if ed.buf.indexed {
 		params.KeepSpaces, params.MaxLines = true, 0
-		if params != a.wrappedParams || a.wrappedVersion != ed.buf.version || a.wrappedCompose != ed.compose {
+		spans, _ := ed.rangeSpans(0, ed.buf.n)
+		if params != a.wrappedParams || a.wrappedVersion != ed.buf.version || a.wrappedCompose != ed.compose || a.wrappedSpans != spans {
 			empty := params
 			empty.Text = ""
 			limit := float32(ed.lines[1]) * textSystem().Layout(empty).Lines[0].Height
@@ -69,7 +71,7 @@ func (a *area) wrappedHeight(e *node, ed *editor, cw float32) float32 {
 				height += textSystem().Shape(part).Height
 			}
 			a.wrapped, a.wrappedParams, a.wrappedVersion = height, params, ed.buf.version
-			a.wrappedCompose = ed.compose
+			a.wrappedCompose, a.wrappedSpans = ed.compose, spans
 		}
 		return a.wrapped
 	}
@@ -396,6 +398,7 @@ func (a *area) paint(e *node, p *Painter, ox, oy float32) {
 		start, end := b.start(i), b.end(i)
 		_, sp := ed.rangeSpans(start, end)
 		p.textBackgrounds(l, ox, y, ts, sp)
+		e.paintTextObjects(p, l, ox, y, start)
 		if focused {
 			for _, selected := range ed.selectedRanges() {
 				sa, sz := selected.Start, selected.End

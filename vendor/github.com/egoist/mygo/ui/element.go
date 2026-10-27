@@ -288,6 +288,8 @@ type node struct {
 	styleFn      func(e *node)
 	paintAfterFn func(p *Painter, r Rect)
 
+	textObjectsFn func(p *Painter, object TextObject)
+
 	// Input the element takes itself (HandleInput), and where the caret of
 	// the text it takes is (TextCaret).
 	inputFn    func(InputEvent) bool

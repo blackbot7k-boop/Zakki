@@ -594,8 +594,11 @@ func (rt *engine) keyDownPhysical(mods Modifiers, key, physical Key, repeat bool
 		rt.blinkStart = time.Now()
 		return true
 	}
+	// A chord claimed as a shortcut in the focus chain or by the window goes
+	// to the shortcut, never to the focused editor's navigation: menu key
+	// equivalents beat word-wise caret moves on every native platform.
 	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.editor.onTextKey != nil && s.flags&flagEditable != 0 &&
-		!typesText(k) && (s.editor.wants(k) || !rt.claimed(k)) && s.editor.textKey(k) {
+		!typesText(k) && !rt.claimed(k) && s.editor.textKey(k) {
 		// OnTextKey took it as it came, as HandleInput does, but after the
 		// keys and text before it, which it reads.
 		rt.blinkStart = time.Now()
@@ -605,7 +608,8 @@ func (rt *engine) keyDownPhysical(mods Modifiers, key, physical Key, repeat bool
 	if (key == KeyContextMenu && mods == 0 || key == KeyF10 && mods == Shift) && !rt.claimed(k) && rt.menuKey() {
 		return false
 	}
-	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.flags&(flagEditable|flagSelectable) != 0 && s.editor.wants(k) {
+	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.flags&(flagEditable|flagSelectable) != 0 &&
+		!rt.claimed(k) && s.editor.wants(k) {
 		if rt.textSelectionKey(s, k) {
 			rt.requestFrame()
 			return false

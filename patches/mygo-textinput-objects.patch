@@ -1,0 +1,595 @@
+diff --git a/vendor/github.com/egoist/mygo/ui/api_gen.go b/vendor/github.com/egoist/mygo/ui/api_gen.go
+--- a/vendor/github.com/egoist/mygo/ui/api_gen.go
++++ b/vendor/github.com/egoist/mygo/ui/api_gen.go
+@@ -3499,6 +3499,27 @@
+ 	return wrapElement(_node.DrawOver(fn))
+ }
+ 
++// DrawTextObjects 在真实文字绘制时绘制占位符，沿用文字裁剪、变换与透明度。
++// 回调矩形为 Painter 坐标，Index 为已提交文字的 rune 偏移；回调只绘制。
++func (_handle Element) DrawTextObjects(fn func(p *Painter, object TextObject)) Element {
++	_node := _handle.node()
++	if _node == nil {
++		return Element{}
++	}
++	return wrapElement(_node.DrawTextObjects(fn))
++}
++
++// TextObjects 返回最近实际布局中的对象，Rect 为元素局部坐标，Index 为 rune 偏移。
++// 构建期可能尚无布局；在 Draw 或输入回调中查询，不触发布局。
++// TextArea 仅返回可见段落，完整矩形未裁切。
++func (_handle Element) TextObjects() []TextObject {
++	_node := _handle.node()
++	if _node == nil {
++		return nil
++	}
++	return _node.TextObjects()
++}
++
+ // DroppedFiles returns the paths of the files dropped on the element since
+ // the last frame, nil when none, and makes the element take files dragged
+ // over it.
+diff --git a/vendor/github.com/egoist/mygo/ui/editor_layout.go b/vendor/github.com/egoist/mygo/ui/editor_layout.go
+--- a/vendor/github.com/egoist/mygo/ui/editor_layout.go
++++ b/vendor/github.com/egoist/mygo/ui/editor_layout.go
+@@ -181,6 +181,7 @@
+ 		_, sp = ed.rangeSpans(0, ed.buf.n)
+ 	}
+ 	p.textBackgrounds(l, ox, oy, ts, sp)
++	e.paintTextObjects(p, l, ox, oy, 0)
+ 	if focused {
+ 		for _, selected := range ed.selectedRanges() {
+ 			for _, r := range l.SelectionVisual(ed.displayIndex(selected.Start), ed.displayIndex(selected.End), false) {
+@@ -258,7 +259,8 @@
+ 			spans = append(spans, Span{})
+ 		}
+ 		span := Span{Font: r.Font, Italic: r.Italic, Color: r.Color, Background: r.Background, Weight: r.Weight,
+-			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor}
++			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor,
++			ObjectWidth: r.ObjectWidth, ObjectHeight: r.ObjectHeight}
+ 		styles = append(styles, spanStyle(span, to))
+ 		spans = append(spans, span)
+ 		at = to
+@@ -277,7 +279,7 @@
+ 		} else {
+ 			add(local(from, true), local(to, false), r)
+ 		}
+-		shaped = shaped || r.Font != "" || r.Italic || r.Weight > 0
++		shaped = shaped || r.Font != "" || r.Italic || r.Weight > 0 || r.ObjectWidth > 0 || r.ObjectHeight > 0
+ 		painted = painted || r.Color.A > 0 || r.Background.A > 0 || r.Underline || r.WavyUnderline || r.DecorationColor.A > 0
+ 	}
+ 	key := ""
+diff --git a/vendor/github.com/egoist/mygo/ui/element.go b/vendor/github.com/egoist/mygo/ui/element.go
+--- a/vendor/github.com/egoist/mygo/ui/element.go
++++ b/vendor/github.com/egoist/mygo/ui/element.go
+@@ -287,6 +287,8 @@
+ 	paintFn      func(p *Painter, r Rect)
+ 	styleFn      func(e *node)
+ 	paintAfterFn func(p *Painter, r Rect)
++
++	textObjectsFn func(p *Painter, object TextObject)
+ 
+ 	// Input the element takes itself (HandleInput), and where the caret of
+ 	// the text it takes is (TextCaret).
+diff --git a/vendor/github.com/egoist/mygo/ui/paint.go b/vendor/github.com/egoist/mygo/ui/paint.go
+--- a/vendor/github.com/egoist/mygo/ui/paint.go
++++ b/vendor/github.com/egoist/mygo/ui/paint.go
+@@ -532,6 +532,9 @@
+ // and lines of the spans of sp, if any.
+ func (p *Painter) textLayout(l *text.Layout, x, y float32, color Color, ts textStyle, sp *spanPaint) {
+ 	p.textBackgrounds(l, x, y, ts, sp)
++	if e := p.inline; e != nil && e.tl == l {
++		e.paintTextObjects(p, l, x, y, 0)
++	}
+ 	// Content transitions also paint the old layout; only the current text
+ 	// carries its selection, in the same position, clip and opacity as its glyphs.
+ 	if e := p.inline; e != nil && e.tl == l {
+diff --git a/vendor/github.com/egoist/mygo/ui/text_layout.go b/vendor/github.com/egoist/mygo/ui/text_layout.go
+--- a/vendor/github.com/egoist/mygo/ui/text_layout.go
++++ b/vendor/github.com/egoist/mygo/ui/text_layout.go
+@@ -147,9 +147,10 @@
+ 	return t
+ }
+ 
+-// TextObject is an inline object of a TextLayout (Span.ObjectWidth): the
+-// UTF-16 offset of its object replacement character, and its box,
+-// standing on its line's baseline.
++// TextObject 描述内联对象及其基线对齐矩形。TextLayout.Objects 的 Index 是 UTF-16
++// 偏移，Rect 是布局局部坐标；Element.TextObjects 的 Index 是已提交文字的 rune
++// 偏移，Rect 是元素局部坐标；DrawTextObjects 的 Rect 是 Painter 绘制坐标。
++// 两个 Element API 的 Index 均不包含输入法组合文本。
+ type TextObject struct {
+ 	Index int
+ 	Rect  Rect
+diff --git a/vendor/github.com/egoist/mygo/ui/textarea.go b/vendor/github.com/egoist/mygo/ui/textarea.go
+--- a/vendor/github.com/egoist/mygo/ui/textarea.go
++++ b/vendor/github.com/egoist/mygo/ui/textarea.go
+@@ -45,6 +45,7 @@
+ 	wrappedParams  text.Params
+ 	wrappedVersion uint64
+ 	wrappedCompose string
++	wrappedSpans   string
+ }
+ 
+ // wrappedHeight returns the height of the text, with an input method's
+@@ -53,7 +54,8 @@
+ 	params := e.textParams(max(cw, 1))
+ 	if ed.buf.indexed {
+ 		params.KeepSpaces, params.MaxLines = true, 0
+-		if params != a.wrappedParams || a.wrappedVersion != ed.buf.version || a.wrappedCompose != ed.compose {
++		spans, _ := ed.rangeSpans(0, ed.buf.n)
++		if params != a.wrappedParams || a.wrappedVersion != ed.buf.version || a.wrappedCompose != ed.compose || a.wrappedSpans != spans {
+ 			empty := params
+ 			empty.Text = ""
+ 			limit := float32(ed.lines[1]) * textSystem().Layout(empty).Lines[0].Height
+@@ -69,7 +71,7 @@
+ 				height += textSystem().Shape(part).Height
+ 			}
+ 			a.wrapped, a.wrappedParams, a.wrappedVersion = height, params, ed.buf.version
+-			a.wrappedCompose = ed.compose
++			a.wrappedCompose, a.wrappedSpans = ed.compose, spans
+ 		}
+ 		return a.wrapped
+ 	}
+@@ -396,6 +398,7 @@
+ 		start, end := b.start(i), b.end(i)
+ 		_, sp := ed.rangeSpans(start, end)
+ 		p.textBackgrounds(l, ox, y, ts, sp)
++		e.paintTextObjects(p, l, ox, y, start)
+ 		if focused {
+ 			for _, selected := range ed.selectedRanges() {
+ 				sa, sz := selected.Start, selected.End
+diff --git a/vendor/github.com/egoist/mygo/ui/textinput.go b/vendor/github.com/egoist/mygo/ui/textinput.go
+--- a/vendor/github.com/egoist/mygo/ui/textinput.go
++++ b/vendor/github.com/egoist/mygo/ui/textinput.go
+@@ -321,6 +321,9 @@
+ 	Underline       bool
+ 	WavyUnderline   bool
+ 	DecorationColor Color
++	// ObjectWidth 与 ObjectHeight 为 U+FFFC 占位符保留基线以上的尺寸（DIP）。
++	// 普通文字忽略这两个属性；每个占位符仍是一个可编辑 rune。
++	ObjectWidth, ObjectHeight float32
+ }
+ 
+ // TextRanges 设置当前帧的文字区间。重叠时，各属性独立取最后一次设置的非零值。
+@@ -332,6 +335,17 @@
+ 	}
+ 	for _, r := range ranges {
+ 		if r.End > r.Start {
++			if r.ObjectWidth > 0 || r.ObjectHeight > 0 {
++				objects := r
++				r.ObjectWidth, r.ObjectHeight = 0, 0
++				at := min(max(objects.Start, 0), ed.buf.n)
++				for _, ch := range ed.buf.slice(at, max(at, min(objects.End, ed.buf.n))) {
++					if ch == '\uFFFC' {
++						ed.ranges = append(ed.ranges, TextRange{Start: at, End: at + 1, ObjectWidth: objects.ObjectWidth, ObjectHeight: objects.ObjectHeight})
++					}
++					at++
++				}
++			}
+ 			ed.ranges = append(ed.ranges, r)
+ 			ed.apart = false
+ 		}
+@@ -345,6 +359,7 @@
+ 	points, starts                               []int
+ 	all, colors                                  rangeHeap
+ 	backgrounds                                  rangeHeap
++	objectWidths, objectHeights                  rangeHeap
+ 	weights                                      rangeHeap
+ 	fonts, italics                               rangeHeap
+ 	underlines, wavyUnderlines, decorationColors rangeHeap
+@@ -364,6 +379,7 @@
+ 	slices.SortFunc(starts, func(a, b int) int { return given[a].Start - given[b].Start })
+ 	m.all, m.colors, m.backgrounds, m.weights = m.all[:0], m.colors[:0], m.backgrounds[:0], m.weights[:0]
+ 	m.fonts, m.italics = m.fonts[:0], m.italics[:0]
++	m.objectWidths, m.objectHeights = m.objectWidths[:0], m.objectHeights[:0]
+ 	m.underlines, m.wavyUnderlines, m.decorationColors = m.underlines[:0], m.wavyUnderlines[:0], m.decorationColors[:0]
+ 	out, next := ed.ranges[:0], 0
+ 	for k := 0; k+1 < len(points); k++ {
+@@ -374,6 +390,12 @@
+ 			if given[i].Color.A > 0 {
+ 				m.colors.push(i)
+ 			}
++			if given[i].ObjectWidth > 0 {
++				m.objectWidths.push(i)
++			}
++			if given[i].ObjectHeight > 0 {
++				m.objectHeights.push(i)
++			}
+ 			if given[i].Background.A > 0 {
+ 				m.backgrounds.push(i)
+ 			}
+@@ -400,6 +422,12 @@
+ 			continue // between ranges
+ 		}
+ 		r := TextRange{Start: from, End: to}
++		if i, ok := m.objectWidths.top(given, from); ok {
++			r.ObjectWidth = given[i].ObjectWidth
++		}
++		if i, ok := m.objectHeights.top(given, from); ok {
++			r.ObjectHeight = given[i].ObjectHeight
++		}
+ 		if i, ok := m.colors.top(given, from); ok {
+ 			r.Color = given[i].Color
+ 		}
+diff --git a/vendor/github.com/egoist/mygo/ui/textobjects.go b/vendor/github.com/egoist/mygo/ui/textobjects.go
+new file mode 100644
+--- /dev/null
++++ b/vendor/github.com/egoist/mygo/ui/textobjects.go
+@@ -0,0 +1,82 @@
++package ui
++
++import "github.com/egoist/mygo/internal/text"
++
++// TextObjects 返回最近实际布局中的占位符，不触发布局。应在布局后的 Draw 回调中，
++// 或输入回调通过 Context.Resolve 的当前元素查询；构建期可能尚无布局。
++// TextArea 仅返回已布局的可见段落，矩形未裁切；支持 Text、RichText 和输入控件。
++func (e *node) TextObjects() []TextObject {
++	var out []TextObject
++	add := func(l *text.Layout, x, y float32, start int) {
++		e.eachTextObject(l, x, y, start, func(o TextObject) { out = append(out, o) })
++	}
++	if ed := e.st.editor; e.kind == kindInput && ed != nil {
++		if a := ed.area; a != nil {
++			if a.version == 0 {
++				return nil
++			}
++			for i := a.first; i <= min(a.last, len(ed.buf.paras)-1); i++ {
++				add(ed.buf.paras[i].layout, ed.originX, ed.originY+float32(a.hs.top(i)-a.scroll), ed.buf.start(i))
++			}
++		} else {
++			add(ed.layout, ed.originX-ed.scrollX, ed.originY, 0)
++		}
++	} else if e.kind == kindText {
++		if e.tl != nil {
++			add(e.tl, e.contentX(), e.contentY(), 0)
++		} else if ed := e.st.editor; ed != nil {
++			add(ed.layout, ed.originX, ed.originY, 0)
++		}
++	}
++	return out
++}
++
++// DrawTextObjects 在真实文字绘制过程中绘制占位符，背景之后、选区和文字之前。
++// 回调沿用文字的裁剪、变换和透明度；Rect 是可直接传给 Painter 的完整对象矩形。
++// 回调只绘制，不修改状态；可能每帧运行多次。点击应由元素输入回调结合 TextObjects
++// 命中测试处理。支持 Text、RichText 和输入控件，不创建子元素或抢占编辑焦点。
++func (e *node) DrawTextObjects(fn func(p *Painter, object TextObject)) *node {
++	e.textObjectsFn = fn
++	return e
++}
++
++func (e *node) eachTextObject(l *text.Layout, x, y float32, start int, fn func(TextObject)) {
++	if l == nil {
++		return
++	}
++	var spans []text.Span
++	for _, line := range l.Lines {
++		for _, g := range line.Glyphs {
++			if !g.Object {
++				continue
++			}
++			if spans == nil {
++				spans = text.DecodeSpans(l.Params.Spans)
++			}
++			for _, sp := range spans {
++				if g.Cluster >= sp.End {
++					continue
++				}
++				index := start + g.Cluster
++				if ed := e.st.editor; e.kind == kindInput && ed != nil {
++					if ed.area == nil || start == ed.buf.start(ed.buf.para(ed.caret)) {
++						index = ed.textIndex(index)
++					}
++				}
++				fn(TextObject{Index: index, Rect: Rect{x + g.X, y + line.Baseline - sp.ObjectHeight, g.Advance, sp.ObjectHeight}})
++				break
++			}
++		}
++	}
++}
++
++func (e *node) paintTextObjects(p *Painter, l *text.Layout, x, y float32, start int) {
++	if e.textObjectsFn == nil {
++		return
++	}
++	e.eachTextObject(l, x, y, start, func(o TextObject) {
++		if r := intersect(p.clip, transformRect(p.transform, o.Rect)); r.W > 0 && r.H > 0 {
++			e.textObjectsFn(p, o)
++		}
++	})
++}
+diff --git a/vendor/github.com/egoist/mygo/ui/textobjects_test.go b/vendor/github.com/egoist/mygo/ui/textobjects_test.go
+new file mode 100644
+--- /dev/null
++++ b/vendor/github.com/egoist/mygo/ui/textobjects_test.go
+@@ -0,0 +1,289 @@
++package ui
++
++import (
++	"math"
++	"slices"
++	"strings"
++	"testing"
++
++	"github.com/egoist/mygo/internal/text"
++)
++
++func closeObject(a, b float32) bool { return math.Abs(float64(a-b)) < 0.1 }
++
++func TestTextInputObjectDimensionsMergeAndIME(t *testing.T) {
++	ed := newEditor()
++	ed.setText("a\uFFFCb")
++	e := &node{st: &state{editor: ed}, flags: flagEditable}
++	e.TextRanges(TextRange{Start: 0, End: 99, ObjectWidth: 41, ObjectHeight: 20},
++		TextRange{Start: 1, End: 2, ObjectWidth: 53}, TextRange{Start: 1, End: 2, Weight: 700})
++	key, _ := ed.rangeSpans(0, ed.buf.n)
++	want := []text.Span{{End: 1}, {End: 2, Weight: 700, ObjectWidth: 53, ObjectHeight: 20}}
++	if got := text.DecodeSpans(key); !slices.Equal(got, want) {
++		t.Fatalf("对象合并=%+v want=%+v", got, want)
++	}
++	for _, caret := range []int{1, 2} {
++		ed.caret, ed.compose = caret, "中文😀"
++		key, _ := ed.rangeSpans(0, ed.buf.n)
++		spans := text.DecodeSpans(key)
++		start := 0
++		objects := 0
++		for _, sp := range spans {
++			if sp.ObjectWidth > 0 {
++				objects++
++				wantStart := 1
++				if caret == 1 {
++					wantStart += 3
++				}
++				if start != wantStart || sp.End != start+1 {
++					t.Fatalf("IME caret=%d object=[%d,%d) want=[%d,%d)", caret, start, sp.End, wantStart, wantStart+1)
++				}
++			}
++			start = sp.End
++		}
++		if objects != 1 {
++			t.Fatalf("IME 对象数=%d", objects)
++		}
++	}
++	ed.compose = ""
++	after, _ := ed.rangeSpans(0, ed.buf.n)
++	if after != key {
++		t.Fatal("组合结束后布局 key 未恢复")
++	}
++}
++
++func TestTextObjectsActualLayouts(t *testing.T) {
++	for _, kind := range []string{"input", "area", "rich"} {
++		t.Run(kind, func(t *testing.T) {
++			value := "A\uFFFCB"
++			width, height := float32(64), float32(30)
++			var ed *editor
++			var objects, painted []TextObject
++			var box Rect
++			var clip Rect
++			clicked := false
++			tester := coreNewTester(func(c *context) {
++				var e *node
++				switch kind {
++				case "input":
++					e = textInputBase(c, &value, false)
++				case "area":
++					e = textInputBase(c, &value, true)
++				default:
++					e = coreRichText(c, Span{Text: "A"}, Span{Text: "\uFFFC", ObjectWidth: width, ObjectHeight: height}, Span{Text: "B"}).Selectable()
++				}
++				e.Width(180).Height(90).Padding(4, 7)
++				if kind != "rich" {
++					e.TextRanges(TextRange{Start: 1, End: 2, ObjectWidth: width, ObjectHeight: height})
++					ed = e.st.editor
++				}
++				painted = nil
++				e.DrawTextObjects(func(p *Painter, o TextObject) {
++					painted = append(painted, o)
++					clip = p.clip
++					p.Fill(o.Rect, RGB(200, 10, 20), 3)
++				})
++				wrapElement(e).OnClick(func() {
++					clicked = true
++					if got := e.TextObjects(); len(got) != 1 || !closeObject(got[0].Rect.W, width) {
++						t.Fatalf("输入回调必须能查询已布局的对象: %+v", got)
++					}
++				})
++				e.DrawOver(func(_ *Painter, r Rect) { objects, box = e.TextObjects(), r })
++			}, 220, 150)
++			check := func() {
++				t.Helper()
++				if len(objects) != 1 || len(painted) != 1 {
++					t.Fatalf("对象=%+v painted=%+v", objects, painted)
++				}
++				o, p := objects[0], painted[0]
++				if o.Index != 1 || p.Index != 1 || !closeObject(o.Rect.W, width) || !closeObject(o.Rect.H, height) || !closeObject(p.Rect.X-box.X, o.Rect.X) || !closeObject(p.Rect.Y-box.Y, o.Rect.Y) {
++					t.Fatalf("实际对象=%+v painted=%+v box=%+v", o, p, box)
++				}
++				if kind != "rich" && (!closeObject(clip.W, box.W) || !closeObject(clip.H, box.H)) {
++					t.Fatalf("输入裁剪=%+v box=%+v", clip, box)
++				}
++			}
++			check()
++			tester.ClickAt(box.X+objects[0].Rect.X+1, box.Y+objects[0].Rect.Y+1)
++			if !clicked {
++				t.Fatal("未触发对象点击回调")
++			}
++			width, height = 110, 46
++			tester.Frame()
++			check()
++			if kind != "rich" {
++				ed.move(1, false)
++				x0 := ed.caretRect(tester.rt.states[ed.client.id]).X
++				ed.move(2, false)
++				x1 := ed.caretRect(tester.rt.states[ed.client.id]).X
++				if !closeObject(x1-x0, width) {
++					t.Fatalf("光标宽度=%v want=%v", x1-x0, width)
++				}
++				ed.move(1, false)
++				if next := ed.visualNext(1); next.Index != 2 {
++					t.Fatalf("对象后光标=%+v", next)
++				}
++				ed.move(2, false)
++				if prev := ed.visualNext(-1); prev.Index != 1 {
++					t.Fatalf("对象前光标=%+v", prev)
++				}
++				for _, edge := range []struct {
++					dx    float32
++					index int
++				}{{1, 1}, {width - 1, 2}} {
++					o := objects[0]
++					p := ed.hitPosition(o.Rect.X+edge.dx, o.Rect.Y+o.Rect.H/2)
++					if p.Index != edge.index {
++						t.Fatalf("命中=%+v want=%d", p, edge.index)
++					}
++				}
++			}
++		})
++	}
++}
++
++func TestTextObjectNativeComposition(t *testing.T) {
++	for _, caret := range []int{1, 2} {
++		t.Run(string(rune('0'+caret)), func(t *testing.T) {
++			value := "a\uFFFCb"
++			var ed *editor
++			var objects []TextObject
++			tester := coreNewTester(func(c *context) {
++				e := textInputBase(c, &value, true).Width(240).Height(80).Padding(0)
++				for i, r := range []rune(value) {
++					if r == '\uFFFC' {
++						e.TextRanges(TextRange{Start: i, End: i + 1, ObjectWidth: 45, ObjectHeight: 22})
++					}
++				}
++				ed = e.st.editor
++				e.DrawOver(func(_ *Painter, _ Rect) { objects = e.TextObjects() })
++			}, 300, 120)
++			tester.rt.focused = ed.client.id
++			ed.move(caret, false)
++			ed.client.SetMarkedText(nil, "中文😀", TextInputRange{Start: 4, End: 4})
++			tester.Frame()
++			if len(objects) != 1 || objects[0].Index != 1 || value != "a\uFFFCb" {
++				t.Fatalf("预编辑改变已提交对象：%q %+v", value, objects)
++			}
++			if marked, ok := ed.client.MarkedRange(); !ok || marked.End-marked.Start != 4 {
++				t.Fatalf("组合区间=%+v ok=%v", marked, ok)
++			}
++			o := objects[0]
++			wantHit := 2
++			if caret == 1 {
++				wantHit += 4
++			}
++			if index, ok := ed.client.IndexForPoint(Point{o.Rect.X + o.Rect.W - 1, o.Rect.Y + o.Rect.H/2}); !ok || index != wantHit {
++				t.Fatalf("组合对象命中 index=%d ok=%v", index, ok)
++			}
++			ed.client.ReplaceText(nil, "中")
++			tester.Frame()
++			want := "a\uFFFC中b"
++			wantIndex := 1
++			if caret == 1 {
++				want, wantIndex = "a中\uFFFCb", 2
++			}
++			if value != want || len(objects) != 1 || objects[0].Index != wantIndex {
++				t.Fatalf("组合提交=%q objects=%+v", value, objects)
++			}
++			tester.Key(Cmd, KeyZ)
++			if value != "a\uFFFCb" || ed.caret != caret {
++				t.Fatalf("组合撤销=%q caret=%d", value, ed.caret)
++			}
++		})
++	}
++}
++
++func TestTextObjectIndexedGrowingHeightInvalidation(t *testing.T) {
++	buffer := NewTextBuffer("x\uFFFC y")
++	var ed *editor
++	height := float32(20)
++	tester := coreNewTester(func(c *context) {
++		e := bufferInputBase(c, buffer, true).Width(130).Lines(1, 8)
++		e.TextRanges(TextRange{Start: 1, End: 2, ObjectWidth: 40, ObjectHeight: height})
++		ed = e.st.editor
++	}, 200, 200)
++	before := ed.area.wrapped
++	height = 64
++	tester.Frame()
++	if ed.area.wrapped <= before+30 || ed.area.wrapped < 64 {
++		t.Fatalf("索引文本增长高度未失效：before=%v after=%v", before, ed.area.wrapped)
++	}
++}
++
++func TestTextObjectAtomicEditing(t *testing.T) {
++	ed := newEditor()
++	ed.setText("a\uFFFCb")
++	ed.move(2, false)
++	ed.insert("x")
++	if ed.String() != "a\uFFFCxb" {
++		t.Fatalf("对象后输入=%q", ed.String())
++	}
++	ed.takeBack(false)
++	if ed.String() != "a\uFFFCb" || ed.caret != 2 {
++		t.Fatalf("撤销输入=%q caret=%d", ed.String(), ed.caret)
++	}
++	ed.key(nil, &state{}, editEvent{key: KeyBackspace})
++	if ed.String() != "ab" || ed.caret != 1 {
++		t.Fatalf("删除对象=%q caret=%d", ed.String(), ed.caret)
++	}
++	ed.takeBack(false)
++	if ed.String() != "a\uFFFCb" || ed.caret != 2 {
++		t.Fatalf("撤销删除=%q caret=%d", ed.String(), ed.caret)
++	}
++	ed.takeBack(true)
++	if ed.String() != "ab" {
++		t.Fatalf("重做删除=%q", ed.String())
++	}
++	ed.takeBack(false)
++	ed.move(1, false)
++	ed.key(nil, &state{}, editEvent{key: KeyDelete})
++	if ed.String() != "ab" {
++		t.Fatalf("向前删除=%q", ed.String())
++	}
++}
++
++func TestTextObjectParagraphWrapComposeAndIndices(t *testing.T) {
++	value := "😀\uFFFC\nxx \uFFFC yy"
++	var ed *editor
++	var objects []TextObject
++	var width float32 = 56
++	tester := coreNewTester(func(c *context) {
++		e := textInputBase(c, &value, true).Width(90).Height(180).Padding(0)
++		e.TextRanges(TextRange{Start: 1, End: 2, ObjectWidth: width, ObjectHeight: 25}, TextRange{Start: 6, End: 7, ObjectWidth: width, ObjectHeight: 25})
++		ed = e.st.editor
++		e.DrawOver(func(_ *Painter, _ Rect) { objects = e.TextObjects() })
++	}, 180, 220)
++	check := func() {
++		t.Helper()
++		if len(objects) != 2 || objects[0].Index != 1 || objects[1].Index != 6 {
++			t.Fatalf("段落对象索引=%+v", objects)
++		}
++	}
++	check()
++	p := ed.area.paraLayout(ed, 1)
++	if len(p.Lines) < 2 {
++		t.Fatalf("对象未参与换行：%+v", p.Lines)
++	}
++	tester.rt.focused = ed.client.id
++	for _, caret := range []int{1, 2} {
++		ed.move(caret, false)
++		ed.client.SetMarkedText(nil, "中文😀", TextInputRange{Start: 4, End: 4})
++		tester.Frame()
++		check()
++		if !strings.Contains(ed.displayText(), "中文😀") {
++			t.Fatal("组合文本丢失")
++		}
++		ed.compose = ""
++		tester.Frame()
++	}
++	before := ed.area.paraLayout(ed, 1)
++	width = 20
++	tester.Frame()
++	check()
++	after := ed.area.paraLayout(ed, 1)
++	if before == after || !closeObject(objects[1].Rect.W, 20) {
++		t.Fatal("对象尺寸改变未失效段落布局")
++	}
++}

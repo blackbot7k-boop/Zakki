@@ -1,0 +1,31 @@
+diff --git a/vendor/github.com/egoist/mygo/ui/date.go b/vendor/github.com/egoist/mygo/ui/date.go
+index 8ab76da..b0cf8e1 100644
+--- a/vendor/github.com/egoist/mygo/ui/date.go
++++ b/vendor/github.com/egoist/mygo/ui/date.go
+@@ -105,7 +105,7 @@ func calendarGrid(c *context, date, cursor *time.Time, moveChooses bool, choose
+ 	title := c.formatted(fmtKey{locale, fmtMonthYear, int64(month.Year())*12 + int64(month.Month())}, func() string {
+ 		return i18n.FormatDate(locale, month, i18n.DateOptions{Skeleton: "yMMMM"})
+ 	})
+-	grid := coreColumn(c).Gap(t.Space(0.5)).Focusable().Shrink(0).Role(RoleTable).Label(title)
++	grid := coreColumn(c).Gap(t.Space(1)).Focusable().Shrink(0).Role(RoleTable).Label(title)
+ 	grid.flags |= flagOwnRing
+ 	move := func(d time.Time) {
+ 		// Choosing it moves the cursor where it is the date chosen.
+@@ -163,7 +163,7 @@ func calendarGrid(c *context, date, cursor *time.Time, moveChooses bool, choose
+ 		coreRow(c).Children(func() {
+ 			for i := range 7 {
+ 				d := names[(int(first)+i)%7]
+-				coreText(c, d).Width(t.Space(8)).TextAlign(Center).FontSize(t.FontSize - 2).TextColor(t.TextMuted).Role(RoleColumnHeader)
++				coreText(c, d).Width(t.Space(9)).TextAlign(Center).FontSize(t.FontSize - 2).TextColor(t.TextMuted).Role(RoleColumnHeader)
+ 			}
+ 		})
+ 		// Six weeks from the first day of the week on or before the first.
+@@ -176,7 +176,7 @@ func calendarGrid(c *context, date, cursor *time.Time, moveChooses bool, choose
+ 					label := c.formatted(fmtKey{locale, fmtDay, dayNumber(day)}, func() string {
+ 						return i18n.FormatDate(locale, day, i18n.DateOptions{Skeleton: "yMMMMd"})
+ 					})
+-					cell := coreBox(c).Size(t.Space(8), t.Space(7)).Center().Radius(t.Radius).Role(RoleButton).Label(label)
++					cell := coreBox(c).Size(t.Space(9), t.Space(7)).Center().Radius(t.Radius).Role(RoleButton).Label(label)
+ 					cell.flags |= flagClickable | flagHover
+ 					cell.afterInput(func() {
+ 						if cell.Clicked() {

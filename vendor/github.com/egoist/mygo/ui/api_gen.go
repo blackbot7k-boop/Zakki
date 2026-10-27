@@ -3499,6 +3499,27 @@ func (_handle Element) DrawOver(fn func(p *Painter, r Rect)) Element {
 	return wrapElement(_node.DrawOver(fn))
 }
 
+// DrawTextObjects 在真实文字绘制时绘制占位符，沿用文字裁剪、变换与透明度。
+// 回调矩形为 Painter 坐标，Index 为已提交文字的 rune 偏移；回调只绘制。
+func (_handle Element) DrawTextObjects(fn func(p *Painter, object TextObject)) Element {
+	_node := _handle.node()
+	if _node == nil {
+		return Element{}
+	}
+	return wrapElement(_node.DrawTextObjects(fn))
+}
+
+// TextObjects 返回最近实际布局中的对象，Rect 为元素局部坐标，Index 为 rune 偏移。
+// 构建期可能尚无布局；在 Draw 或输入回调中查询，不触发布局。
+// TextArea 仅返回可见段落，完整矩形未裁切。
+func (_handle Element) TextObjects() []TextObject {
+	_node := _handle.node()
+	if _node == nil {
+		return nil
+	}
+	return _node.TextObjects()
+}
+
 // DroppedFiles returns the paths of the files dropped on the element since
 // the last frame, nil when none, and makes the element take files dragged
 // over it.

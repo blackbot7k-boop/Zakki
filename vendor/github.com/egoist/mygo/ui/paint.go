@@ -532,6 +532,9 @@ func (p *Painter) popClip() {
 // and lines of the spans of sp, if any.
 func (p *Painter) textLayout(l *text.Layout, x, y float32, color Color, ts textStyle, sp *spanPaint) {
 	p.textBackgrounds(l, x, y, ts, sp)
+	if e := p.inline; e != nil && e.tl == l {
+		e.paintTextObjects(p, l, x, y, 0)
+	}
 	// Content transitions also paint the old layout; only the current text
 	// carries its selection, in the same position, clip and opacity as its glyphs.
 	if e := p.inline; e != nil && e.tl == l {

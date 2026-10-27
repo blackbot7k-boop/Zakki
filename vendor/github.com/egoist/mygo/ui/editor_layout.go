@@ -181,6 +181,7 @@ func (e *node) paintInput(p *Painter) {
 		_, sp = ed.rangeSpans(0, ed.buf.n)
 	}
 	p.textBackgrounds(l, ox, oy, ts, sp)
+	e.paintTextObjects(p, l, ox, oy, 0)
 	if focused {
 		for _, selected := range ed.selectedRanges() {
 			for _, r := range l.SelectionVisual(ed.displayIndex(selected.Start), ed.displayIndex(selected.End), false) {
@@ -258,7 +259,8 @@ func (ed *editor) spansOf(ranges []TextRange, start, end int) (string, *spanPain
 			spans = append(spans, Span{})
 		}
 		span := Span{Font: r.Font, Italic: r.Italic, Color: r.Color, Background: r.Background, Weight: r.Weight,
-			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor}
+			Underline: r.Underline, WavyUnderline: r.WavyUnderline, DecorationColor: r.DecorationColor,
+			ObjectWidth: r.ObjectWidth, ObjectHeight: r.ObjectHeight}
 		styles = append(styles, spanStyle(span, to))
 		spans = append(spans, span)
 		at = to
@@ -277,7 +279,7 @@ func (ed *editor) spansOf(ranges []TextRange, start, end int) (string, *spanPain
 		} else {
 			add(local(from, true), local(to, false), r)
 		}
-		shaped = shaped || r.Font != "" || r.Italic || r.Weight > 0
+		shaped = shaped || r.Font != "" || r.Italic || r.Weight > 0 || r.ObjectWidth > 0 || r.ObjectHeight > 0
 		painted = painted || r.Color.A > 0 || r.Background.A > 0 || r.Underline || r.WavyUnderline || r.DecorationColor.A > 0
 	}
 	key := ""

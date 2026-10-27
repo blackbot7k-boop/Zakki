@@ -1,0 +1,79 @@
+diff --git a/vendor/github.com/egoist/mygo/ui/input.go b/vendor/github.com/egoist/mygo/ui/input.go
+index 29f7258..316b162 100644
+--- a/vendor/github.com/egoist/mygo/ui/input.go
++++ b/vendor/github.com/egoist/mygo/ui/input.go
+@@ -594,8 +594,11 @@ func (rt *engine) keyDownPhysical(mods Modifiers, key, physical Key, repeat bool
+ 		rt.blinkStart = time.Now()
+ 		return true
+ 	}
++	// A chord claimed as a shortcut in the focus chain or by the window goes
++	// to the shortcut, never to the focused editor's navigation: menu key
++	// equivalents beat word-wise caret moves on every native platform.
+ 	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.editor.onTextKey != nil && s.flags&flagEditable != 0 &&
+-		!typesText(k) && (s.editor.wants(k) || !rt.claimed(k)) && s.editor.textKey(k) {
++		!typesText(k) && !rt.claimed(k) && s.editor.textKey(k) {
+ 		// OnTextKey took it as it came, as HandleInput does, but after the
+ 		// keys and text before it, which it reads.
+ 		rt.blinkStart = time.Now()
+@@ -605,7 +608,8 @@ func (rt *engine) keyDownPhysical(mods Modifiers, key, physical Key, repeat bool
+ 	if (key == KeyContextMenu && mods == 0 || key == KeyF10 && mods == Shift) && !rt.claimed(k) && rt.menuKey() {
+ 		return false
+ 	}
+-	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.flags&(flagEditable|flagSelectable) != 0 && s.editor.wants(k) {
++	if s := rt.states[rt.focused]; s != nil && s.editor != nil && s.flags&(flagEditable|flagSelectable) != 0 &&
++		!rt.claimed(k) && s.editor.wants(k) {
+ 		if rt.textSelectionKey(s, k) {
+ 			rt.requestFrame()
+ 			return false
+diff --git a/vendor/github.com/egoist/mygo/ui/shortcut_claimed_test.go b/vendor/github.com/egoist/mygo/ui/shortcut_claimed_test.go
+new file mode 100644
+index 0000000..5763725
+--- /dev/null
++++ b/vendor/github.com/egoist/mygo/ui/shortcut_claimed_test.go
+@@ -0,0 +1,46 @@
++package ui
++
++import "testing"
++
++// 补丁回归：已登记为快捷键（焦点链或窗口）的和弦不再交给聚焦的文本编辑器
++// 做词间移动或选区扩展，而是交给快捷键系统——菜单等价键在所有原生平台都
++// 优先于文本导航。未登记的和弦仍归编辑器。
++func TestClaimedShortcutBeatsEditorNavigation(t *testing.T) {
++	value := "one two"
++	fired := false
++	tt := NewTester(func(c *Context) {
++		Column(c).Fill().Children(func() {
++			TextAreaBase(c.Key("ed"), &value).Fill().Grow(1).AutoFocus().Label("ed")
++		})
++		if c.Shortcut(Super|Alt, KeyRight) {
++			fired = true
++		}
++	}, 300, 200)
++	tt.Frame()
++	if !tt.Focused("ed") {
++		t.Fatal("编辑器应已聚焦")
++	}
++	// 未登记的 Alt+→ 仍是编辑器的词间移动。
++	tt.Key(0, KeyHome)
++	tt.Frame()
++	before, ok := tt.TextCaret()
++	if !ok {
++		t.Fatal("没有光标")
++	}
++	tt.Key(Alt, KeyRight)
++	tt.Frame()
++	after, _ := tt.TextCaret()
++	if after == before {
++		t.Fatal("未登记的 Alt+→ 应仍是词间移动")
++	}
++	// 已登记的 ⌘⌥→ 交给快捷键，编辑器不再消费。
++	tt.Key(Super|Alt, KeyRight)
++	tt.Frame()
++	if !fired {
++		t.Fatal("已登记的 ⌘⌥→ 应触发快捷键")
++	}
++	final, _ := tt.TextCaret()
++	if final != after {
++		t.Fatal("已登记的 ⌘⌥→ 不应移动光标")
++	}
++}

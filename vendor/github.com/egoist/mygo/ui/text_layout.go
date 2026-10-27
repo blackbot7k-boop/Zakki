@@ -147,9 +147,10 @@ func shapeTextAligned(s string, font Font, shape TextShape, spans []Span) *TextL
 	return t
 }
 
-// TextObject is an inline object of a TextLayout (Span.ObjectWidth): the
-// UTF-16 offset of its object replacement character, and its box,
-// standing on its line's baseline.
+// TextObject 描述内联对象及其基线对齐矩形。TextLayout.Objects 的 Index 是 UTF-16
+// 偏移，Rect 是布局局部坐标；Element.TextObjects 的 Index 是已提交文字的 rune
+// 偏移，Rect 是元素局部坐标；DrawTextObjects 的 Rect 是 Painter 绘制坐标。
+// 两个 Element API 的 Index 均不包含输入法组合文本。
 type TextObject struct {
 	Index int
 	Rect  Rect
