@@ -25,22 +25,30 @@ fmt-check:
 vet:
 	@echo "==> go vet：Go 标准静态检查"
 	go vet ./...
+	go -C core vet ./...
 	@echo "==> mygo vet：MyGo 原生 UI 生命周期静态检查"
 	go tool mygo vet .
 
 test:
 	@echo "==> go test：全量测试（CGO 关闭，-count=1 不用缓存）"
 	CGO_ENABLED=0 go test ./... -count=1
+	CGO_ENABLED=0 go -C core test ./... -count=1
 	CGO_ENABLED=0 go test ./vendor/github.com/egoist/mygo/ui -count=1
 
 race:
 	@echo "==> go test -race：竞态检测"
 	go test -race ./... -count=1
+	go -C core test -race ./... -count=1
 	go test -race ./vendor/github.com/egoist/mygo/ui -count=1
 
 arch-check:
 	@echo "==> arch-check：纯逻辑包不得依赖 MyGo 与 internal/app，且只允许约定的 internal 依赖"
-	@fail=0; for rule in $(ARCH_RULES); do \
+	@fail=0; \
+	if go -C core list -f '{{join .Imports "\n"}}' ./... | grep -qE '^(github\.com/egoist/mygo|zakki/internal/)'; then \
+		echo "  core 违规依赖 MyGo 或 internal/*"; fail=1; fi; \
+	if grep -qE '^\s*require' core/go.mod; then \
+		echo "  core/go.mod 出现第三方依赖（core 必须是零依赖叶子）"; fail=1; fi; \
+	for rule in $(ARCH_RULES); do \
 		pkg=$${rule%%:*}; allow=$${rule#*:}; dir=./internal/$$pkg; \
 		[ -d "$$dir" ] || continue; \
 		if go list -deps "$$dir" | grep -q '^github.com/egoist/mygo'; then \
