@@ -230,7 +230,8 @@ func TestTableToolbarPopupDismissAndScope(t *testing.T) {
 	tableToolClick(t, tt, "单元格 2,1")
 	tableToolClick(t, tt, "调整表格大小")
 	tableToolClick(t, tt, "标签 2")
-	if a.tableTools.open || a.mdActive != -1 {
+	// 切换标签即关浮层并聚焦新标签的输入区，不再回全预览态。
+	if a.tableTools.open || !tt.Focused("内容") {
 		t.Fatal("picker leaked across dots")
 	}
 	a.switchTab(0)

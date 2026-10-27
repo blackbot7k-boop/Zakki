@@ -37,15 +37,13 @@ func TestCTabStripSolidDotsAndSelectedSize(t *testing.T) {
 			t.Fatalf("dot center is not a solid tab color: %+v", center)
 		}
 		background := tabPixel(tt, cx, cy-15)
-		outline := activeIndicatorInk(false)
 		n := 0
 		for x := int(cx) - 16; x <= int(cx)+16; x++ {
 			p := tabPixel(tt, float32(x), cy)
 			distance := func(r, g, b uint8) int {
 				return absByte(p.R, r) + absByte(p.G, g) + absByte(p.B, b)
 			}
-			toCenter := distance(center.R, center.G, center.B)
-			if toCenter < distance(background.R, background.G, background.B) && toCenter < distance(outline.R, outline.G, outline.B) {
+			if distance(center.R, center.G, center.B) < distance(background.R, background.G, background.B) {
 				n++
 			}
 		}
@@ -263,8 +261,8 @@ func TestHeaderKeepsNamedSingleTab(t *testing.T) {
 	}
 }
 
-// TestTabDotShapesRender 圆点填充、圆环描边；当前标记增加不参与布局的
-// 中性外轮廓。已去掉的形状视为非法，载入时回退圆点。
+// TestTabDotShapesRender 圆点填充、圆环描边；当前与未选标记外都不应有多余轮廓。已去掉
+// 的形状视为非法，载入时回退圆点。
 func TestTabDotShapesRender(t *testing.T) {
 	a := newTestApp(t)
 	a.tabs = a.tabs[:1]
@@ -285,8 +283,8 @@ func TestTabDotShapesRender(t *testing.T) {
 		tt.Frame()
 		center := tabPixel(tt, cx, cy)
 		active := tabPixel(tt, activeX, cy)
-		if tabPixel(tt, cx, cy-8).A != 0 || tabPixel(tt, activeX, cy-8).A == 0 {
-			t.Fatalf("%s 当前标记应有中性外轮廓，未选标记不应有: inactive=%+v active=%+v", shape,
+		if tabPixel(tt, cx, cy-8).A != 0 || tabPixel(tt, activeX, cy-8).A != 0 {
+			t.Fatalf("%s 标记外不应有轮廓像素: inactive=%+v active=%+v", shape,
 				tabPixel(tt, cx, cy-8), tabPixel(tt, activeX, cy-8))
 		}
 		if shape == "ring" {

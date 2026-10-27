@@ -190,8 +190,10 @@ func (a *app) addTab() bool {
 	a.afterTabsChanged(true)
 	if a.cfg.Source {
 		a.restoreSourceSession()
+	} else {
+		// 空标签也要有可聚焦的块编辑器：光标落在末尾，切过来即可输入。
+		a.focusBlockEnd(len(a.mdBlocks()) - 1)
 	}
-	a.liveFocus = 1 // 切到新标签后聚焦内容编辑
 	return true
 }
 
@@ -437,6 +439,8 @@ func (a *app) handleRenameInput(ev ui.InputEvent) bool {
 // switchTab 切换当前标签（原 switchDot 的动态版）：关查找条、
 // 重置实时预览焦点、表格工具与格式意图，走自动保存。
 // 液态动画在下一帧构建时从缓存的旧几何接管（见 tab_strip.go）。
+// 切换后聚焦输入区域、光标落在文档末尾（⌘数字、点击标签与 ⌘⌥←/→ 共用），
+// 切过来即可直接续写；源码模式不走这里落光标，沿用标签会话恢复选区。
 func (a *app) switchTab(i int) {
 	if i == a.active || i < 0 || i >= len(a.tabs) {
 		return
@@ -447,8 +451,8 @@ func (a *app) switchTab(i int) {
 	a.endRename()
 	a.active = i
 	a.findOpen, a.query, a.matchIdx = false, "", 0
-	// 切标签回到预览态：不能默认把首行变成源码。
-	a.resyncLive(0)
+	// 切标签回到预览态：不能默认把首行变成源码；选区由下面的末尾聚焦统一给出。
+	a.resyncLive(-1)
 	a.mdActive, a.mdDraft, a.keyHint = -1, "", 0
 	a.mdVisible, a.mdProjection = "", liveProjection{}
 	a.liveUndo, a.liveRedo, a.liveUndoPending = nil, nil, 0
@@ -457,6 +461,8 @@ func (a *app) switchTab(i int) {
 	a.closeLinkTool()
 	if a.cfg.Source {
 		a.restoreSourceSession()
+	} else {
+		a.focusBlockEnd(len(a.mdBlocks()) - 1)
 	}
 	a.syncMenus()
 	// 纯导航不写盘：active 随下次真实保存或退出最终保存顺带落盘。

@@ -407,11 +407,11 @@ func TestLiquidGeometry(t *testing.T) {
 		t.Fatalf("命名胶囊宽 = %g", pillWidthOf(120))
 	}
 
-	// 胶囊上的文字按对比度选色：黄色配深字，蓝色配白字。
-	if got := pillTextColor(ui.Hex("#ffd01c")); got != ui.RGB(28, 28, 30) {
+	// 胶囊上的文字按对比度选色：黄色配墨黑，蓝色配柔白并适度压暗背景。
+	if got := tabPillColors(ui.Hex("#ffd01c")).text; got != ui.RGB(36, 36, 38) {
 		t.Fatalf("浅色胶囊文字 = %+v, want 深色", got)
 	}
-	if got := pillTextColor(ui.Hex("#0f75e9")); got != ui.RGB(255, 255, 255) {
+	if got := tabPillColors(ui.Hex("#0f75e9")).text; got != ui.RGB(248, 248, 250) {
 		t.Fatalf("深色胶囊文字 = %+v, want 白色", got)
 	}
 }
@@ -932,14 +932,113 @@ func TestTabSwitchResetsSessionState(t *testing.T) {
 	if a.findOpen || a.query != "" || a.tableTools.open {
 		t.Fatalf("切换未重置会话状态: find=%v query=%q tools=%+v", a.findOpen, a.query, a.tableTools)
 	}
-	if a.mdActive != -1 {
-		t.Fatalf("切换后应回预览态: mdActive=%d", a.mdActive)
+	// 切换即聚焦输入区域（末块尾），不再是全预览态。
+	if a.mdActive != 0 || !tt.Focused("内容") {
+		t.Fatalf("切换后应聚焦末块输入区: mdActive=%d focused=%v", a.mdActive, tt.Focused("内容"))
 	}
 	// 切回后编辑正常。
 	tt.ClickAt(200, 300)
 	tt.Type("丁")
 	if !strings.Contains(a.tabs[1].Text, "丁") {
 		t.Fatalf("切换后编辑异常: %q", a.tabs[1].Text)
+	}
+}
+
+// TestTabShortcutFocusesEditorAtEnd ⌘数字切标签后聚焦输入区域、光标在文档末尾，
+// 切过来即可直接续写；焦点在编辑器时 ⌘⌥←/→ 仍能循环切标签（原生编辑器
+// 会把 Alt+方向键吃掉，由编辑器接管，见 editorTabCycle）。
+func TestTabShortcutFocusesEditorAtEnd(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.mdActive = -1 // 生产启动即全预览态
+	a.tabs[0].Text = "甲\n\n乙"
+	a.tabs[1].Text = "第一行\n\n最后一行"
+	tt := ui.NewTester(a.view, 460, 540)
+	tt.Frame()
+
+	tt.Key(ui.Super, ui.Key2) // 无菜单环境由窗口兑底接管，与菜单 Click 同一实现
+	tt.Frame()
+	if a.active != 1 {
+		t.Fatalf("⌘2 应切到标签 2: active=%d", a.active)
+	}
+	if !tt.Focused("内容") || a.mdActive != 2 {
+		t.Fatalf("⌘2 后应聚焦末块输入区: focused=%v mdActive=%d", tt.Focused("内容"), a.mdActive)
+	}
+	tt.Type("!")
+	if got, want := a.tabs[1].Text, "第一行\n\n最后一行!"; got != want {
+		t.Fatalf("输入应落在文档末尾: %q, want %q", got, want)
+	}
+
+	// 焦点在编辑器时 ⌘⌥→ 仍能切到下一个标签。
+	tt.Key(ui.Super|ui.Alt, ui.KeyRight)
+	tt.Frame()
+	if a.active != 2 {
+		t.Fatalf("焦点在编辑器时 ⌘⌥→ 应切标签: active=%d", a.active)
+	}
+	if !tt.Focused("内容") {
+		t.Fatal("⌘⌥→ 切换后输入区域应重新聚焦")
+	}
+}
+
+// TestTabSwitchCaretSkipsTrailingBlank 切换后的光标落在最后一个非空块末尾：
+// 文末的空行不接管光标，输入直接接在正文后面。
+func TestTabSwitchCaretSkipsTrailingBlank(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.mdActive = -1
+	a.tabs[1].Text = "甲\n\n乙\n"
+	tt := ui.NewTester(a.view, 460, 540)
+	tt.Frame()
+	a.switchTab(1)
+	tt.Frame()
+	if a.mdActive != 2 {
+		t.Fatalf("光标应落在末块「乙」: mdActive=%d", a.mdActive)
+	}
+	if a.mdCaret != 1 || a.mdSelEnd != 1 {
+		t.Fatalf("光标应在块尾: caret=(%d,%d)", a.mdCaret, a.mdSelEnd)
+	}
+	tt.Type("丙")
+	if got, want := a.tabs[1].Text, "甲\n\n乙丙\n"; got != want {
+		t.Fatalf("输入应接在末块后: %q, want %q", got, want)
+	}
+}
+
+// TestTabSwitchFocusesEmptyTab 切到空标签聚焦空块编辑器：立即输入不丢失。
+func TestTabSwitchFocusesEmptyTab(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.mdActive = -1
+	a.tabs[1].Text = ""
+	tt := ui.NewTester(a.view, 460, 540)
+	tt.Frame()
+	a.switchTab(1)
+	tt.Frame()
+	if a.mdActive != 0 || !tt.Focused("内容") {
+		t.Fatalf("空标签应聚焦空块编辑器: mdActive=%d focused=%v", a.mdActive, tt.Focused("内容"))
+	}
+	tt.Type("首行")
+	if got := a.tabs[1].Text; got != "首行" {
+		t.Fatalf("空标签输入丢失: %q", got)
+	}
+}
+
+// TestAddTabFocusesNewTabEditor ⌘T 新标签同样聚焦输入区（空标签也要能直接输入）。
+func TestAddTabFocusesNewTabEditor(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.mdActive = -1
+	tt := ui.NewTester(a.view, 460, 540)
+	tt.Frame()
+	if !a.addTab() {
+		t.Fatal("新增标签失败")
+	}
+	tt.Frame()
+	if a.mdActive != 0 || !tt.Focused("内容") {
+		t.Fatalf("新标签应聚焦输入区: mdActive=%d focused=%v", a.mdActive, tt.Focused("内容"))
+	}
+	tt.Type("新")
+	if got := a.tabs[a.active].Text; got != "新" {
+		t.Fatalf("新标签输入丢失: %q", got)
 	}
 }
 

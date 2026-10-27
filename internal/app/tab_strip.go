@@ -53,8 +53,7 @@ type tabSlotGeom struct{ w, cx float32 }
 
 func pillWidthOf(titleW float32) float32 { return pillHeight + max(0, titleW) }
 
-// equalTabWidths 未命名时每个标记一样大；当前项另绘中性外轮廓，
-// 不改变槽位宽度。
+// equalTabWidths 未命名时每个标记一样大，不因选中状态改变槽位宽度。
 func equalTabWidths(n int) []float32 {
 	widths := make([]float32, n)
 	for i := range widths {
@@ -128,16 +127,14 @@ func edgeGap(pillCx, halfWidth, dotCx, dr float32) float32 {
 	return float32(math.Abs(float64(pillCx-dotCx))) - halfWidth - dr
 }
 
-func titleAlphas(t float32) (float32, float32) {
-	return clampF((0.35-t)/0.35, 0, 1), clampF((t-0.55)/0.45, 0, 1)
-}
+const (
+	tabTitleFadeOutEnd  = float32(0.35)
+	tabTitleFadeInStart = float32(0.55)
+)
 
-func pillTextColor(bg ui.Color) ui.Color {
-	white, dark := ui.RGB(255, 255, 255), ui.RGB(28, 28, 30)
-	if contrastRatio(white, bg) >= contrastRatio(dark, bg) {
-		return white
-	}
-	return dark
+func titleAlphas(t float32) (float32, float32) {
+	return clampF((tabTitleFadeOutEnd-t)/tabTitleFadeOutEnd, 0, 1),
+		clampF((t-tabTitleFadeInStart)/(1-tabTitleFadeInStart), 0, 1)
 }
 
 func emptyDotInk(dark bool) ui.Color {
@@ -148,10 +145,11 @@ func emptyDotInk(dark bool) ui.Color {
 }
 
 type tabBody struct {
-	cx, w, h float32
-	color    ui.Color
-	title    string
-	textW    float32
+	cx, w, h  float32
+	color     ui.Color
+	textColor ui.Color
+	title     string
+	textW     float32
 }
 
 type tabMorphState struct {
@@ -179,9 +177,18 @@ func (m tabMorphState) bodyAt(now time.Time) tabBody {
 	b.cx += (m.toBody.cx - b.cx) * e
 	b.w += (m.toBody.w - b.w) * e
 	b.h += (m.toBody.h - b.h) * e
-	b.color = b.color.Mix(m.toBody.color, t)
+	colorT := t
+	if bodyShowsTitle(m.fromBody) || bodyShowsTitle(m.toBody) {
+		// 有字时保持端点配色，只在标题全隐阶段换底色，避免黑白字可见时跳色。
+		colorT = clampF((t-tabTitleFadeOutEnd)/(tabTitleFadeInStart-tabTitleFadeOutEnd), 0, 1)
+	}
+	b.color = b.color.Mix(m.toBody.color, colorT)
 	if t >= 0.5 {
-		b.title, b.textW = m.toBody.title, m.toBody.textW
+		b.title, b.textW, b.textColor = m.toBody.title, m.toBody.textW, m.toBody.textColor
+	}
+	if t >= tabTitleFadeOutEnd && t <= tabTitleFadeInStart {
+		// 中途被下一次切换接管时，不把已淡出的标题重新显示在过渡底色上。
+		b.title, b.textW = "", 0
 	}
 	return b
 }
@@ -362,28 +369,6 @@ func activeDotInk(color ui.Color, dark bool) ui.Color {
 	return color.Mix(ui.RGB(0, 0, 0), 0.18)
 }
 
-// activeIndicatorBody 返回当前项中性轮廓的几何；只扩大绘制边界，
-// 不参与槽位布局，因此圆点、圆环和标题胶囊切换时都不会位移。
-func activeIndicatorBody(body tabBody) tabBody {
-	const outset = float32(4)
-	body.w += outset
-	body.h += outset
-	return body
-}
-
-func activeIndicatorInk(dark bool) ui.Color {
-	if dark {
-		return ui.Hex("#f2f2f4")
-	}
-	return ui.Hex("#303034")
-}
-
-func paintActiveIndicator(p *ui.Painter, body tabBody, cy float32, dark bool) {
-	body = activeIndicatorBody(body)
-	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
-	p.StrokePath(&path, 1.5, activeIndicatorInk(dark))
-}
-
 func paintBody(p *ui.Painter, body tabBody, ink ui.Color, cy float32) {
 	path := capsulePath(body.cx-body.w/2, cy-body.h/2, body.w, body.h)
 	p.FillPath(&path, ink)
@@ -395,7 +380,7 @@ func paintBodyTitle(p *ui.Painter, body tabBody, cy float32, title string, textW
 	}
 	r := ui.Rect{X: body.cx - body.w/2 + pillPadX, Y: cy - body.h/2, W: max(0, body.w-2*pillPadX), H: body.h}
 	p.Clip(r, 0, func() {
-		p.Text(body.cx-textW/2, cy-pillTitleSize/2-2, title, pillTitleSize, pillTextColor(body.color).Alpha(alpha))
+		p.Text(body.cx-textW/2, cy-pillTitleSize/2-2, title, pillTitleSize, body.textColor.Alpha(alpha))
 	})
 }
 
@@ -413,11 +398,15 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 	}
 	body.cx += r.X
 	shape := a.activeDotShape()
+	ink := activeDotInk(body.color, dark)
+	if bodyShowsTitle(body) || a.renaming != 0 {
+		ink = body.color
+	}
 	if m.active {
 		if shape != tabDotShapeRing {
 			for _, s := range slots {
 				if bridge, ok := liquidBridge(body, r.X+s.cx, cy); ok {
-					p.FillPath(&bridge, activeDotInk(body.color, dark))
+					p.FillPath(&bridge, ink)
 				}
 			}
 		}
@@ -428,10 +417,8 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 		}
 		paintTabDot(p, r.X+s.cx, cy, muteTabInk(a.morphDotInk(ids[i], dark), dark), shape)
 	}
-	// 当前项除颜色外始终有一圈中性轮廓；圆点与圆环共用同一几何。
 	if bodyShowsTitle(body) || a.renaming != 0 {
 		paintBody(p, body, body.color, cy)
-		paintActiveIndicator(p, body, cy, dark)
 		if a.renaming != 0 {
 			return
 		}
@@ -446,11 +433,9 @@ func (a *app) paintTabStrip(p *ui.Painter, r ui.Rect, dark bool) {
 	}
 	if shape == tabDotShapeRing {
 		paintTabDot(p, body.cx, cy, activeDotInk(body.color, dark), shape)
-		paintActiveIndicator(p, body, cy, dark)
 		return
 	}
 	paintBody(p, body, activeDotInk(body.color, dark), cy)
-	paintActiveIndicator(p, body, cy, dark)
 }
 
 func fitTabTitle(s string, limit float32, measure func(string) float32) (string, float32) {
