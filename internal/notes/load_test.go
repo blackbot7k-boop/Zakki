@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -107,6 +108,30 @@ func TestLoadBrokenOriginalCannotBeOverridden(t *testing.T) {
 				t.Fatalf("不应生成副本：%v", entries)
 			}
 		})
+	}
+}
+
+func TestLoadTooManyTabsProtectsOriginal(t *testing.T) {
+	s := newTestStore(t, nil)
+	defer s.Close()
+	s.migrate.MaxTabCount = 9
+	tabs := make([]Tab, 10)
+	for i := range tabs {
+		tabs[i] = Tab{ID: uint64(i + 1), Text: "内容"}
+	}
+	raw, err := json.Marshal(File{Version: CurrentDataVersion, Tabs: tabs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeRaw(t, s.DataPath(), string(raw))
+	if _, exists, _, err := s.Load(); exists || !errors.Is(err, ErrTooManyTabs) || !s.SaveBlocked() {
+		t.Fatalf("超限文件应写保护：exists=%v err=%v", exists, err)
+	}
+	if err := s.SaveNow(doc("覆盖")); !errors.Is(err, ErrSaveBlocked) {
+		t.Fatalf("写保护应拒写：%v", err)
+	}
+	if got := string(readRaw(t, s.DataPath())); got != string(raw) {
+		t.Fatal("原始十个标签不得变更")
 	}
 }
 

@@ -2,6 +2,7 @@ package notes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -71,6 +72,9 @@ func (e *VersionError) Error() string {
 	return fmt.Sprintf("数据版本 %d 高于当前支持的 %d，当前版本无法读取", e.Version, CurrentDataVersion)
 }
 
+// ErrTooManyTabs 表示数据中的标签数量超出桌面端可安全载入的上限。
+var ErrTooManyTabs = errors.New("标签数量超过上限")
+
 // HasHideOnEscapeKey 探测 settings.hideOnEscape 键是否存在。
 func HasHideOnEscapeKey(raw []byte) bool {
 	var probe struct {
@@ -100,6 +104,9 @@ func Migrate(f File, opt MigrateOptions) (File, error) {
 	if f.Version < 3 && f.Settings.MarkdownTheme == legacyMarkdownThemeTot {
 		f.Settings.MarkdownTheme = MarkdownThemeNote
 	}
+	if len(f.Tabs) > opt.MaxTabCount {
+		return File{}, fmt.Errorf("%w：%d 个，最多 %d 个；请先在其他设备减少标签后重新读取", ErrTooManyTabs, len(f.Tabs), opt.MaxTabCount)
+	}
 	f.Dots = nil
 	f.Tabs = normalizeTabs(f.Tabs, opt)
 	f.Active = clamp(f.Active, 0, len(f.Tabs)-1)
@@ -128,9 +135,6 @@ func tabsFromDots(dots []string, palette []string, n int) []Tab {
 }
 
 func normalizeTabs(tabs []Tab, opt MigrateOptions) []Tab {
-	if len(tabs) > opt.MaxTabCount {
-		tabs = tabs[:opt.MaxTabCount]
-	}
 	if len(tabs) == 0 {
 		tabs = tabsFromDots(nil, opt.PaletteColors, opt.DefaultTabCount)
 	}
@@ -145,17 +149,13 @@ func normalizeTabs(tabs []Tab, opt MigrateOptions) []Tab {
 		nextID++
 		return id
 	}
-	valid := opt.ValidTabColor
-	if valid == nil {
-		valid = func(string) bool { return false }
-	}
 	for i := range tabs {
 		if tabs[i].ID == 0 || seen[tabs[i].ID] {
 			tabs[i].ID = alloc()
 		} else {
 			seen[tabs[i].ID] = true
 		}
-		if !valid(tabs[i].Color) {
+		if opt.ValidTabColor != nil && !opt.ValidTabColor(tabs[i].Color) {
 			tabs[i].Color = ""
 		}
 	}
