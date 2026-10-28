@@ -25,6 +25,56 @@ func TestReminderQuoteCompletedAndImmediatePolicy(t *testing.T) {
 	expectReminderBody(t, fake, "新事件")
 }
 
+func TestReminderEditedBodyCrossesDueWithoutWindow(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	fake := connectFakeNotifier(a)
+	due := time.Now().In(time.Local).Add(time.Hour).Truncate(time.Minute)
+	base := due.Add(-100 * time.Millisecond)
+	started := time.Now()
+	a.setTestNow(func() time.Time { return base.Add(time.Since(started)) })
+	a.tabs[0].Text = "- [ ] 旧正文 " + reminderToken(due) + " ~0m"
+	a.rebuildReminders()
+	a.tabs[0].Text = "- [ ] 新正文 " + reminderToken(due) + " ~0m"
+	a.rescheduleReminders() // 旧正文已排；关窗后仍需投递系统通知，不靠 runOnMain。
+	if a.mainWindow.Load() != nil {
+		t.Fatal("测试应保持无窗口")
+	}
+	expectReminderBody(t, fake, "新正文")
+	select {
+	case n := <-fake.ch:
+		t.Fatalf("旧正文或重复通知: %+v", n)
+	default:
+	}
+}
+
+func TestReminderStartupDoesNotBackfillPastDue(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	fake := connectFakeNotifier(a)
+	due := time.Now().In(time.Local).Truncate(time.Minute)
+	a.setTestNow(func() time.Time { return due.Add(30 * time.Second) })
+	a.tabs[0].Text = "旧提醒 " + reminderToken(due) + " ~0m"
+	a.rebuildReminders()
+	select {
+	case n := <-fake.ch:
+		t.Fatalf("首次启动不应补发: %+v", n)
+	default:
+	}
+}
+
+func TestReminderAlertMovedEarlierBeforeDue(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	fake := connectFakeNotifier(a)
+	due := a.now().Add(24 * time.Hour)
+	a.tabs[0].Text = "旧正文 " + reminderToken(due) + " ~0m"
+	a.rebuildReminders()
+	a.tabs[0].Text = "新正文 " + reminderToken(due) + " ~1d"
+	a.rescheduleReminders()
+	expectReminderBody(t, fake, "新正文")
+}
+
 func TestReminderEditCrossesDebounceImmediately(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
@@ -45,7 +95,7 @@ func TestReminderEditCrossesDebounceImmediately(t *testing.T) {
 	}
 }
 
-func TestReminderEditCrossesDebounceAndPollsOnce(t *testing.T) {
+func TestReminderPollsLateOnce(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
 	fake := connectFakeNotifier(a)
@@ -53,13 +103,32 @@ func TestReminderEditCrossesDebounceAndPollsOnce(t *testing.T) {
 	due := base.Add(2 * time.Hour)
 	e := reminderEntry{tabID: a.tabs[0].ID, text: "迟到", due: due, fireAt: base.Add(100 * time.Millisecond)}
 	a.scheduleReminderSnapshot([]reminderEntry{e}, reminderGeneration(a), base)
-	a.rescheduleReminders()                              // 旧定时器立即作废，防抖跨越原触发时刻。
-	a.tabs[0].Text = "迟到 " + reminderToken(due) + " ~1h" // 文本不同；用精确 alert 的待办另行测试。
-	// 模拟巡检发现旧快照已到点，必须按同一 key 只发一次。
+	// 模拟合盖后巡检发现旧快照已到点，必须按同一 key 只发一次。
 	a.reconcileReminders(base.Add(200 * time.Millisecond))
 	expectReminderBody(t, fake, "迟到")
 	a.reconcileReminders(base.Add(300 * time.Millisecond))
 	expectNoReminder(t, fake, 50*time.Millisecond)
+}
+
+func TestReminderPollWaitsForEditedBody(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	fake := connectFakeNotifier(a)
+	due := time.Now().In(time.Local).Add(time.Hour).Truncate(time.Minute)
+	base := due.Add(-time.Hour - 100*time.Millisecond)
+	started := time.Now()
+	a.setTestNow(func() time.Time { return base.Add(time.Since(started)) })
+	a.tabs[0].Text = "旧正文 " + reminderToken(due) + " ~1h"
+	a.rebuildReminders()
+	a.tabs[0].Text = "新正文 " + reminderToken(due) + " ~1h"
+	a.rescheduleReminders()
+	a.reconcileReminders(base.Add(200 * time.Millisecond))
+	select {
+	case n := <-fake.ch:
+		t.Fatalf("巡检不应投递编辑前正文: %+v", n)
+	default:
+	}
+	expectReminderBody(t, fake, "新正文")
 }
 
 func TestReminderEmptyTitleAndStableIdentity(t *testing.T) {

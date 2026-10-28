@@ -71,7 +71,7 @@
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
 | `internal/app/live_timechip.go` / `live_timeprojection.go` / `live_timeview.go` | 时间组件的文案、状态与行内对象呈现：预览和聚焦保持同一组件位置与样式，`liveProjection` 中单个 U+FFFC 对应完整时间源码。原生对象尺寸参与换行与光标布局；前后均可输入，组件后正文保留原位。首次点击进入条目时光标默认在条目末尾；搜索选区触及令牌时扩展到整个组件。源码模式仍可直接修改令牌。 |
 | `internal/app/live_timepopover.go` | 时间弹层：DateInput 与 TimeInput 共享草稿时间，日期变更也启用完成；写回保留已有 `^` 原文，软换行块只更新令牌所在源码行；点击时刻浮出可滚动的小时／分钟选择面板（12 小时制另有上下午列），输入控件仍可键盘操作；提醒档位 pill（`markdown.AlertTiers` 白名单，自动换行）、清除与完成；写回走勾选切换同一条管线并进撤销。`⌘⇧0`（list.taskTime）或点击 chip 打开；行尾键入 `@` 即时唤起（占位符就地转化，对齐表格即时转换心智，代码块与行中不触发）；源码模式无锚点不响应。 |
-| `internal/app/reminders.go` | 提醒调度：主线程只截取全部标签的 ID/标题/文本快照，250ms 防抖后台按标签文本缓存解析块与投影；编辑立即作废旧代。首次启动仅排未来触发；运行期新提醒提前量超过剩余时间时立即投递，已排未投递项迟到不超过截止后 60 秒仍投递；30 秒墙钟巡检并重排，以标签 ID、实例截止、提前量、正文 hash 去重，已投递记录保留 24 小时。删除、改名、重读成功后重排；退出失败恢复定时器与巡检，成功退出停止投递。`^` 段仅保真，桌面暂不展开重复实例。状态受 `reminderScheduler` mutex 保护。 |
+| `internal/app/reminders.go` | 提醒调度：主线程只截取全部标签的 ID/标题/文本快照，250ms 防抖后台按标签文本缓存解析块与投影；编辑立即作废旧代。首次启动仅排未来触发；运行期新提醒提前量超过剩余时间时立即投递，已排未投递项迟到不超过截止后 60 秒仍投递；30 秒墙钟巡检并重排，以标签 ID、实例截止、提前量、正文 hash 去重；编辑前已排未投递资格按标签 ID、实例截止、提前量继承，保证正文变化跨截止仍用最新正文投递。已投递记录保留 24 小时。删除、改名、重读成功后重排；退出失败恢复定时器与巡检，成功退出停止投递。`^` 段仅保真，桌面暂不展开重复实例。状态受 `reminderScheduler` mutex 保护。 |
 | `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
 | `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索命中（`searchHit`：强调色 + 加粗 + 强调色淡底）覆盖颜色、字重与底色，保留字体、斜体与装饰；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
 | `internal/app/live_selection.go` | 文档级全选（`selectDocWide`/`menuSelectAll`）：跨块选区高亮与复制/剪切/删除/输入在 app 层处理；表格单元格内保留单元格原生全选。 |

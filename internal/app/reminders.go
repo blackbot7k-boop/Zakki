@@ -29,6 +29,17 @@ type reminderTab struct {
 	title, text string
 }
 
+// 同一实例的排定资格不包含正文；投递去重键仍含正文 hash。
+type reminderOccurrence struct {
+	tabID uint64
+	due   int64
+	alert time.Duration
+}
+
+func reminderOccurrenceOf(e reminderEntry) reminderOccurrence {
+	return reminderOccurrence{tabID: e.tabID, due: e.due.UnixNano(), alert: e.alert}
+}
+
 type reminderCache struct {
 	text    string
 	entries []reminderEntry
@@ -238,6 +249,10 @@ func (a *app) scheduleReminderSnapshot(entries []reminderEntry, gen int, now tim
 		}
 	}
 	previous := a.reminders.pending
+	eligible := make(map[reminderOccurrence]bool, len(previous))
+	for _, e := range previous {
+		eligible[reminderOccurrenceOf(e)] = true
+	}
 	a.reminders.pending = make(map[string]reminderEntry)
 	first := !a.reminders.started
 	a.reminders.started = true
@@ -250,7 +265,7 @@ func (a *app) scheduleReminderSnapshot(entries []reminderEntry, gen int, now tim
 		if e.fireAt.After(now) {
 			a.reminders.pending[key] = e
 			a.reminders.timers = append(a.reminders.timers, time.AfterFunc(e.fireAt.Sub(now), func() { a.fireReminder(e, gen) }))
-		} else if _, existed := previous[key]; existed && !now.After(e.due.Add(time.Minute)) {
+		} else if eligible[reminderOccurrenceOf(e)] && !now.After(e.due.Add(time.Minute)) {
 			immediate = append(immediate, e)
 		} else if !first && now.Before(e.due) {
 			immediate = append(immediate, e)
@@ -265,7 +280,7 @@ func (a *app) scheduleReminderSnapshot(entries []reminderEntry, gen int, now tim
 // reconcileReminders 处理合盖/改时后已经过点的在途项；旧回调并发命中由 delivered 门禁去重。
 func (a *app) reconcileReminders(now time.Time) {
 	a.reminders.mu.Lock()
-	if !a.reminders.connected {
+	if !a.reminders.connected || a.reminders.debounce != nil {
 		a.reminders.mu.Unlock()
 		return
 	}
