@@ -61,7 +61,7 @@ type reminderScheduler struct {
 }
 
 func reminderKey(e reminderEntry) string {
-	body := sha256.Sum256([]byte(reminderBody(e)))
+	body := sha256.Sum256([]byte(e.text))
 	return fmt.Sprintf("%d-%d-%d-%x", e.tabID, e.due.UnixNano(), e.alert, body[:])
 }
 
