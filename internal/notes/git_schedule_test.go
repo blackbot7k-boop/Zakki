@@ -1,8 +1,10 @@
 package notes
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -95,6 +97,32 @@ func TestGitIndependentRetryAndNoRenderReset(t *testing.T) {
 	}
 	s.Close()
 	s.WaitGitIdle()
+}
+
+func TestGitPushRejectedReportsAction(t *testing.T) {
+	for _, marker := range []string{"[rejected]", "non-fast-forward", "fetch first"} {
+		t.Run(marker, func(t *testing.T) {
+			s, _ := gitStore(t)
+			defer s.Close()
+			s.RunGit = func(_ string, args ...string) (string, error) {
+				if args[0] == "rev-parse" {
+					return filepath.Dir(s.DataPath()), nil
+				}
+				if args[0] == "push" {
+					return "stderr: " + marker, errors.New("exit status 1")
+				}
+				return "", nil
+			}
+			if err := pushError("stderr: "+marker, errors.New("exit status 1")); !errors.Is(err, ErrPushRejected) {
+				t.Fatalf("推送错误未包装：%v", err)
+			}
+			s.gitStep(context.Background(), s.gitGen, s.DataPath(), false, true)
+			status := s.GitStatus()
+			if status.PushTime != (time.Time{}) || !strings.Contains(status.Error, ErrPushRejected.Error()) || !strings.Contains(status.Error, "请") {
+				t.Fatalf("推送拒绝后应提示手动处理且不记成功：%+v", status)
+			}
+		})
+	}
 }
 
 func TestGitPushRetriesWithoutInput(t *testing.T) {
