@@ -173,6 +173,14 @@ func (s *Store) writeFile(f File) error {
 	return err
 }
 
+// resetLoadedSaveLocked 使载入前已接受但尚未写入的请求全部过期。
+func (s *Store) resetLoadedSaveLocked() {
+	s.pending = nil
+	s.stopTimerLocked()
+	s.saveRevision++
+	s.saveCompleted, s.saveSaved, s.saveResult = s.saveRevision, s.saveRevision, nil
+}
+
 func (s *Store) stopTimerLocked() {
 	s.timerGen++
 	if s.saveTimer != nil {

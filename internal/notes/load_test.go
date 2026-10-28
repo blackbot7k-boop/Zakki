@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"zakki/internal/atomicfile"
 )
 
 func doc(text string) File {
@@ -38,6 +41,46 @@ func TestLoadSingleFileAndNoOp(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Dir(s.DataPath()))
 	if err != nil || len(entries) != 1 || entries[0].Name() != "zakki.json" {
 		t.Fatalf("不应产生副本：%v %v", entries, err)
+	}
+}
+
+func TestLoadDiscardsFailedRetry(t *testing.T) {
+	s := newTestStore(t, nil)
+	defer s.Close()
+	if err := s.SaveNow(doc("ORIGINAL")); err != nil {
+		t.Fatal(err)
+	}
+	s.stateWrite = func(string, []byte) error { return errors.New("写入失败") }
+	s.ScheduleSave(doc("LOCAL-STALE"), time.Hour, nil)
+	s.mu.Lock()
+	gen := s.timerGen
+	s.mu.Unlock()
+	s.flushPending(gen)
+	s.mu.Lock()
+	if s.pending == nil || s.saveTimer == nil {
+		s.mu.Unlock()
+		t.Fatal("失败后应等待重试")
+	}
+	oldGen := s.timerGen
+	s.mu.Unlock()
+	writeRaw(t, s.DataPath(), `{"version":3,"tabs":[{"id":1,"text":"EXTERNAL"}]}`)
+	f, exists, _, err := s.Load()
+	if err != nil || !exists || f.Tabs[0].Text != "EXTERNAL" {
+		t.Fatalf("重读结果：%+v %v", f, err)
+	}
+	if s.Unsaved() {
+		t.Fatal("成功重读后不应保留旧未保存快照")
+	}
+	s.mu.Lock()
+	pending, timer := s.pending, s.saveTimer
+	s.mu.Unlock()
+	if pending != nil || timer != nil {
+		t.Fatal("成功重读后必须撤销旧重试")
+	}
+	s.stateWrite = atomicfile.WriteBytes
+	s.flushPending(oldGen)
+	if got := readFile(t, s.DataPath()).Tabs[0].Text; got != "EXTERNAL" {
+		t.Fatalf("旧重试覆盖外部内容：%q", got)
 	}
 }
 
