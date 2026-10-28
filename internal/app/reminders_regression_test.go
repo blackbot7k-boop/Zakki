@@ -6,12 +6,14 @@ import (
 	"time"
 )
 
-func reminderToken(at time.Time) string { return "@" + at.Format("2006-01-02 15:04") }
+func reminderToken(at time.Time) string {
+	return "@" + at.In(time.Local).Format("2006-01-02 15:04")
+}
 
 func TestReminderQuoteCompletedAndImmediatePolicy(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)
-	future := a.now().Add(26 * time.Hour)
+	future := a.now().Add(2 * time.Hour)
 	a.tabs[0].Text = "> - [x] 完成 " + reminderToken(future) + " ~1d\n> - [ ] 未完成 " + reminderToken(future) + " ~1d"
 	got := a.collectReminders()
 	if len(got) != 1 || !strings.Contains(got[0].text, "未完成") {
