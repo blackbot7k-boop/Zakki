@@ -19,13 +19,7 @@ func styleHeading(h ui.Element, level int, md resolvedStyle) {
 // Separate the checkbox hit target from the editable text. Clicking the text
 // edits the task; clicking the square toggles it, even while its text has focus.
 func (a *app) taskCheckbox(c *ui.Context, blk liveBlock, md resolvedStyle) {
-	toggle := func() {
-		before := a.liveSnapshot()
-		a.activeTab().Text = toggleTaskLine(a.activeTab().Text, blk.start)
-		a.resyncLive(a.mdCaret)
-		a.rememberLiveEdit(before, editCommand)
-		a.onEdited()
-	}
+	toggle := func() { a.toggleTask(blk) }
 	key := c.Key("task-" + strconv.Itoa(blk.start))
 	label := locales.EditorTaskDone(a.previewProjection(blk).text)
 	if md.sketch {

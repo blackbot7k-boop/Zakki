@@ -68,6 +68,7 @@
 | `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块；代码块内 Enter 委托 `applyCodeEnter`。 |
 | `internal/app/live_codeblock.go` | 围栏代码块专属编辑：Tab/Shift+Tab 缩进（`applyCodeTab`，单位取通用页代码分区的 `appearance.codeIndent`，退化围栏落到合成内容行）、Enter 续行缩进（`applyCodeEnter`，继承行首缩进、开括号再加一级）、右下角语言徽标（`codeLangBadge`：FocusBind 聚焦、失焦/Enter 提交、Esc 取消，改写围栏 info 串不经 `applyDocEditAt` 以免抢主编辑器焦点；会话态 `codeLang*` 存 `liveEditorState`）。 |
 | `internal/app/live_virtual.go` | 块内虚拟化：200 行以上的代码块预览与表格（含正在编辑的表格）只构建视口上下各一屏的行，其余用占位撑开；位置取上一帧 `Bounds` 并按滚动量校正，行高按构建过的行实测缓存（`liveVirtState`，键为块源码 + 块类型 + 参与布局的字体、字号、行高、表格 padding 与排版变体，帧末清掉未用条目），未测行用实测均值；正在编辑的表格行总会构建；窗口依据过期（首帧或刚滚动）时再要一帧校正。单个超长段落仍整段排版。 |
+| `internal/app/live_task.go` | 普通与手账复选框共用 `toggleTask`：未勾选的合法重复任务经 `Advance` 推进锚点，保留提醒和规则且保持未勾选；序列结束才勾选，取消勾选沿用普通切换；一次文档事务支持撤销/重做。 |
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
 | `internal/app/live_timechip.go` / `live_timeprojection.go` / `live_timeview.go` | 时间组件的文案、状态与行内对象呈现：预览和聚焦保持同一组件位置与样式，`liveProjection` 中单个 U+FFFC 对应完整时间源码。原生对象尺寸参与换行与光标布局；前后均可输入，组件后正文保留原位。合法重复任务的 chip 经 `Occurrence` 显示当前实例，当天即使过点仍显示今天，过去或结束实例保持中性、不标逾期。首次点击进入条目时光标默认在条目末尾；搜索选区触及令牌时扩展到整个组件。源码模式仍可直接修改令牌。 |
 | `internal/app/live_timepopover.go` | 时间弹层：DateInput 与 TimeInput 共享草稿时间，日期变更也启用完成；写回保留已有 `^` 原文，软换行块只更新令牌所在源码行；点击时刻浮出可滚动的小时／分钟选择面板（12 小时制另有上下午列），输入控件仍可键盘操作；提醒档位 pill（`markdown.AlertTiers` 白名单，自动换行）、清除与完成；写回走勾选切换同一条管线并进撤销。`⌘⇧0`（list.taskTime）或点击 chip 打开；行尾键入 `@` 即时唤起（占位符就地转化，对齐表格即时转换心智，代码块与行中不触发）；源码模式无锚点不响应。 |

@@ -30,7 +30,7 @@ type liveBlock struct {
 	due      time.Time     // 令牌时刻（本地时区墙上时间）
 	hasAlert bool          // 时间组件带 ~提前量 令牌
 	alert    time.Duration // 提醒提前量；0 表示准点
-	recur    string        // 原样保留重复规则；桌面暂不消费
+	recur    string        // 重复规则原文，实例语义由 core 计算
 }
 
 // liveBlocks 把文档按行切成块。规则（便签子集）：
