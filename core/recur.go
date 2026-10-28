@@ -172,7 +172,7 @@ func Expand(ruleJSON string, anchorMs, nowMs int64, horizonDays, maxCount int) (
 	if horizonDays <= 0 || maxCount <= 0 {
 		return marshal(out), nil
 	}
-	anchor, now := time.UnixMilli(anchorMs).In(location()), time.UnixMilli(nowMs).In(location())
+	anchor, now := recurrenceAnchor(anchorMs), time.UnixMilli(nowMs).In(location())
 	limit := now.AddDate(0, 0, horizonDays)
 	start := now
 	if anchor.After(start) {
@@ -193,7 +193,7 @@ func Occurrence(ruleJSON string, anchorMs, nowMs int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	anchor, now := time.UnixMilli(anchorMs).In(location()), time.UnixMilli(nowMs).In(location())
+	anchor, now := recurrenceAnchor(anchorMs), time.UnixMilli(nowMs).In(location())
 	if r.End != "" {
 		end, _ := time.ParseInLocation("2006-01-02", r.End, location())
 		end = end.AddDate(0, 0, 1).Add(-time.Nanosecond)
@@ -225,12 +225,17 @@ func Advance(ruleJSON string, anchorMs, nowMs int64) (string, error) {
 	if current.Ended {
 		return currentJSON, nil
 	}
-	anchor := time.UnixMilli(anchorMs).In(location())
+	anchor := recurrenceAnchor(anchorMs)
 	after := time.UnixMilli(current.DueMs).In(location())
 	if next, ok := nearestOccurrence(r, anchor, after, true); ok {
 		return marshal(occurrence{DueMs: next.UnixMilli()}), nil
 	}
 	return marshal(occurrence{Ended: true}), nil
+}
+
+func recurrenceAnchor(ms int64) time.Time {
+	t := time.UnixMilli(ms).In(location())
+	return t.Add(-time.Duration(t.Second())*time.Second - time.Duration(t.Nanosecond()))
 }
 
 type occurrence struct {
@@ -257,8 +262,8 @@ func scanDays(r Rule, anchor, start, limit time.Time, emit func(time.Time) bool)
 	for !day.After(limit) {
 		if !day.Before(anchorDay) && (endDay.IsZero() || !day.After(endDay)) && matchesDay(r, anchorDay, day) {
 			t := time.Date(day.Year(), day.Month(), day.Day(), anchor.Hour(), anchor.Minute(), 0, 0, loc)
-			// 不存在的墙上钟点不产生实例。
-			if t.Year() == day.Year() && t.Month() == day.Month() && t.Day() == day.Day() && t.Hour() == anchor.Hour() && t.Minute() == anchor.Minute() && !t.Before(anchor) && !t.Before(start) && !t.After(limit) {
+			// 每次从锚点钟点重建，DST gap 沿用 time.Date 归一化，后续日期恢复原钟点。
+			if t.Year() == day.Year() && t.Month() == day.Month() && t.Day() == day.Day() && !t.Before(anchor) && !t.Before(start) && !t.After(limit) {
 				if !emit(t) {
 					return
 				}
@@ -358,7 +363,7 @@ func nearestOccurrence(r Rule, anchor, ref time.Time, forward bool) (time.Time, 
 		case "y":
 			day = anchorDay.AddDate(k*r.Every, 0, 0)
 		}
-		if day.Day() != anchor.Day() || day.Month() != anchor.Month() && r.Unit == "y" {
+		if (r.Unit == "mo" || r.Unit == "y") && day.Day() != anchor.Day() || r.Unit == "y" && day.Month() != anchor.Month() {
 			continue
 		}
 		if t, ok := candidate(r, anchor, day, ref, forward); ok {
@@ -369,7 +374,7 @@ func nearestOccurrence(r Rule, anchor, ref time.Time, forward bool) (time.Time, 
 }
 func candidate(r Rule, anchor, day, ref time.Time, forward bool) (time.Time, bool) {
 	t := time.Date(day.Year(), day.Month(), day.Day(), anchor.Hour(), anchor.Minute(), 0, 0, location())
-	if t.Year() != day.Year() || t.Month() != day.Month() || t.Day() != day.Day() || t.Hour() != anchor.Hour() || t.Minute() != anchor.Minute() || t.Before(anchor) {
+	if t.Year() != day.Year() || t.Month() != day.Month() || t.Day() != day.Day() || t.Before(anchor) {
 		return time.Time{}, false
 	}
 	if forward && !t.After(ref) || !forward && t.After(ref) {
