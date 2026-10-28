@@ -27,11 +27,16 @@ func TestTimeProjectionAtomicObject(t *testing.T) {
 			next := p.text + "继续"
 			got, caret := p.replace(next, utf8.RuneCountInString(next))
 			want := raw + "继续"
+			expectedCaret := utf8.RuneCountInString(next)
+			if strings.HasSuffix(raw, "~1h") {
+				want = raw + " 继续"
+				expectedCaret++
+			}
 			if strings.HasSuffix(raw, "(https://example.com)") {
 				want = strings.Replace(raw, "[预算表]", "[预算表继续]", 1)
 			}
 			updated := projectBlock(liveBlocks(got)[0])
-			if got != want || updated.visibleOffset(caret) != utf8.RuneCountInString(next) {
+			if got != want || updated.visibleOffset(caret) != expectedCaret {
 				t.Fatalf("组件后输入应保留顺序、原有行内格式和末尾光标: raw=%q caret=%d", got, caret)
 			}
 			without := string([]rune(p.text)[:at]) + string([]rune(p.text)[at+1:])

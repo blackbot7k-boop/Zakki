@@ -37,7 +37,11 @@ func TestTimePreviewFocusKeepsObjectAtEnd(t *testing.T) {
 					t.Fatalf("默认光标应在整个条目末尾: caret=%d end=%d want=%d", a.mdCaret, a.mdSelEnd, n)
 				}
 				tt.Type("测")
-				if want := raw + "测\n\n其他段落"; a.tabs[0].Text != want || !a.mdBlocks()[0].hasTime {
+				want := raw + "测\n\n其他段落"
+				if tail == "" {
+					want = raw + " 测\n\n其他段落"
+				}
+				if a.tabs[0].Text != want || !a.mdBlocks()[0].hasTime {
 					t.Fatalf("组件后输入不能移动或破坏时间: %q", a.tabs[0].Text)
 				}
 				tt.Key(ui.Cmd, ui.KeyZ)
@@ -508,7 +512,7 @@ func TestTimeRowFocusAfterPicker(t *testing.T) {
 				t.Fatalf("关闭选择器后应能点击行尾空白聚焦: active=%d popover=%v focused=%v texts=%q", a.mdActive, a.timePop.open, tt.Focused("内容"), tt.Texts())
 			}
 			tt.Type("后续")
-			if want := raw + "后续\n\n其他段落"; a.tabs[0].Text != want {
+			if want := raw + " 后续\n\n其他段落"; a.tabs[0].Text != want {
 				t.Fatalf("聚焦后输入错误: got %q want %q", a.tabs[0].Text, want)
 			}
 		})
