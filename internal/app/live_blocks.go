@@ -161,10 +161,15 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			blk := liveBlock{kind: bkPara, start: i, end: j}
 			parts := make([]string, 0, j-i+1)
 			for k := i; k <= j; k++ {
-				parts = append(parts, strings.TrimSpace(lines[k]))
+				part := strings.TrimSpace(lines[k])
+				// 先按源码行识别，再合并可读正文，防止软换行拼出不存在的令牌。
+				if !blk.hasTime {
+					part = stripTimeSuffix(&blk, part)
+				}
+				parts = append(parts, part)
 			}
 			blk.raw = strings.Join(lines[i:j+1], "\n")
-			blk.text = stripTimeSuffix(&blk, strings.Join(parts, " "))
+			blk.text = strings.Join(parts, " ")
 			blk.spans = inlineSpans(blk.text)
 			out = append(out, blk)
 			i = j + 1
