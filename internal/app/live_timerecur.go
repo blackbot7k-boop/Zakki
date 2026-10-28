@@ -134,7 +134,12 @@ func (a *app) timeRecurContent(c *ui.Context) {
 	section := ui.Column(c.Key("time-recur-section")).Gap(8).FillWidth()
 	section.Children(func() {
 		ui.Text(c, locales.TimePopRecur()).FontSize(11.5).TextColor(c.Theme().TextMuted)
-		timeRecurSelect(c.Key("time-recur-preset"), &r.preset, timeRecurPresets()).Disabled(!a.timePop.hasTime)
+		preset := timeRecurSelect(c.Key("time-recur-preset"), &r.preset, timeRecurPresets()).Disabled(!a.timePop.hasTime)
+		if preset.Changed() && r.preset != "custom" && r.preset != "none" {
+			original := r.original
+			*r = newTimeRecurDraft(r.preset, a.timePop.due)
+			r.original = original
+		}
 		if r.preset != "custom" {
 			return
 		}
