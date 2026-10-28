@@ -5,6 +5,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/egoist/mygo/ui"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"zakki/internal/notes"
 )
 
 // ---- 测试小工具 ----
@@ -122,6 +125,7 @@ func TestPersistenceLoadFields(t *testing.T) {
 		wantTexts  []string
 		wantActive int
 		wantCfg    settings
+		wantErr    error
 	}{
 		{
 			name:       "完整字段全部读入",
@@ -201,11 +205,9 @@ func TestPersistenceLoadFields(t *testing.T) {
 			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
 		},
 		{
-			name:       "v2 超过上限截断且 active 收敛",
-			raw:        `{"version":2,"active":99,"tabs":[` + v2TabJSON(14) + `]}`,
-			wantTexts:  nil, // 下面单独断言数量
-			wantActive: MaxTabCount - 1,
-			wantCfg:    settings{ThemeSource: "system", HideOnEscape: true},
+			name:    "v2 超过上限拒载且原件写保护",
+			raw:     `{"version":2,"active":99,"tabs":[` + v2TabJSON(14) + `]}`,
+			wantErr: notes.ErrTooManyTabs,
 		},
 	}
 	for _, tc := range cases {
@@ -214,7 +216,20 @@ func TestPersistenceLoadFields(t *testing.T) {
 			t.Cleanup(a.shutdown)
 			persistWrite(t, a.notes.DataPath(), tc.raw)
 
-			if err := a.load(); err != nil {
+			err := a.load()
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) || !a.notes.SaveBlocked() {
+					t.Fatalf("load = %v, 写保护=%v, want %v 且写保护", err, a.notes.SaveBlocked(), tc.wantErr)
+				}
+				if err := a.saveNow(); !errors.Is(err, notes.ErrSaveBlocked) {
+					t.Fatalf("超限文件应拒写: %v", err)
+				}
+				if got := string(persistReadRaw(t, a.notes.DataPath())); got != tc.raw {
+					t.Fatalf("超限原件被修改: %q", got)
+				}
+				return
+			}
+			if err != nil {
 				t.Fatalf("load 报错: %v", err)
 			}
 			if tc.wantTexts != nil {
@@ -222,8 +237,6 @@ func TestPersistenceLoadFields(t *testing.T) {
 				if !reflect.DeepEqual(got, tc.wantTexts) {
 					t.Fatalf("tabs = %q, want %q", got, tc.wantTexts)
 				}
-			} else if len(a.tabs) != MaxTabCount {
-				t.Fatalf("标签数 = %d, want 截断到 %d", len(a.tabs), MaxTabCount)
 			}
 			if a.active != tc.wantActive {
 				t.Fatalf("active = %d, want %d", a.active, tc.wantActive)
