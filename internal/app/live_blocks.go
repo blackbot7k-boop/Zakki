@@ -30,6 +30,7 @@ type liveBlock struct {
 	due      time.Time     // 令牌时刻（本地时区墙上时间）
 	hasAlert bool          // 时间组件带 ~提前量 令牌
 	alert    time.Duration // 提醒提前量；0 表示准点
+	recur    string        // 原样保留重复规则；桌面暂不消费
 }
 
 // liveBlocks 把文档按行切成块。规则（便签子集）：
@@ -59,7 +60,7 @@ func stripTimeSuffix(blk *liveBlock, text string) string {
 		return text
 	}
 	blk.hasTime, blk.due = true, token.Value.Time
-	blk.alert, blk.hasAlert = token.Value.Alert, token.Value.HasAlert
+	blk.alert, blk.hasAlert, blk.recur = token.Value.Alert, token.Value.HasAlert, token.Value.Recur
 	return strings.TrimSpace(markdown.ReplaceTimeToken(text, nil))
 }
 
@@ -246,7 +247,7 @@ func blockOfRuneOffset(blocks []liveBlock, runeOff int) (idx, blockStart int) {
 // sameBlock 比较两个块（liveBlock 含切片字段，不能直接 ==）。
 func sameBlock(a, b liveBlock) bool {
 	if a.kind != b.kind || a.start != b.start || a.end != b.end || a.raw != b.raw ||
-		a.level != b.level || a.n != b.n || a.checked != b.checked || a.text != b.text ||
+		a.level != b.level || a.n != b.n || a.checked != b.checked || a.text != b.text || a.recur != b.recur ||
 		len(a.lines) != len(b.lines) || len(a.spans) != len(b.spans) {
 		return false
 	}

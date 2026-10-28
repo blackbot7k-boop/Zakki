@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/markdown"
 	"zakki/locales"
 )
 
@@ -159,6 +160,59 @@ func TestTimePopoverUsesCompactPanelLayout(t *testing.T) {
 	inside(locales.TimePopClock())
 	inside(locales.TimePopAlert())
 	inside(locales.TimePopDone())
+}
+
+func TestTimePopoverPreservesRecurAcrossSoftWrap(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.tabs[0].Text = "正文\n续行 @" + a.now().Add(24*time.Hour).Format("2006-01-02 15:04") + " ~10m ^w@1-5 后文"
+	blocks := a.mdBlocks()
+	if len(blocks) != 1 || blocks[0].recur != "^w@1-5" {
+		t.Fatalf("重复段未识别: %+v", blocks)
+	}
+	a.openTimePopover(blocks[0])
+	a.timePop.due = a.timePop.due.Add(time.Hour)
+	a.applyTimePopover(blocks[0], &markdown.TimeSuffix{Time: a.timePop.due, Alert: a.timePop.alert, HasAlert: a.timePop.hasAlert})
+	got := a.tabs[0].Text
+	if strings.Count(got, "@") != 2 || !strings.Contains(got, "\n续行 ") || !strings.Contains(got, "^w@1-5 后文") {
+		t.Fatalf("写回软换行与重复段 = %q", got)
+	}
+}
+
+func TestTimePopoverDateChangeEnablesCompletion(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.tabs[0].Text = "交报告"
+	blk := liveBlocks(a.tabs[0].Text)[0]
+	a.openTimePopover(blk)
+	tt := ui.NewTester(func(c *ui.Context) {
+		anchor := ui.Row(c.Key("wide-anchor")).FillWidth().Height(28)
+		a.timePopover(c, anchor, blk)
+	}, 440, 600)
+	tt.SetLocale("zh-Hans")
+	var dateLabel string
+	for _, label := range tt.Texts() {
+		if strings.Contains(label, "/") {
+			dateLabel = label
+			break
+		}
+	}
+	date, ok := tt.Find(dateLabel)
+	if !ok {
+		t.Fatalf("日期字段不存在: %q", tt.Texts())
+	}
+	tt.ClickAt(date.X+date.W/2, date.Y+date.H/2)
+	tt.Key(0, ui.KeyRight)
+	tt.Key(0, ui.KeyEnter)
+	if !a.timePop.hasTime {
+		t.Fatalf("只改日期后完成仍禁用: %q", tt.Texts())
+	}
+	if err := tt.Click(locales.TimePopDone()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(a.tabs[0].Text, "@") {
+		t.Fatalf("完成后未写日期: %q", a.tabs[0].Text)
+	}
 }
 
 func TestTimePopoverClickConfirmsSeededTime(t *testing.T) {
