@@ -219,7 +219,7 @@ func segmentBoundary(text string, end int) bool {
 		return true
 	}
 	c := text[end]
-	return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '~' || c == '^')
+	return c == ' ' || c == '\t'
 }
 
 // isProtected 报告字节偏移是否落在保护区间内。

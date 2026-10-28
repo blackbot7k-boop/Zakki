@@ -34,6 +34,9 @@ func parseRule(s string) (Rule, error) {
 	body := s[1:]
 	if i := strings.IndexByte(body, '<'); i >= 0 {
 		r.End = body[i+1:]
+		if r.End == "" {
+			return r, fmt.Errorf("结束日期为空")
+		}
 		body = body[:i]
 	}
 	if i := strings.IndexByte(body, '@'); i >= 0 {
