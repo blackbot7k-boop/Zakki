@@ -34,6 +34,146 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// TimePopRecur says "Repeat"
+// in the language the app shows.
+func TimePopRecur() string { return In(i18n.Locale()).TimePopRecur() }
+
+// TimePopRecur says "Repeat"
+// in the language of msgs.
+func (msgs Messages) TimePopRecur() string {
+	return Catalog.Format(msgs.locale, "timePopRecur", nil)
+}
+
+// TimeRecurNone says "Never"
+// in the language the app shows.
+func TimeRecurNone() string { return In(i18n.Locale()).TimeRecurNone() }
+
+// TimeRecurNone says "Never"
+// in the language of msgs.
+func (msgs Messages) TimeRecurNone() string {
+	return Catalog.Format(msgs.locale, "timeRecurNone", nil)
+}
+
+// TimeRecurDaily says "Every day"
+// in the language the app shows.
+func TimeRecurDaily() string { return In(i18n.Locale()).TimeRecurDaily() }
+
+// TimeRecurDaily says "Every day"
+// in the language of msgs.
+func (msgs Messages) TimeRecurDaily() string {
+	return Catalog.Format(msgs.locale, "timeRecurDaily", nil)
+}
+
+// TimeRecurWorkdays says "Weekdays"
+// in the language the app shows.
+func TimeRecurWorkdays() string { return In(i18n.Locale()).TimeRecurWorkdays() }
+
+// TimeRecurWorkdays says "Weekdays"
+// in the language of msgs.
+func (msgs Messages) TimeRecurWorkdays() string {
+	return Catalog.Format(msgs.locale, "timeRecurWorkdays", nil)
+}
+
+// TimeRecurWeekly says "Every week"
+// in the language the app shows.
+func TimeRecurWeekly() string { return In(i18n.Locale()).TimeRecurWeekly() }
+
+// TimeRecurWeekly says "Every week"
+// in the language of msgs.
+func (msgs Messages) TimeRecurWeekly() string {
+	return Catalog.Format(msgs.locale, "timeRecurWeekly", nil)
+}
+
+// TimeRecurMonthly says "Every month"
+// in the language the app shows.
+func TimeRecurMonthly() string { return In(i18n.Locale()).TimeRecurMonthly() }
+
+// TimeRecurMonthly says "Every month"
+// in the language of msgs.
+func (msgs Messages) TimeRecurMonthly() string {
+	return Catalog.Format(msgs.locale, "timeRecurMonthly", nil)
+}
+
+// TimeRecurYearly says "Every year"
+// in the language the app shows.
+func TimeRecurYearly() string { return In(i18n.Locale()).TimeRecurYearly() }
+
+// TimeRecurYearly says "Every year"
+// in the language of msgs.
+func (msgs Messages) TimeRecurYearly() string {
+	return Catalog.Format(msgs.locale, "timeRecurYearly", nil)
+}
+
+// TimeRecurCustom says "Custom"
+// in the language the app shows.
+func TimeRecurCustom() string { return In(i18n.Locale()).TimeRecurCustom() }
+
+// TimeRecurCustom says "Custom"
+// in the language of msgs.
+func (msgs Messages) TimeRecurCustom() string {
+	return Catalog.Format(msgs.locale, "timeRecurCustom", nil)
+}
+
+// TimeRecurInterval says "Repeat interval"
+// in the language the app shows.
+func TimeRecurInterval() string { return In(i18n.Locale()).TimeRecurInterval() }
+
+// TimeRecurInterval says "Repeat interval"
+// in the language of msgs.
+func (msgs Messages) TimeRecurInterval() string {
+	return Catalog.Format(msgs.locale, "timeRecurInterval", nil)
+}
+
+// TimeRecurDays says "Days"
+// in the language the app shows.
+func TimeRecurDays() string { return In(i18n.Locale()).TimeRecurDays() }
+
+// TimeRecurDays says "Days"
+// in the language of msgs.
+func (msgs Messages) TimeRecurDays() string {
+	return Catalog.Format(msgs.locale, "timeRecurDays", nil)
+}
+
+// TimeRecurWeeks says "Weeks"
+// in the language the app shows.
+func TimeRecurWeeks() string { return In(i18n.Locale()).TimeRecurWeeks() }
+
+// TimeRecurWeeks says "Weeks"
+// in the language of msgs.
+func (msgs Messages) TimeRecurWeeks() string {
+	return Catalog.Format(msgs.locale, "timeRecurWeeks", nil)
+}
+
+// TimeRecurMonths says "Months"
+// in the language the app shows.
+func TimeRecurMonths() string { return In(i18n.Locale()).TimeRecurMonths() }
+
+// TimeRecurMonths says "Months"
+// in the language of msgs.
+func (msgs Messages) TimeRecurMonths() string {
+	return Catalog.Format(msgs.locale, "timeRecurMonths", nil)
+}
+
+// TimeRecurYears says "Years"
+// in the language the app shows.
+func TimeRecurYears() string { return In(i18n.Locale()).TimeRecurYears() }
+
+// TimeRecurYears says "Years"
+// in the language of msgs.
+func (msgs Messages) TimeRecurYears() string {
+	return Catalog.Format(msgs.locale, "timeRecurYears", nil)
+}
+
+// TimeRecurEnd says "End date"
+// in the language the app shows.
+func TimeRecurEnd() string { return In(i18n.Locale()).TimeRecurEnd() }
+
+// TimeRecurEnd says "End date"
+// in the language of msgs.
+func (msgs Messages) TimeRecurEnd() string {
+	return Catalog.Format(msgs.locale, "timeRecurEnd", nil)
+}
+
 // CommonOK says "OK"
 // in the language the app shows.
 //

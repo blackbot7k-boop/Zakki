@@ -28,6 +28,7 @@ type timePopoverState struct {
 	wheelOpen  bool
 	wheelDue   time.Time
 	wheelAccum [3]float32
+	recur      timeRecurDraft
 }
 
 // openTimePopover 用块现状播种草稿并打开弹层。无时间的块用当前时刻做
@@ -43,6 +44,7 @@ func (a *app) openTimePopover(blk liveBlock) {
 		h, m, _ := now.Clock()
 		a.timePop.due = time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, time.Local)
 	}
+	a.timePop.recur = newTimeRecurDraft(blk.recur, a.timePop.due)
 }
 
 // openTimePopoverAtCaret 为光标所在块打开时间弹层。源码模式没有 chip/编辑器锚点，
@@ -228,6 +230,7 @@ func (a *app) timePopoverContent(c *ui.Context, blk liveBlock) {
 				}
 			})
 		})
+		a.timeRecurContent(c)
 		foot := ui.Row(c.Key("time-actions")).Gap(8).FillWidth().AlignItems(ui.Center)
 		foot.Children(func() {
 			clear := ui.ButtonBase(c.Key("time-clear")).Radius(6).
@@ -248,7 +251,7 @@ func (a *app) timePopoverContent(c *ui.Context, blk liveBlock) {
 				ui.Text(c, locales.TimePopDone()).FontSize(12.5).TextColor(c.Theme().AccentText)
 			})
 			if done.Clicked() {
-				a.applyTimePopover(blk, &markdown.TimeSuffix{Time: tp.due, Alert: tp.alert, HasAlert: tp.hasAlert, Recur: blk.recur})
+				a.applyTimePopover(blk, &markdown.TimeSuffix{Time: tp.due, Alert: tp.alert, HasAlert: tp.hasAlert, Recur: tp.recur.token()})
 				tp.open = false
 				tp.wheelOpen = false
 			}
@@ -447,7 +450,7 @@ func (a *app) applyTimePopover(blk liveBlock, lt *markdown.TimeSuffix) {
 		return
 	}
 	before := a.liveSnapshot()
-	if lt != nil && lt.Recur == "" && blk.recur != "" {
+	if lt != nil && lt.Recur == "" && blk.recur != "" && a.timePop.recur.preset != "none" {
 		copy := *lt
 		copy.Recur = blk.recur
 		lt = &copy
