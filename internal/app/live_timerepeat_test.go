@@ -72,6 +72,33 @@ func TestRecurringReminderLateEligibilitySurvivesReparse(t *testing.T) {
 	expectNoReminder(t, fake, 10*time.Millisecond)
 }
 
+func TestRecurringReminderPollReplenishesWithoutWindow(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	connectFakeNotifier(a)
+	now := time.Date(2024, 6, 10, 9, 0, 0, 0, time.Local)
+	a.now = func() time.Time { return now }
+	a.tabs[0].Text = "- [ ] 每天 @2024-06-10 10:00 ~0m ^1d"
+	a.rebuildReminders()
+	now = now.AddDate(0, 0, 63)
+	for range 2 {
+		a.reconcileReminders(now)
+	}
+	a.reminders.mu.Lock()
+	defer a.reminders.mu.Unlock()
+	if len(a.reminders.timers) != 60 {
+		t.Fatalf("重复巡检累积了计时器: %d", len(a.reminders.timers))
+	}
+	if len(a.reminders.pending) != 60 {
+		t.Fatalf("巡检后的实例数=%d，期望 60", len(a.reminders.pending))
+	}
+	for _, e := range a.reminders.pending {
+		if !e.due.After(now) {
+			t.Fatalf("无窗口时巡检未续排，残留旧实例: %v", e.due)
+		}
+	}
+}
+
 func TestRecurringReminderCacheRollsWindow(t *testing.T) {
 	a := newTestApp(t)
 	t.Cleanup(a.shutdown)

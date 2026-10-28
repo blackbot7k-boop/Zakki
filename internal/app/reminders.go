@@ -56,6 +56,7 @@ type reminderScheduler struct {
 	notifier  sysnotify.Notifier
 	connected bool
 	cache     map[uint64]reminderCache
+	tabs      []reminderTab
 	pending   map[string]reminderEntry
 	delivered map[string]time.Time
 	// 首次装配严格只排未来触发，后续编辑允许未过期的新提醒立即投递。
@@ -78,7 +79,7 @@ func (a *app) connectReminders() {
 	go a.pollReminders(stop)
 }
 
-// 只在仍存活的窗口上请求主线程重新采集；没有窗口时用已有快照对账。
+// 巡检只消费最近的不可变快照，主窗口销毁后仍能补足重复实例。
 func (a *app) pollReminders(stop <-chan struct{}) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -89,7 +90,6 @@ func (a *app) pollReminders(stop <-chan struct{}) {
 		case <-ticker.C:
 			now := time.Now().Round(0)
 			a.reconcileReminders(now)
-			a.runOnMain(a.rescheduleReminders)
 		}
 	}
 }
@@ -140,24 +140,20 @@ func (a *app) reminderTabs() []reminderTab {
 }
 
 func (a *app) rescheduleReminders() {
+	tabs := a.reminderTabs()
+	clock := a.now
 	a.reminders.mu.Lock()
+	defer a.reminders.mu.Unlock()
 	if !a.reminders.connected {
-		a.reminders.mu.Unlock()
 		return
 	}
 	a.reminders.invalidateLocked()
+	a.reminders.tabs = tabs
 	gen := a.reminders.gen
-	a.reminders.mu.Unlock()
-	tabs := a.reminderTabs()
-	clock := a.now
 	// 主线程绝不解析完整文档，后台只接触复制出的字符串与 ID。
-	a.reminders.mu.Lock()
-	if gen == a.reminders.gen && a.reminders.connected {
-		a.reminders.debounce = time.AfterFunc(250*time.Millisecond, func() {
-			a.installReminderTabs(tabs, gen, clock().Round(0))
-		})
-	}
-	a.reminders.mu.Unlock()
+	a.reminders.debounce = time.AfterFunc(250*time.Millisecond, func() {
+		a.installReminderTabs(tabs, gen, clock().Round(0))
+	})
 }
 
 func (a *app) collectReminders() []reminderEntry {
@@ -232,15 +228,17 @@ func reminderDues(blk liveBlock, now time.Time) []time.Time {
 }
 
 func (a *app) rebuildReminders() {
+	tabs := a.reminderTabs()
 	a.reminders.mu.Lock()
 	if !a.reminders.connected {
 		a.reminders.mu.Unlock()
 		return
 	}
 	a.reminders.invalidateLocked()
+	a.reminders.tabs = tabs
 	gen := a.reminders.gen
 	a.reminders.mu.Unlock()
-	a.installReminderTabs(a.reminderTabs(), gen, a.now().Round(0))
+	a.installReminderTabs(tabs, gen, a.now().Round(0))
 }
 
 func (a *app) installReminderTabs(tabs []reminderTab, gen int, now time.Time) {
@@ -282,6 +280,11 @@ func (a *app) scheduleReminderSnapshot(entries []reminderEntry, gen int, now tim
 		return
 	}
 	a.reminders.debounce = nil
+	// 同代巡检也会重装；先取消上轮计时器，避免每次巡检积累重复回调。
+	for _, timer := range a.reminders.timers {
+		timer.Stop()
+	}
+	a.reminders.timers = nil
 	if a.reminders.pending == nil {
 		a.reminders.pending = make(map[string]reminderEntry)
 	}
@@ -330,6 +333,7 @@ func (a *app) reconcileReminders(now time.Time) {
 		return
 	}
 	gen := a.reminders.gen
+	tabs := a.reminders.tabs
 	var late []reminderEntry
 	for _, e := range a.reminders.pending {
 		if !e.fireAt.After(now) && !now.After(e.due.Add(time.Minute)) {
@@ -340,6 +344,7 @@ func (a *app) reconcileReminders(now time.Time) {
 	for _, e := range late {
 		a.fireReminder(e, gen)
 	}
+	a.installReminderTabs(tabs, gen, now)
 }
 
 func reminderBody(e reminderEntry) string {
