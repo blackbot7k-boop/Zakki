@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/notes"
 	"zakki/locales"
 )
 
@@ -233,7 +234,13 @@ func (a *app) scheduleSave() {
 // saveCurrent 是菜单保存入口，原生窗口中不等待磁盘 I/O。
 func (a *app) saveCurrent() {
 	snapshot, store, refresh := a.snapshotFile(), a.notes, a.storageRefresh()
-	save := func() { _ = store.SaveNow(snapshot); refresh() }
+	save := func() {
+		if err := store.SaveNow(snapshot); errors.Is(err, notes.ErrStopped) {
+			// 最终保存后到达的菜单请求不再写盘，也不阻止退出。
+			return
+		}
+		refresh()
+	}
 	if a.ready {
 		go save()
 	} else {

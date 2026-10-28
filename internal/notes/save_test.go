@@ -125,8 +125,8 @@ func TestShutdownWaitsForSlowSaveAndRejectsLaterRequests(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveNow(first); err != nil {
-		t.Fatal(err)
+	if err := s.SaveNow(first); !errors.Is(err, ErrStopped) {
+		t.Fatalf("最终保存后同步保存应返回 ErrStopped: %v", err)
 	}
 	if got := readFile(t, s.DataPath()).Tabs[0].Text; got != "final" {
 		t.Fatalf("最终保存被旧快照覆盖: %q", got)

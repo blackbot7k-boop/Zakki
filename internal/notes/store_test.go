@@ -2,6 +2,7 @@ package notes
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -110,7 +111,7 @@ func TestSaveNowAtomicAndNestedDir(t *testing.T) {
 	})
 }
 
-func TestShutdownReplacesPendingAndIgnoresLaterSaves(t *testing.T) {
+func TestShutdownReplacesPendingAndRejectsLaterSaves(t *testing.T) {
 	t.Run("最终保存落盘", func(t *testing.T) {
 		s := newTestStore(t, nil)
 		want := File{
@@ -150,7 +151,7 @@ func TestShutdownReplacesPendingAndIgnoresLaterSaves(t *testing.T) {
 		}
 	})
 
-	t.Run("退出后保存请求静默忽略", func(t *testing.T) {
+	t.Run("退出后同步保存明确拒绝", func(t *testing.T) {
 		s := newTestStore(t, nil)
 		before := File{Version: CurrentDataVersion, Tabs: defaultTabs("退出前内容"), Settings: Settings{HideOnEscape: true}}
 		if err := s.Shutdown(before); err != nil {
@@ -158,8 +159,8 @@ func TestShutdownReplacesPendingAndIgnoresLaterSaves(t *testing.T) {
 		}
 		raw := readRaw(t, s.DataPath())
 		later := File{Version: CurrentDataVersion, Tabs: defaultTabs("退出后内容"), Settings: Settings{HideOnEscape: true}}
-		if err := s.SaveNow(later); err != nil {
-			t.Fatalf("退出后 SaveNow 应静默忽略，得到错误: %v", err)
+		if err := s.SaveNow(later); !errors.Is(err, ErrStopped) {
+			t.Fatalf("退出后 SaveNow = %v, want ErrStopped", err)
 		}
 		s.ScheduleSave(later, 800*time.Millisecond, nil)
 		time.Sleep(1200 * time.Millisecond)
