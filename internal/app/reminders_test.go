@@ -170,7 +170,11 @@ func TestRebuildRemindersEditedBody(t *testing.T) {
 	a.tabs[0].Text = "- [ ] **新正文** [链接](https://example.com) @" + future + " ~10m 后缀"
 	a.rebuildReminders()
 	a.fireReminder(old, oldGen)
-	expectNoReminder(t, fake, 20*time.Millisecond)
+	select {
+	case n := <-fake.ch:
+		t.Fatalf("旧代通知不应投递: %+v", n)
+	default:
+	}
 	after := a.collectReminders()
 	if len(after) != 1 {
 		t.Fatalf("编辑后提醒数 = %d, want 1", len(after))
@@ -270,7 +274,31 @@ func TestReminderStopAndReplacementGates(t *testing.T) {
 				a.scheduleReminderSnapshot([]reminderEntry{entry}, reminderGeneration(a), a.now())
 				a.fireReminder(entry, reminderGeneration(a))
 			}
-			expectNoReminder(t, fake, 300*time.Millisecond)
+			// 等待有效防抖结束（最长 2 秒），再严格检查旧代未复活。
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				tick := time.NewTicker(5 * time.Millisecond)
+				defer tick.Stop()
+				for range tick.C {
+					a.reminders.mu.Lock()
+					pending := a.reminders.debounce != nil
+					a.reminders.mu.Unlock()
+					if !pending {
+						return
+					}
+				}
+			}()
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				t.Fatal("防抖等待超时")
+			}
+			select {
+			case n := <-fake.ch:
+				t.Fatalf("旧代通知不应投递: %+v", n)
+			default:
+			}
 			a.reminders.mu.Lock()
 			timers, pending := len(a.reminders.timers), a.reminders.debounce != nil
 			a.reminders.mu.Unlock()

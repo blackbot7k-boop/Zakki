@@ -127,6 +127,10 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			i++
 		case strings.HasPrefix(t, ">"):
 			blk := liveBlock{kind: bkQuote, start: i, end: i, raw: line}
+			body := strings.TrimSpace(strings.TrimLeft(t, "> "))
+			if n := taskPrefixLen(body); n > 0 && strings.Contains(body[:n], "[x]") {
+				blk.checked = true
+			}
 			blk.text = stripTimeSuffix(&blk, strings.TrimSpace(strings.TrimPrefix(t, ">")))
 			blk.spans = inlineSpans(blk.text)
 			out = append(out, blk)

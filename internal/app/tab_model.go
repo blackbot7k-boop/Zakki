@@ -296,6 +296,7 @@ func (a *app) renameTab(i int, name string) {
 		return
 	}
 	a.tabs[i].Name = strings.TrimSpace(name)
+	a.rescheduleReminders()
 	a.scheduleSave()
 	a.rebuildTabMenus()
 }
@@ -493,6 +494,7 @@ func (a *app) afterTabsChanged(activeChanged bool) {
 	a.mdPending, a.lastPendingCaret, a.pendingBlock = nil, 0, -1
 	a.closeLinkTool()
 	a.rebuildTabMenus()
+	a.rescheduleReminders()
 	a.scheduleSave()
 	a.refreshSettingsWindow()
 	a.withWindow(func() {})
