@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+func TestRuleSyntaxVersion(t *testing.T) {
+	if RuleSyntaxVersion != 1 {
+		t.Fatalf("版本 = %d", RuleSyntaxVersion)
+	}
+}
+
 func TestJSONRoundTrip(t *testing.T) {
 	line := "任务 @2026-10-26 09:00 ~10m ^w@1-5"
 	raw, e := SplitTimeSuffix(line)

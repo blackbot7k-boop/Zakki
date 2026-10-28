@@ -235,5 +235,5 @@ func SetLocation(name string) (out string, err error) {
 	return "", nil
 }
 
-// RuleSyntaxVersion 返回重复语法版本。
-func RuleSyntaxVersion() (out string, err error) { defer guard(&out, &err); return "1", nil }
+// RuleSyntaxVersion 是移动端可读取的重复规则语法版本。
+const RuleSyntaxVersion = core.RuleSyntaxVersion
