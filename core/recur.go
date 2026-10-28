@@ -4,19 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// Rule 是 ^ 段的解析结果。对外一律走 JSON（gomobile 绑定形状：只跨字符串与数值）。
+// Rule 是 ^ 段的解析结果。
 type Rule struct {
-	Every    int    `json:"every"`              // 间隔数，缺省 1
-	Unit     string `json:"unit"`               // d | w | mo | y
-	Weekdays []int  `json:"weekdays,omitempty"` // ISO 周几 1-7（1=周一），仅 Unit=w 且 Every=1
-	End      string `json:"end,omitempty"`      // YYYY-MM-DD，含当日，可空
+	Every    int    `json:"every"`
+	Unit     string `json:"unit"`
+	Weekdays []int  `json:"weekdays,omitempty"`
+	End      string `json:"end,omitempty"`
 }
 
-// ParseRule 解析 ^ 段文本（如 "^w@1-5"、"^3d"、"^1mo<2025-12-31"），返回 Rule 的 JSON。
+// ParseRule 严格解析重复规则。
 func ParseRule(s string) (string, error) {
 	r, err := parseRule(s)
 	if err != nil {
@@ -28,205 +29,359 @@ func ParseRule(s string) (string, error) {
 func parseRule(s string) (Rule, error) {
 	var r Rule
 	if !strings.HasPrefix(s, "^") {
-		return r, fmt.Errorf("规则须以 ^ 开头: %q", s)
+		return r, fmt.Errorf("规则须以 ^ 开头")
 	}
 	body := s[1:]
-	if i := strings.Index(body, "<"); i >= 0 { // 结束日期
-		r.End = strings.TrimSpace(body[i+1:])
-		if len(r.End) != 10 {
-			return r, fmt.Errorf("结束日期须为 YYYY-MM-DD: %q", r.End)
-		}
+	if i := strings.IndexByte(body, '<'); i >= 0 {
+		r.End = body[i+1:]
 		body = body[:i]
 	}
-	if i := strings.Index(body, "@"); i >= 0 { // 周几集
-		wd, err := parseWeekdays(body[i+1:])
+	if i := strings.IndexByte(body, '@'); i >= 0 {
+		var err error
+		r.Weekdays, err = parseWeekdays(body[i+1:])
 		if err != nil {
 			return r, err
 		}
-		r.Weekdays = wd
 		body = body[:i]
 	}
-	n := 1
-	unit := body
-	if len(body) > 0 && body[0] >= '0' && body[0] <= '9' {
-		j := 0
-		for j < len(body) && body[j] >= '0' && body[j] <= '9' {
-			j++
-		}
-		if _, err := fmt.Sscanf(body[:j], "%d", &n); err != nil || n <= 0 {
-			return r, fmt.Errorf("次数须为正整数: %q", body[:j])
-		}
-		unit = body[j:]
+	i := 0
+	for i < len(body) && body[i] >= '0' && body[i] <= '9' {
+		i++
 	}
-	switch unit {
+	r.Every = 1
+	if i > 0 {
+		if body[0] == '0' {
+			return r, fmt.Errorf("次数不可前导零")
+		}
+		n, err := strconv.Atoi(body[:i])
+		if err != nil {
+			return r, fmt.Errorf("次数非法: %w", err)
+		}
+		r.Every = n
+	}
+	r.Unit = body[i:]
+	return r, validateRule(r)
+}
+
+func parseWeekdays(s string) ([]int, error) {
+	if s == "" {
+		return nil, fmt.Errorf("周几集为空")
+	}
+	seen := [8]bool{}
+	for _, part := range strings.Split(s, ",") {
+		bounds := strings.Split(part, "-")
+		if len(bounds) > 2 {
+			return nil, fmt.Errorf("周几区间非法")
+		}
+		a, err := weekdayNumber(bounds[0])
+		if err != nil {
+			return nil, err
+		}
+		b := a
+		if len(bounds) == 2 {
+			b, err = weekdayNumber(bounds[1])
+			if err != nil {
+				return nil, err
+			}
+		}
+		if a > b {
+			return nil, fmt.Errorf("周几区间倒序")
+		}
+		for d := a; d <= b; d++ {
+			seen[d] = true
+		}
+	}
+	out := make([]int, 0, 7)
+	for d := 1; d <= 7; d++ {
+		if seen[d] {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+func weekdayNumber(s string) (int, error) {
+	if len(s) != 1 || s[0] < '1' || s[0] > '7' {
+		return 0, fmt.Errorf("周几须为 1-7: %q", s)
+	}
+	return int(s[0] - '0'), nil
+}
+
+func validateRule(r Rule) error {
+	if r.Every < 1 || r.Every > 999 {
+		return fmt.Errorf("次数须为 1..999")
+	}
+	switch r.Unit {
 	case "d", "w", "mo", "y":
-		r.Every, r.Unit = n, unit
 	default:
-		return r, fmt.Errorf("单位须为 d/w/mo/y: %q", unit)
+		return fmt.Errorf("单位须为 d/w/mo/y")
 	}
-	if len(r.Weekdays) > 0 && (r.Unit != "w" || r.Every != 1) {
-		return r, fmt.Errorf("周几集仅支持 ^w（v1）: %q", s)
+	if len(r.Weekdays) > 0 {
+		if r.Unit != "w" || r.Every != 1 {
+			return fmt.Errorf("周几集仅支持每周")
+		}
+		prev := 0
+		for _, d := range r.Weekdays {
+			if d < 1 || d > 7 || d <= prev {
+				return fmt.Errorf("周几集须升序去重 1..7")
+			}
+			prev = d
+		}
+	}
+	if r.End != "" {
+		if len(r.End) != 10 || r.End[4] != '-' || r.End[7] != '-' {
+			return fmt.Errorf("结束日期格式非法")
+		}
+		for i, c := range r.End {
+			if i == 4 || i == 7 {
+				continue
+			}
+			if c < '0' || c > '9' {
+				return fmt.Errorf("结束日期格式非法")
+			}
+		}
+		d, err := time.ParseInLocation("2006-01-02", r.End, location())
+		if err != nil || d.Format("2006-01-02") != r.End {
+			return fmt.Errorf("结束日期非法")
+		}
+	}
+	return nil
+}
+
+func decodedRule(s string) (Rule, error) {
+	var r Rule
+	if err := unmarshal(s, &r); err != nil {
+		return r, err
+	}
+	if err := validateRule(r); err != nil {
+		return r, err
 	}
 	return r, nil
 }
 
-func parseWeekdays(s string) ([]int, error) {
-	var out []int
-	seen := map[int]bool{}
-	for _, part := range strings.Split(s, ",") {
-		if i := strings.Index(part, "-"); i > 0 { // 区间 a-b
-			var a, b int
-			if _, err := fmt.Sscanf(part, "%d-%d", &a, &b); err != nil || a < 1 || b > 7 || a > b {
-				return nil, fmt.Errorf("周几区间非法: %q", part)
-			}
-			for d := a; d <= b; d++ {
-				if !seen[d] {
-					seen[d] = true
-					out = append(out, d)
-				}
-			}
-			continue
-		}
-		var d int
-		if _, err := fmt.Sscanf(part, "%d", &d); err != nil || d < 1 || d > 7 {
-			return nil, fmt.Errorf("周几须为 1-7: %q", part)
-		}
-		if !seen[d] {
-			seen[d] = true
-			out = append(out, d)
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("周几集为空: %q", s)
-	}
-	sort.Ints(out)
-	return out, nil
-}
-
-// Expand 从锚点展开未来实例：返回 [now, now+horizonDays] 内、不超过 maxCount 个的
-// 时刻（Unix 毫秒 JSON 数组，升序）。语义以 ADR-0002 为准：错过不补、月末/闰日跳过、
-// 结束日期含当日、补勾不追账由调用方（勾选改写锚点）负责。
+// Expand 返回 (now, now+horizonDays] 内至多 maxCount 个实例的 Unix 毫秒 JSON 数组。
 func Expand(ruleJSON string, anchorMs, nowMs int64, horizonDays, maxCount int) (string, error) {
-	var r Rule
-	if err := unmarshal(ruleJSON, &r); err != nil {
+	r, err := decodedRule(ruleJSON)
+	if err != nil {
 		return "", err
 	}
-	anchor := time.UnixMilli(anchorMs)
-	now := time.UnixMilli(nowMs)
-	horizon := now.AddDate(0, 0, horizonDays)
-	var endDate time.Time
-	if r.End != "" {
-		t, err := time.ParseInLocation("2006-01-02", r.End, time.Local)
-		if err != nil {
-			return "", fmt.Errorf("结束日期非法: %w", err)
-		}
-		endDate = t.AddDate(0, 0, 1).Add(-time.Nanosecond) // 含当日全天
+	if horizonDays > 3660 || maxCount > 1000 {
+		return "", fmt.Errorf("地平线或数量非法")
 	}
-	var out []int64
-	// emit 返回 false 表示序列应终止（越过结束日期或达到配额）
-	emit := func(t time.Time) bool {
-		if !endDate.IsZero() && t.After(endDate) {
-			return false
-		}
-		if t.After(now) && !t.After(horizon) {
+	out := make([]int64, 0)
+	if horizonDays <= 0 || maxCount <= 0 {
+		return marshal(out), nil
+	}
+	anchor, now := time.UnixMilli(anchorMs).In(location()), time.UnixMilli(nowMs).In(location())
+	limit := now.AddDate(0, 0, horizonDays)
+	start := now
+	if anchor.After(start) {
+		start = anchor.AddDate(0, 0, -1)
+	}
+	scanDays(r, anchor, start, limit, func(t time.Time) bool {
+		if t.After(now) {
 			out = append(out, t.UnixMilli())
 		}
 		return len(out) < maxCount
-	}
-	clock := func(day time.Time) time.Time {
-		return time.Date(day.Year(), day.Month(), day.Day(), anchor.Hour(), anchor.Minute(), 0, 0, time.Local)
-	}
-	cont := true
-	switch {
-	case r.Unit == "d":
-		for t := anchor; cont; t = t.AddDate(0, 0, r.Every) {
-			if t.After(horizon) {
-				break
-			}
-			cont = emit(t)
-		}
-	case r.Unit == "w" && len(r.Weekdays) > 0: // 周几集（Every=1）
-		anchorDay := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local)
-		weekStart := anchorDay.AddDate(0, 0, -(int(anchorDay.Weekday())+6)%7) // 锚点 ISO 周的周一
-		for ws := weekStart; cont; ws = ws.AddDate(0, 0, 7) {
-			for _, wd := range r.Weekdays {
-				day := ws.AddDate(0, 0, wd-1)
-				if day.Before(anchorDay) {
-					continue
-				}
-				if day.After(horizon) {
-					return finish(out)
-				}
-				if cont = emit(clock(day)); !cont {
-					return finish(out)
-				}
-			}
-		}
-		return finish(out)
-	case r.Unit == "w":
-		for t := anchor; cont; t = t.AddDate(0, 0, 7*r.Every) {
-			if t.After(horizon) {
-				break
-			}
-			cont = emit(t)
-		}
-	case r.Unit == "mo":
-		for k, y, m := 0, anchor.Year(), anchor.Month(); ; {
-			if k%r.Every == 0 {
-				t, ok := monthDay(y, m, anchor.Day(), anchor)
-				if ok {
-					if t.After(horizon) {
-						break
-					}
-					if cont = emit(t); !cont {
-						break
-					}
-				}
-			}
-			k++
-			y, m = stepMonth(y, m, 1)
-		}
-	case r.Unit == "y":
-		for k, y := 0, anchor.Year(); ; {
-			if k%r.Every == 0 {
-				t, ok := monthDay(y, anchor.Month(), anchor.Day(), anchor)
-				if ok {
-					if t.After(horizon) {
-						break
-					}
-					if cont = emit(t); !cont {
-						break
-					}
-				}
-			}
-			k++
-			y++
-		}
-	default:
-		return "", fmt.Errorf("未知规则: %+v", r)
-	}
-	return finish(out)
+	})
+	return marshal(out), nil
 }
 
-func finish(out []int64) (string, error) { return marshal(out), nil }
+// Occurrence 返回当前实例（不晚于 now 的最近一个；若尚未开始则取首个）。
+func Occurrence(ruleJSON string, anchorMs, nowMs int64) (string, error) {
+	r, err := decodedRule(ruleJSON)
+	if err != nil {
+		return "", err
+	}
+	anchor, now := time.UnixMilli(anchorMs).In(location()), time.UnixMilli(nowMs).In(location())
+	if r.End != "" {
+		end, _ := time.ParseInLocation("2006-01-02", r.End, location())
+		end = end.AddDate(0, 0, 1).Add(-time.Nanosecond)
+		if now.After(end) {
+			now = end
+		}
+	}
+	if current, ok := nearestOccurrence(r, anchor, now, false); ok {
+		return marshal(occurrence{DueMs: current.UnixMilli()}), nil
+	}
+	if first, ok := nearestOccurrence(r, anchor, anchor.Add(-time.Nanosecond), true); ok {
+		return marshal(occurrence{DueMs: first.UnixMilli()}), nil
+	}
+	return marshal(occurrence{Ended: true}), nil
+}
 
-// monthDay 构造 y-m-d 保持锚点钟点的时刻；日期不存在（月末/闰日跳过语义）返回 ok=false。
-func monthDay(y int, m time.Month, d int, anchor time.Time) (time.Time, bool) {
-	first := time.Date(y, m, 1, 0, 0, 0, 0, time.Local)
-	if d > first.AddDate(0, 1, -1).Day() {
+// Advance 返回当前实例之后的首次实例；序列终止时 ended 为 true。
+func Advance(ruleJSON string, anchorMs, nowMs int64) (string, error) {
+	r, err := decodedRule(ruleJSON)
+	if err != nil {
+		return "", err
+	}
+	currentJSON, err := Occurrence(ruleJSON, anchorMs, nowMs)
+	if err != nil {
+		return "", err
+	}
+	var current occurrence
+	_ = unmarshal(currentJSON, &current)
+	if current.Ended {
+		return currentJSON, nil
+	}
+	anchor := time.UnixMilli(anchorMs).In(location())
+	after := time.UnixMilli(current.DueMs).In(location())
+	if next, ok := nearestOccurrence(r, anchor, after, true); ok {
+		return marshal(occurrence{DueMs: next.UnixMilli()}), nil
+	}
+	return marshal(occurrence{Ended: true}), nil
+}
+
+type occurrence struct {
+	DueMs int64 `json:"dueMs"`
+	Ended bool  `json:"ended"`
+}
+
+func firstOccurrence(r Rule, anchor time.Time) (time.Time, bool) {
+	limit := anchor.AddDate(0, 0, 3660)
+	var first time.Time
+	scanDays(r, anchor, anchor.AddDate(0, 0, -1), limit, func(t time.Time) bool { first = t; return false })
+	return first, !first.IsZero()
+}
+
+// scanDays 以有限日历窗口扫描，月份/年份的间隔由月份/年份差直接判定，不按锚点年龄迭代。
+func scanDays(r Rule, anchor, start, limit time.Time, emit func(time.Time) bool) {
+	loc := location()
+	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, loc)
+	anchorDay := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, loc)
+	var endDay time.Time
+	if r.End != "" {
+		endDay, _ = time.ParseInLocation("2006-01-02", r.End, loc)
+	}
+	for !day.After(limit) {
+		if !day.Before(anchorDay) && (endDay.IsZero() || !day.After(endDay)) && matchesDay(r, anchorDay, day) {
+			t := time.Date(day.Year(), day.Month(), day.Day(), anchor.Hour(), anchor.Minute(), 0, 0, loc)
+			// 不存在的墙上钟点不产生实例。
+			if t.Year() == day.Year() && t.Month() == day.Month() && t.Day() == day.Day() && t.Hour() == anchor.Hour() && t.Minute() == anchor.Minute() && !t.Before(anchor) && !t.Before(start) && !t.After(limit) {
+				if !emit(t) {
+					return
+				}
+			}
+		}
+		if !endDay.IsZero() && day.After(endDay) {
+			return
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+}
+
+func matchesDay(r Rule, anchor, day time.Time) bool {
+	switch r.Unit {
+	case "d":
+		return day.Sub(anchor).Hours()/24 >= 0 && calendarDays(anchor, day)%r.Every == 0
+	case "w":
+		if len(r.Weekdays) > 0 {
+			wd := int(day.Weekday())
+			if wd == 0 {
+				wd = 7
+			}
+			return sort.SearchInts(r.Weekdays, wd) < len(r.Weekdays) && r.Weekdays[sort.SearchInts(r.Weekdays, wd)] == wd
+		}
+		return calendarDays(anchor, day)%(7*r.Every) == 0
+	case "mo":
+		return day.Day() == anchor.Day() && ((day.Year()-anchor.Year())*12+int(day.Month()-anchor.Month()))%r.Every == 0
+	case "y":
+		return day.Month() == anchor.Month() && day.Day() == anchor.Day() && (day.Year()-anchor.Year())%r.Every == 0
+	}
+	return false
+}
+func calendarDays(a, b time.Time) int {
+	ordinal := func(t time.Time) int { y := t.Year() - 1; return 365*y + y/4 - y/100 + y/400 + t.YearDay() }
+	return ordinal(b) - ordinal(a)
+}
+
+// nearestOccurrence 按周期直接定位，不沿锚点到现在逐日推进。
+func nearestOccurrence(r Rule, anchor, ref time.Time, forward bool) (time.Time, bool) {
+	loc := location()
+	anchorDay := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, loc)
+	refDay := time.Date(ref.Year(), ref.Month(), ref.Day(), 0, 0, 0, 0, loc)
+	if len(r.Weekdays) > 0 {
+		start := refDay
+		if forward {
+			start = start.AddDate(0, 0, -1)
+		}
+		for i := 0; i < 8; i++ {
+			day := start
+			if forward {
+				day = day.AddDate(0, 0, i+1)
+			} else {
+				day = day.AddDate(0, 0, -i)
+			}
+			if t, ok := candidate(r, anchor, day, ref, forward); ok {
+				return t, true
+			}
+		}
 		return time.Time{}, false
 	}
-	return time.Date(y, m, d, anchor.Hour(), anchor.Minute(), 0, 0, time.Local), true
+	var diff int
+	switch r.Unit {
+	case "d":
+		diff = calendarDays(anchorDay, refDay) / r.Every
+	case "w":
+		diff = calendarDays(anchorDay, refDay) / (7 * r.Every)
+	case "mo":
+		diff = ((ref.Year()-anchor.Year())*12 + int(ref.Month()-anchor.Month())) / r.Every
+	case "y":
+		diff = (ref.Year() - anchor.Year()) / r.Every
+	}
+	if diff < 0 {
+		diff = 0
+	}
+	// 月末和闰日最多按 400 年公历周期寻找；较大间隔也仅遍历周期候选。
+	for step := 0; step < 402; step++ {
+		k := diff
+		if forward {
+			k += step
+		} else {
+			k -= step
+		}
+		if k < 0 {
+			if forward {
+				continue
+			}
+			break
+		}
+		var day time.Time
+		switch r.Unit {
+		case "d":
+			day = anchorDay.AddDate(0, 0, k*r.Every)
+		case "w":
+			day = anchorDay.AddDate(0, 0, k*7*r.Every)
+		case "mo":
+			day = anchorDay.AddDate(0, k*r.Every, 0)
+		case "y":
+			day = anchorDay.AddDate(k*r.Every, 0, 0)
+		}
+		if day.Day() != anchor.Day() || day.Month() != anchor.Month() && r.Unit == "y" {
+			continue
+		}
+		if t, ok := candidate(r, anchor, day, ref, forward); ok {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
-
-func stepMonth(y int, m time.Month, n int) (int, time.Month) {
-	total := int(m) - 1 + n
-	return y + total/12, time.Month(total%12 + 1)
+func candidate(r Rule, anchor, day, ref time.Time, forward bool) (time.Time, bool) {
+	t := time.Date(day.Year(), day.Month(), day.Day(), anchor.Hour(), anchor.Minute(), 0, 0, location())
+	if t.Year() != day.Year() || t.Month() != day.Month() || t.Day() != day.Day() || t.Hour() != anchor.Hour() || t.Minute() != anchor.Minute() || t.Before(anchor) {
+		return time.Time{}, false
+	}
+	if forward && !t.After(ref) || !forward && t.After(ref) {
+		return time.Time{}, false
+	}
+	if r.End != "" && day.Format("2006-01-02") > r.End {
+		return time.Time{}, false
+	}
+	if len(r.Weekdays) > 0 && !matchesDay(r, anchor, day) {
+		return time.Time{}, false
+	}
+	return t, true
 }
-
-func marshal(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
+func marshal(v any) string            { b, _ := json.Marshal(v); return string(b) }
 func unmarshal(s string, v any) error { return json.Unmarshal([]byte(s), v) }

@@ -20,6 +20,34 @@ func TestFindTimeTokenProtectedSpans(t *testing.T) {
 	}
 }
 
+func TestRecurrenceDelegation(t *testing.T) {
+	rule, err := ParseRule("^1d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor := time.Date(2026, 11, 1, 10, 0, 0, 0, time.Local).UnixMilli()
+	current, err := Occurrence(rule, anchor, anchor)
+	if err != nil || !strings.Contains(current, `"dueMs":`) {
+		t.Fatalf("%s %v", current, err)
+	}
+	next, err := Advance(rule, anchor, anchor)
+	if err != nil || !strings.Contains(next, `"dueMs":`) {
+		t.Fatalf("%s %v", next, err)
+	}
+	upcoming, err := Expand(rule, anchor, anchor, 2, 2)
+	if err != nil || !strings.HasPrefix(upcoming, "[") {
+		t.Fatalf("%s %v", upcoming, err)
+	}
+}
+
+func TestProtectedUnicodeByteConversion(t *testing.T) {
+	text := "中文 `@2026-11-01 10:00` @2026-11-02 11:00"
+	token, ok := FindTimeToken(text)
+	if !ok || text[token.Start:token.End] != "@2026-11-02 11:00" {
+		t.Fatalf("%+v %v", token, ok)
+	}
+}
+
 func TestReplaceTimeTokenPreservesRecur(t *testing.T) {
 	// 移动端写入的 ^ 重复段，桌面原位更新时刻时必须原样保留
 	raw := "任务 @2026-11-01 10:00 ^w@1-5 备注"

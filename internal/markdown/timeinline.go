@@ -1,6 +1,9 @@
 package markdown
 
-import "zakki/core"
+import (
+	"unicode/utf8"
+	"zakki/core"
+)
 
 // 行内时间令牌的语义实现在共享内核 zakki/core；本文件只保留桌面的调用面，
 // 并把本包的行内扫描（inlineSpans）换算成 core 认识的抽象保护区——
@@ -21,12 +24,19 @@ func ReplaceTimeToken(text string, value *TimeSuffix) string {
 	return core.ReplaceTimeTokenEx(text, value, protectedSpans(text))
 }
 
-// protectedSpans 把行内代码与链接的 rune 区间交给 core 排除。
+// protectedSpans 把行内代码与链接的 rune 区间转换成 core 的字节区间。
 func protectedSpans(text string) [][2]int {
+	offsets := make([]int, 0, utf8.RuneCountInString(text)+1)
+	for i := range text {
+		if utf8.RuneStart(text[i]) {
+			offsets = append(offsets, i)
+		}
+	}
+	offsets = append(offsets, len(text))
 	var out [][2]int
 	for _, sp := range inlineSpans(text) {
 		if sp.Kind == spanCode || sp.Kind == spanLink {
-			out = append(out, [2]int{sp.Start, sp.End})
+			out = append(out, [2]int{offsets[sp.Start], offsets[sp.End]})
 		}
 	}
 	return out

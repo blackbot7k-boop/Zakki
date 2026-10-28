@@ -112,7 +112,6 @@ func TestJoinTimeSuffix(t *testing.T) {
 		{"清除时间", "买牛奶 ", nil, "买牛奶"},
 		{"正文带前缀原样保留", "- [ ] 交报告", &TimeSuffix{Time: base, Alert: time.Hour, HasAlert: true}, "- [ ] 交报告 @2026-10-25 10:00 ~1h"},
 		{"重复规则写回", "健身", &TimeSuffix{Time: base, Recur: "^w@1-5"}, "健身 @2026-10-25 10:00 ^w@1-5"},
-		{"非法重复不写回", "健身", &TimeSuffix{Time: base, Recur: "^hello"}, "健身 @2026-10-25 10:00"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -130,10 +129,9 @@ func TestFindTimeTokenRecur(t *testing.T) {
 	if !ok || token.Value.Recur != "^w@1-5" || src[token.Start:token.End] != "@2026-10-26 09:00 ^w@1-5" {
 		t.Fatalf("^ 段应纳入令牌: %+v ok=%v", token, ok)
 	}
-	// 非法 ^ 宽松忽略：令牌仍成立，段保持普通文本
-	token, ok = FindTimeToken("任务 @2026-10-26 09:00 ^hello")
-	if !ok || token.Value.Recur != "" || token.End != token.Start+timeTokenLen {
-		t.Fatalf("非法 ^ 应忽略且令牌仍成立: %+v ok=%v", token, ok)
+	// 非法 ^ 不能退化为一次性提醒。
+	if token, ok = FindTimeToken("任务 @2026-10-26 09:00 ^hello"); ok {
+		t.Fatalf("非法 ^ 应禁用整簇: %+v", token)
 	}
 	// 更新时刻时保留 ^ 段
 	const raw = "任务 @2026-10-26 09:00 ^w@1-5 备注"
@@ -145,6 +143,30 @@ func TestFindTimeTokenRecur(t *testing.T) {
 	// 保护区内的 @ 不识别
 	if _, ok := FindTimeTokenEx("`@2026-10-26 09:00`", [][2]int{{0, 18}}); ok {
 		t.Fatal("保护区内的 @ 不应识别")
+	}
+}
+
+func TestTokenInvalidClustersAndOrder(t *testing.T) {
+	for _, bad := range []string{"~10min", "~1hour", "~1h30m", "~0m5", "^hello", "^w@1-5x"} {
+		text := "x @2026-10-25 10:00 " + bad + " @2026-10-26 10:00"
+		tok, ok := FindTimeToken(text)
+		if !ok || text[tok.Start:tok.End] != "@2026-10-26 10:00" {
+			t.Errorf("%s: %+v %v", bad, tok, ok)
+		}
+	}
+	raw := "x @2026-10-25 10:00 ^1d ~10m"
+	body, lt := SplitTimeSuffix(raw)
+	if lt == nil || body != "x " || lt.Recur != "^1d" || lt.Alert != 10*time.Minute {
+		t.Fatalf("%q %+v", body, lt)
+	}
+	if got := JoinTimeSuffix(body, lt); got != "x @2026-10-25 10:00 ~10m ^1d" {
+		t.Fatalf("%q", got)
+	}
+	if got := ReplaceTimeToken(raw, nil); got != "x" {
+		t.Fatalf("%q", got)
+	}
+	if _, ok := FindTimeToken("x @2026-10-25 10:00 ^ "); !ok {
+		t.Fatal("^ 后空白应为普通文本")
 	}
 }
 

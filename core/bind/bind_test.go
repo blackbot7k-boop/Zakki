@@ -1,4 +1,4 @@
-package bind
+package zakkicore
 
 import (
 	"strings"
@@ -6,68 +6,74 @@ import (
 	"time"
 )
 
-// JSON 边界的往返抽查：解析 → 改写 → 再解析，语义须与 core 的 Go API 一致。
-func TestTokenJSONRoundTrip(t *testing.T) {
-	line := "任务 @2026-10-26 09:00 ~10m ^w@1-5 备注"
-	info, err := ParseTimeToken(line)
-	if err != nil {
-		t.Fatal(err)
+func TestJSONRoundTrip(t *testing.T) {
+	line := "任务 @2026-10-26 09:00 ~10m ^w@1-5"
+	raw, e := SplitTimeSuffix(line)
+	if e != nil || !strings.Contains(raw, `"alertMs":600000`) {
+		t.Fatalf("%s %v", raw, e)
 	}
-	if !strings.Contains(info, `"alertMs":600000`) || !strings.Contains(info, `"recur":"^w@1-5"`) {
-		t.Fatalf("ParseTimeToken 信息不全: %s", info)
+	joined, e := JoinTimeSuffix("任务", `{"due":"2026-10-26 09:00","dueMs":1,"alertMs":600000,"hasAlert":true,"recur":"^w@1-5"}`)
+	if e != nil || joined != line {
+		t.Fatalf("%s %v", joined, e)
 	}
-	// 从解析结果构造改写（完成推进：时刻改到下一次，保留提醒与重复）
-	next := `{"due":"2026-11-02 09:00","alertMs":600000,"hasAlert":true,"recur":"^w@1-5"}`
-	got, err := ReplaceTimeTokenJSON(line, next)
-	if err != nil {
-		t.Fatal(err)
+	v, e := FindTimeToken(line, "null")
+	if e != nil || !strings.Contains(v, `"found":true`) {
+		t.Fatalf("%s %v", v, e)
 	}
-	if want := "任务 @2026-11-02 09:00 ~10m ^w@1-5 备注"; got != want {
-		t.Fatalf("got %q want %q", got, want)
+	replaced, e := ReplaceTimeToken(line, "null", "null")
+	if e != nil || replaced != "任务" {
+		t.Fatalf("%q %v", replaced, e)
 	}
-	// 再解析应与新时刻一致
-	info2, err := ParseTimeToken(got)
-	if err != nil || !strings.Contains(info2, `"due":"2026-11-02 09:00"`) {
-		t.Fatalf("改写后解析不一致: %s (%v)", info2, err)
+}
+func TestBoundaries(t *testing.T) {
+	line := "😀中 `@2026-10-26 09:00` @2026-10-27 09:00"
+	v, e := FindTimeToken(line, `[[4,23]]`)
+	if e != nil || !strings.Contains(v, `"start":24`) {
+		t.Fatalf("%s %v", v, e)
+	}
+	for _, v := range []string{`{"due":"2026-10-26 09:00","alertMs":7000,"hasAlert":true}`, `{"due":"2026-10-26 09:00","alertMs":10}`, `{"due":"2026-10-26 09:00","recur":"^hello"}`} {
+		if _, e := JoinTimeSuffix("x", v); e == nil {
+			t.Fatalf("应拒绝 %s", v)
+		}
+	}
+	if _, e := FindTimeToken(line, `[[1,2]]`); e == nil || !strings.HasPrefix(e.Error(), "invalid_offset:") {
+		t.Fatalf("%v", e)
+	}
+}
+func TestErrorCodesAndPanic(t *testing.T) {
+	for _, tc := range []struct {
+		code string
+		call func() (string, error)
+	}{
+		{"invalid_json", func() (string, error) { return FindTimeToken("x", "[") }},
+		{"invalid_due", func() (string, error) { return JoinTimeSuffix("x", `{"due":"2026-02-30 09:00"}`) }},
+		{"invalid_alert", func() (string, error) {
+			return JoinTimeSuffix("x", `{"due":"2026-10-26 09:00","hasAlert":true,"alertMs":7000}`)
+		}},
+		{"invalid_recur", func() (string, error) { return JoinTimeSuffix("x", `{"due":"2026-10-26 09:00","recur":"^hello"}`) }},
+		{"invalid_rule", func() (string, error) { return ParseRule("^0d") }},
+		{"invalid_args", func() (string, error) { return Expand(`{"every":1,"unit":"d"}`, 0, 0, 3661, 1) }},
+		{"invalid_offset", func() (string, error) { return FindTimeToken("😀", `[[1,2]]`) }},
+	} {
+		_, e := tc.call()
+		if e == nil || !strings.HasPrefix(e.Error(), tc.code+":") {
+			t.Errorf("%s: %v", tc.code, e)
+		}
+	}
+	f := func() (out string, err error) { defer guard(&out, &err); panic("trap") }
+	if _, e := f(); e == nil || !strings.HasPrefix(e.Error(), "internal:") {
+		t.Fatalf("panic: %v", e)
 	}
 }
 
-func TestSuffixJSONNullAndClear(t *testing.T) {
-	out, err := SplitTimeSuffixJSON("没有令牌")
-	if err != nil {
-		t.Fatal(err)
+func TestExpandBoundary(t *testing.T) {
+	r, e := ParseRule("^1d")
+	if e != nil {
+		t.Fatal(e)
 	}
-	if out != `{"text":"没有令牌","suffix":null}` {
-		t.Fatalf("got %s", out)
-	}
-	cleared, err := JoinTimeSuffixJSON("买牛奶 ", "")
-	if err != nil || cleared != "买牛奶" {
-		t.Fatalf("got %q (%v)", cleared, err)
-	}
-}
-
-// Expand 与非重复令牌的写回：准点档位与非法重复的边界。
-func TestExpandAndEdgeCases(t *testing.T) {
-	rule, err := ParseRule("^1d")
-	if err != nil {
-		t.Fatal(err)
-	}
-	anchor := time.Date(2026, 1, 1, 9, 0, 0, 0, time.Local).UnixMilli()
-	now := anchor
-	got, err := Expand(rule, anchor, now, 30, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(got, "[") {
-		t.Fatalf("Expand 应返回数组 JSON: %s", got)
-	}
-	// 非法重复经 JSON 边界写回时按 core 语义宽松降级（去掉段、不报错）——
-	// 与桌面 JoinTimeSuffix 的白名单哲学一致；校验错误只在 ParseRule 层报。
-	got2, err := ReplaceTimeTokenJSON("x @2026-01-01 09:00", `{"due":"2026-01-02 09:00","recur":"^hello"}`)
-	if err != nil || got2 != "x @2026-01-02 09:00" {
-		t.Fatalf("非法 ^ 应宽松降级: %q (%v)", got2, err)
-	}
-	if _, err := ParseRule("^hello"); err == nil {
-		t.Fatal("ParseRule 对非法规则应报错")
+	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.Local).UnixMilli()
+	v, e := Expand(r, now, now, 30, 0)
+	if e != nil || v != "[]" {
+		t.Fatalf("%s %v", v, e)
 	}
 }
