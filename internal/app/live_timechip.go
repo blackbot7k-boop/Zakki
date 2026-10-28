@@ -4,9 +4,11 @@ package app
 // 点击编辑入口在 timepopover。状态语义见 GLOSSARY：只有未完成任务行会过期。
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
+	"zakki/internal/markdown"
 	"zakki/locales"
 )
 
@@ -25,6 +27,15 @@ func timeChipStateFor(blk liveBlock, now time.Time) timeChipState {
 	if !blk.hasTime {
 		return chipFuture
 	}
+	if due, ended, ok := recurringOccurrence(blk, now); ok {
+		if ended || blk.checked || !sameWallDay(due, now) && due.Before(now) {
+			return chipNeutral
+		}
+		if sameWallDay(due, now) {
+			return chipToday
+		}
+		return chipFuture
+	}
 	if blk.kind == bkTask && blk.checked {
 		return chipNeutral
 	}
@@ -38,6 +49,41 @@ func timeChipStateFor(blk liveBlock, now time.Time) timeChipState {
 		return chipToday
 	}
 	return chipFuture
+}
+
+type timeOccurrence struct {
+	DueMs int64 `json:"dueMs"`
+	Ended bool  `json:"ended"`
+}
+
+func recurringOccurrence(blk liveBlock, now time.Time) (time.Time, bool, bool) {
+	if blk.kind != bkTask || !blk.hasTime || blk.recur == "" {
+		return blk.due, false, false
+	}
+	rule, err := markdown.ParseRule(blk.recur)
+	if err != nil {
+		return blk.due, false, false
+	}
+	value, err := markdown.Occurrence(rule, blk.due.UnixMilli(), now.UnixMilli())
+	var current timeOccurrence
+	if err != nil || json.Unmarshal([]byte(value), &current) != nil {
+		return blk.due, false, false
+	}
+	if current.Ended {
+		return blk.due, true, true
+	}
+	return time.UnixMilli(current.DueMs).In(blk.due.Location()), false, true
+}
+
+func timeBlockLabel(blk liveBlock, now time.Time) string {
+	due := blk.due
+	if current, ended, ok := recurringOccurrence(blk, now); ok && !ended {
+		due = current
+		if !blk.checked && sameWallDay(due, now) {
+			return locales.TimeChipToday(due.Format("15:04"))
+		}
+	}
+	return timeChipLabel(now, due, blk.kind == bkTask && blk.checked)
 }
 
 func sameWallDay(a, b time.Time) bool {

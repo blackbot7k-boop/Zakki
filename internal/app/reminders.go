@@ -4,6 +4,7 @@ package app
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"zakki/internal/markdown"
 	"zakki/internal/sysnotify"
 )
 
@@ -41,8 +43,8 @@ func reminderOccurrenceOf(e reminderEntry) reminderOccurrence {
 }
 
 type reminderCache struct {
-	text    string
-	entries []reminderEntry
+	text   string
+	blocks []liveBlock
 }
 
 type reminderScheduler struct {
@@ -171,17 +173,60 @@ func collectReminderTabs(tabs []reminderTab, now time.Time) []reminderEntry {
 }
 
 func collectReminderTab(tab reminderTab, now time.Time) []reminderEntry {
+	return collectReminderBlocks(tab, liveBlocks(tab.text), now)
+}
+
+func collectReminderBlocks(tab reminderTab, blocks []liveBlock, now time.Time) []reminderEntry {
 	var out []reminderEntry
-	for _, blk := range liveBlocks(tab.text) {
-		if !blk.hasTime || !blk.hasAlert || blk.checked || now.After(blk.due.Add(time.Minute)) {
+	for _, blk := range blocks {
+		if !blk.hasTime || !blk.hasAlert || blk.checked {
 			continue
 		}
-		fireAt := blk.due.Add(-blk.alert)
 		text := projectRegion(blk.text, 0, utf8.RuneCountInString(blk.text), true, false).text
-		out = append(out, reminderEntry{
-			tabID: tab.id, line: blk.start, title: tab.title,
-			text: strings.Join(strings.Fields(text), " "), due: blk.due, alert: blk.alert, fireAt: fireAt,
-		})
+		for _, due := range reminderDues(blk, now) {
+			if now.After(due.Add(time.Minute)) {
+				continue
+			}
+			out = append(out, reminderEntry{
+				tabID: tab.id, line: blk.start, title: tab.title,
+				text: strings.Join(strings.Fields(text), " "), due: due, alert: blk.alert, fireAt: due.Add(-blk.alert),
+			})
+		}
+	}
+	return out
+}
+
+// reminderDues 每次以墙钟重展未来窗口；额外保留一分钟内的过去实例，
+// 是否允许补投仍由调度器的本会话排定资格决定。
+func reminderDues(blk liveBlock, now time.Time) []time.Time {
+	if blk.recur == "" {
+		return []time.Time{blk.due}
+	}
+	rule, err := markdown.ParseRule(blk.recur)
+	if err != nil {
+		return []time.Time{blk.due}
+	}
+	value, err := markdown.Expand(rule, blk.due.UnixMilli(), now.UnixMilli(), 60, 64)
+	var millis []int64
+	if err != nil || json.Unmarshal([]byte(value), &millis) != nil {
+		return nil
+	}
+	out := make([]time.Time, 0, len(millis)+1)
+	// Expand 的左端开区间不能承载已排条目的迟到资格。
+	past, err := markdown.Expand(rule, blk.due.UnixMilli(), now.Add(-time.Minute-time.Millisecond).UnixMilli(), 1, 64)
+	var recent []int64
+	if err == nil && json.Unmarshal([]byte(past), &recent) == nil {
+		for _, ms := range recent {
+			if ms <= now.UnixMilli() {
+				out = append(out, time.UnixMilli(ms).In(blk.due.Location()))
+			}
+		}
+	}
+	for _, ms := range millis {
+		if len(out) == 64 {
+			break
+		}
+		out = append(out, time.UnixMilli(ms).In(blk.due.Location()))
 	}
 	return out
 }
@@ -211,9 +256,9 @@ func (a *app) installReminderTabs(tabs []reminderTab, gen int, now time.Time) {
 	for _, tab := range tabs {
 		cached, ok := cache[tab.id]
 		if !ok || cached.text != tab.text {
-			cached = reminderCache{text: tab.text, entries: collectReminderTab(tab, now)}
+			cached = reminderCache{text: tab.text, blocks: liveBlocks(tab.text)}
 		}
-		for _, e := range cached.entries {
+		for _, e := range collectReminderBlocks(tab, cached.blocks, now) {
 			e.title = tab.title
 			entries = append(entries, e)
 		}
