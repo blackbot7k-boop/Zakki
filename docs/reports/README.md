@@ -5,6 +5,7 @@
 
 | 报告 | 说明 |
 |---|---|
+| [2026-10-28-review-remediation-verification.md](2026-10-28-review-remediation-verification.md) | 评审整改的实现范围、自动化验证及原生复测缺口 |
 | [2026-10-28-reminders-mobile-review.md](2026-10-28-reminders-mobile-review.md) | 桌面提醒、共享内核 core、移动端规划与测试覆盖的全面审查发现 |
 | [2026-10-22-review-remediation.md](2026-10-22-review-remediation.md) | 本轮 19 项代码审查问题的修复、回归证据与验证范围 |
 | [2026-10-18-performance-review.md](2026-10-18-performance-review.md) | 窗口唤起、编辑/预览/撤销优化与剩余瓶颈 |
