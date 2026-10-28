@@ -3,6 +3,7 @@ package notes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -151,6 +152,20 @@ func (s *Store) startGit(gen uint64) {
 
 var errGitObsolete = errors.New("Git 任务已过期")
 
+// ErrPushRejected 表示远端拒绝了当前分支历史，不能靠自动重试解决。
+var ErrPushRejected = errors.New("Git 推送被远端拒绝")
+
+func pushError(out string, err error) error {
+	if err == nil {
+		return nil
+	}
+	message := strings.ToLower(out + "\n" + err.Error())
+	if strings.Contains(message, "[rejected]") || strings.Contains(message, "non-fast-forward") || strings.Contains(message, "fetch first") {
+		return fmt.Errorf("%w：远端有本地未包含的提交；请先手动检查远端变更并同步、解决冲突后再推送（不会自动拉取或强推）：%w", ErrPushRejected, err)
+	}
+	return err
+}
+
 func (s *Store) gitValidLocked(gen uint64) bool {
 	return gen == s.gitGen && !s.closed && !s.saveBlocked && !s.invalid
 }
@@ -208,7 +223,8 @@ func (s *Store) gitStep(ctx context.Context, gen uint64, path string, commit, pu
 	}
 	pushed := false
 	if err == nil && push {
-		_, err = runner(root, "push")
+		out, pushErr := runner(root, "push")
+		err = pushError(out, pushErr)
 		pushed = err == nil
 	}
 	s.publishGit(gen, root, committed, pushed, err)

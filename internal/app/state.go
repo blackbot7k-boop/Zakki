@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/notes"
 	"zakki/locales"
 )
 
@@ -99,6 +100,7 @@ func (a *app) load() error {
 	if !exists {
 		a.initDefaults()
 		a.notes.SetSaveBlocked(false)
+		a.rescheduleReminders()
 		return nil
 	}
 	a.applySavedFile(f)
@@ -108,6 +110,7 @@ func (a *app) load() error {
 	a.resyncLive(0)
 	a.notes.SetSaveBlocked(false)
 	a.notice = ""
+	a.rescheduleReminders()
 	return nil
 }
 
@@ -143,6 +146,7 @@ func (a *app) applySavedFile(f savedFile) {
 		f.Settings.TabDotShape = ""
 	}
 	a.cfg.TabDotShape = f.Settings.TabDotShape
+	a.rescheduleReminders()
 }
 
 // welcomeTextFor 按初始标签数生成标签 1 的欢迎文本；提示段落来自 catalog。
@@ -230,7 +234,13 @@ func (a *app) scheduleSave() {
 // saveCurrent 是菜单保存入口，原生窗口中不等待磁盘 I/O。
 func (a *app) saveCurrent() {
 	snapshot, store, refresh := a.snapshotFile(), a.notes, a.storageRefresh()
-	save := func() { _ = store.SaveNow(snapshot); refresh() }
+	save := func() {
+		if err := store.SaveNow(snapshot); errors.Is(err, notes.ErrStopped) {
+			// 最终保存后到达的菜单请求不再写盘，也不阻止退出。
+			return
+		}
+		refresh()
+	}
 	if a.ready {
 		go save()
 	} else {
@@ -259,7 +269,12 @@ func (a *app) shutdown() {
 	}
 }
 
-func (a *app) shutdownForQuit() error {
+func (a *app) shutdownForQuit() (err error) {
+	defer func() {
+		if err != nil {
+			a.resumeReminders()
+		}
+	}()
 	// 在途提醒定时器随退出全部作废；错过的提醒不补发（ADR-0001）。
 	a.stopReminders()
 	if a.storageMoving {

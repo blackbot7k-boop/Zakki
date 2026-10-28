@@ -140,6 +140,10 @@ func (s *Store) relocateLocked(old, target string, req *pendingSave, persist fun
 
 // writeExclusive 通过同目录临时文件和排他发布拒绝覆盖竞态中新建的目标。
 func writeExclusive(path string, raw []byte) error {
+	return writeExclusiveWithLink(path, raw, os.Link)
+}
+
+func writeExclusiveWithLink(path string, raw []byte, link func(string, string) error) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -159,8 +163,13 @@ func writeExclusive(path string, raw []byte) error {
 	if err = tmp.Close(); err != nil {
 		return err
 	}
-	if err = os.Link(tmp.Name(), path); err != nil {
-		return err
+	if err = link(tmp.Name(), path); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return err
+		}
+		if err = writeExclusiveFallback(path, raw); err != nil {
+			return err
+		}
 	}
 	// 候选文件的目录项必须先落盘，随后才允许偏好指向它并清理旧文件。
 	if err = atomicfile.SyncDir(filepath.Dir(path)); err != nil {
@@ -168,6 +177,40 @@ func writeExclusive(path string, raw []byte) error {
 			return errors.Join(err, fmt.Errorf("移除未提交候选文件失败: %w", cleanupErr))
 		}
 		return err
+	}
+	return nil
+}
+
+// writeExclusiveFallback 在不支持硬链接的文件系统上排他创建并回读验证。
+func writeExclusiveFallback(path string, raw []byte) (err error) {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if cleanupErr := os.Remove(path); cleanupErr != nil {
+				err = errors.Join(err, fmt.Errorf("移除未提交候选文件失败: %w", cleanupErr))
+			}
+		}
+	}()
+	_, err = file.Write(raw)
+	if err == nil {
+		err = file.Sync()
+	}
+	closeErr := file.Close()
+	if err != nil {
+		return errors.Join(err, closeErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(got, raw) {
+		return ErrExternalChange
 	}
 	return nil
 }

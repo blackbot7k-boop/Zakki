@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"zakki/internal/atomicfile"
@@ -28,13 +29,16 @@ func (s *Store) acceptLocked(f File) *pendingSave {
 	return &pendingSave{revision: s.saveRevision, file: f}
 }
 
+// ErrStopped 表示最终保存已开始，新的同步保存未被接受。
+var ErrStopped = errors.New("笔记存储已停止，请在恢复保存后重试")
+
 // SaveNow 同步保存；更新请求仍可在慢写期间排队。
 func (s *Store) SaveNow(f File) error {
 	f = cloneFile(f)
 	s.mu.Lock()
 	if s.stopped {
 		s.mu.Unlock()
-		return nil
+		return ErrStopped
 	}
 	req := s.acceptLocked(f)
 	s.pending = nil
@@ -46,7 +50,7 @@ func (s *Store) SaveNow(f File) error {
 	stopped := s.stopped
 	s.mu.Unlock()
 	if stopped {
-		return nil
+		return ErrStopped
 	}
 	return s.saveRequest(req)
 }
@@ -171,6 +175,14 @@ func (s *Store) writeFile(f File) error {
 	s.lastSaveTime = s.now()
 	s.mu.Unlock()
 	return err
+}
+
+// resetLoadedSaveLocked 使载入前已接受但尚未写入的请求全部过期。
+func (s *Store) resetLoadedSaveLocked() {
+	s.pending = nil
+	s.stopTimerLocked()
+	s.saveRevision++
+	s.saveCompleted, s.saveSaved, s.saveResult = s.saveRevision, s.saveRevision, nil
 }
 
 func (s *Store) stopTimerLocked() {

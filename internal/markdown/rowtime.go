@@ -20,3 +20,24 @@ func SplitTimeSuffix(line string) (string, *TimeSuffix) { return core.SplitTimeS
 
 // JoinTimeSuffix 把时间令牌簇按规范格式写回行尾；lt 为 nil 表示去掉时间。
 func JoinTimeSuffix(text string, lt *TimeSuffix) string { return core.JoinTimeSuffix(text, lt) }
+
+// Rule 是共享内核的重复规则 JSON 模型。
+type Rule = core.Rule
+
+// ParseRule 校验规则并返回规则 JSON。
+func ParseRule(s string) (string, error) { return core.ParseRule(s) }
+
+// Expand 返回指定未来窗口内的实例毫秒数组 JSON。
+func Expand(ruleJSON string, anchorMs, nowMs int64, horizonDays, maxCount int) (string, error) {
+	return core.Expand(ruleJSON, anchorMs, nowMs, horizonDays, maxCount)
+}
+
+// Occurrence 返回最近一个不晚于 now 的实例，尚未开始则返回首个。
+func Occurrence(ruleJSON string, anchorMs, nowMs int64) (string, error) {
+	return core.Occurrence(ruleJSON, anchorMs, nowMs)
+}
+
+// Advance 返回当前实例之后的首次实例，有限序列结束时返回 ended。
+func Advance(ruleJSON string, anchorMs, nowMs int64) (string, error) {
+	return core.Advance(ruleJSON, anchorMs, nowMs)
+}

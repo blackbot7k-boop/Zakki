@@ -14,7 +14,7 @@ ARCH_RULES := \
 	notes:atomicfile \
 	prefs:atomicfile,fonts
 
-.PHONY: fmt-check vet test race arch-check check build build-windows vendor
+.PHONY: fmt-check vet test race arch-check vendor-check check build build-windows vendor
 
 fmt-check:
 	@echo "==> gofmt 检查：仓库源码（排除 build/、.mygo/ 与 vendor/）"
@@ -33,6 +33,7 @@ test:
 	@echo "==> go test：全量测试（CGO 关闭，-count=1 不用缓存）"
 	CGO_ENABLED=0 go test ./... -count=1
 	CGO_ENABLED=0 go -C core test ./... -count=1
+	TZ=America/New_York CGO_ENABLED=0 go -C core test ./... -count=1
 	CGO_ENABLED=0 go test ./vendor/github.com/egoist/mygo/ui -count=1
 
 race:
@@ -60,7 +61,12 @@ arch-check:
 		case " markdown codehl atomicfile notes prefs fonts sysnotify " in *" $$dep "*) ;; *) echo "  internal/app 依赖了非约定包 internal/$$dep"; fail=1;; esac; \
 	done; [ $$fail -eq 0 ] && echo "    arch-check 通过"
 
-check: fmt-check vet test race arch-check
+# go mod vendor 只复制桌面实际导入的内核；绑定包与模块元数据不进入副本。
+vendor-check:
+	@echo "==> vendor-check：共享内核源码与桌面 vendor 副本一致"
+	diff -r -x '*_test.go' -x testdata -x go.mod -x go.sum -x zakkicore core vendor/zakki/core
+
+check: fmt-check vet test race arch-check vendor-check
 	@echo "==> make check 全部通过"
 
 vendor:

@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"zakki/internal/markdown"
 	"zakki/locales"
 )
 
@@ -36,7 +37,11 @@ func TestTimePreviewFocusKeepsObjectAtEnd(t *testing.T) {
 					t.Fatalf("默认光标应在整个条目末尾: caret=%d end=%d want=%d", a.mdCaret, a.mdSelEnd, n)
 				}
 				tt.Type("测")
-				if want := raw + "测\n\n其他段落"; a.tabs[0].Text != want || !a.mdBlocks()[0].hasTime {
+				want := raw + "测\n\n其他段落"
+				if tail == "" {
+					want = raw + " 测\n\n其他段落"
+				}
+				if a.tabs[0].Text != want || !a.mdBlocks()[0].hasTime {
 					t.Fatalf("组件后输入不能移动或破坏时间: %q", a.tabs[0].Text)
 				}
 				tt.Key(ui.Cmd, ui.KeyZ)
@@ -159,6 +164,59 @@ func TestTimePopoverUsesCompactPanelLayout(t *testing.T) {
 	inside(locales.TimePopClock())
 	inside(locales.TimePopAlert())
 	inside(locales.TimePopDone())
+}
+
+func TestTimePopoverPreservesRecurAcrossSoftWrap(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.tabs[0].Text = "正文\n续行 @" + a.now().Add(24*time.Hour).Format("2006-01-02 15:04") + " ~10m ^w@1-5 后文"
+	blocks := a.mdBlocks()
+	if len(blocks) != 1 || blocks[0].recur != "^w@1-5" {
+		t.Fatalf("重复段未识别: %+v", blocks)
+	}
+	a.openTimePopover(blocks[0])
+	a.timePop.due = a.timePop.due.Add(time.Hour)
+	a.applyTimePopover(blocks[0], &markdown.TimeSuffix{Time: a.timePop.due, Alert: a.timePop.alert, HasAlert: a.timePop.hasAlert})
+	got := a.tabs[0].Text
+	if strings.Count(got, "@") != 2 || !strings.Contains(got, "\n续行 ") || !strings.Contains(got, "^w@1-5 后文") {
+		t.Fatalf("写回软换行与重复段 = %q", got)
+	}
+}
+
+func TestTimePopoverDateChangeEnablesCompletion(t *testing.T) {
+	a := newTestApp(t)
+	t.Cleanup(a.shutdown)
+	a.tabs[0].Text = "交报告"
+	blk := liveBlocks(a.tabs[0].Text)[0]
+	a.openTimePopover(blk)
+	tt := ui.NewTester(func(c *ui.Context) {
+		anchor := ui.Row(c.Key("wide-anchor")).FillWidth().Height(28)
+		a.timePopover(c, anchor, blk)
+	}, 440, 600)
+	tt.SetLocale("zh-Hans")
+	var dateLabel string
+	for _, label := range tt.Texts() {
+		if strings.Contains(label, "/") {
+			dateLabel = label
+			break
+		}
+	}
+	date, ok := tt.Find(dateLabel)
+	if !ok {
+		t.Fatalf("日期字段不存在: %q", tt.Texts())
+	}
+	tt.ClickAt(date.X+date.W/2, date.Y+date.H/2)
+	tt.Key(0, ui.KeyRight)
+	tt.Key(0, ui.KeyEnter)
+	if !a.timePop.hasTime {
+		t.Fatalf("只改日期后完成仍禁用: %q", tt.Texts())
+	}
+	if err := tt.Click(locales.TimePopDone()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(a.tabs[0].Text, "@") {
+		t.Fatalf("完成后未写日期: %q", a.tabs[0].Text)
+	}
 }
 
 func TestTimePopoverClickConfirmsSeededTime(t *testing.T) {
@@ -454,7 +512,7 @@ func TestTimeRowFocusAfterPicker(t *testing.T) {
 				t.Fatalf("关闭选择器后应能点击行尾空白聚焦: active=%d popover=%v focused=%v texts=%q", a.mdActive, a.timePop.open, tt.Focused("内容"), tt.Texts())
 			}
 			tt.Type("后续")
-			if want := raw + "后续\n\n其他段落"; a.tabs[0].Text != want {
+			if want := raw + " 后续\n\n其他段落"; a.tabs[0].Text != want {
 				t.Fatalf("聚焦后输入错误: got %q want %q", a.tabs[0].Text, want)
 			}
 		})

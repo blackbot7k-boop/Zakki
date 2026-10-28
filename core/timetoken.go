@@ -7,13 +7,12 @@ package core
 import (
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 // 时间令牌：`@YYYY-MM-DD HH:mm` 是时刻，`~<提前量>` 是提醒，`^<规则>` 是重复
 // （语法见 docs/adr/0002-recurring-time-tokens.md）。提醒档位限定在白名单里，
 // 保证每个可解析值都有对应的弹层档位；手打白名单之外的值一律按普通文本处理，
-// 不做部分识别。`^` 段不同：紧跟簇时若整体合法则纳入令牌，非法则保持普通文本。
+// 不做部分识别。紧跟簇的非法 ^ 段使整个令牌无效。
 
 // alertTiers 是提醒提前量档位，顺序即弹层展示顺序，也是解析白名单。
 var alertTiers = []struct {
@@ -57,56 +56,18 @@ func AlertTiers() []AlertTier {
 }
 
 // SplitTimeSuffix 剥离 line 行尾的时间令牌簇，返回正文与解析结果；行尾没有
-// 合法令牌时原样返回 line 与 nil。识别是全有或全无：时刻合法但提前量非法时
-// 整体不算令牌；`^` 段不同——非法时仅忽略该段，令牌仍成立。
+// 合法令牌时原样返回 line 与 nil；非法附加段使整簇无效。
 func SplitTimeSuffix(line string) (string, *TimeSuffix) {
 	body := strings.TrimSuffix(line, "\r")
 	end := len(body)
 	for end > 0 && (body[end-1] == ' ' || body[end-1] == '\t') {
 		end--
 	}
-	rest, lt, ok := splitTimeToken(body[:end])
-	if !ok {
+	token, ok := FindTimeToken(body[:end])
+	if !ok || token.End != end {
 		return line, nil
 	}
-	return rest, lt
-}
-
-// splitTimeToken 在 s 末尾匹配「时刻 [空格 提醒] [空格 重复]」令牌串（规范顺序
-// 时刻→提醒→重复）。正文是令牌前的部分，保留其原有结尾空白（写回时由
-// JoinTimeSuffix 收敛）。
-func splitTimeToken(s string) (rest string, lt *TimeSuffix, ok bool) {
-	lt = &TimeSuffix{}
-	timeEnd := len(s)
-	// 行尾是 ^ 重复段时先剥掉（须整体合法；否则视为普通文本不剥）。
-	if i := strings.LastIndex(s[:timeEnd], " ^"); i >= 0 {
-		seg := s[i+1 : timeEnd]
-		if _, err := ParseRule(seg); err == nil {
-			lt.Recur = seg
-			timeEnd = i
-		}
-	}
-	// 行尾是提醒档位时先剥掉；时刻令牌紧随其前，且与提醒之间恰好一个空格。
-	for _, tier := range alertTiers {
-		if strings.HasSuffix(s[:timeEnd], "~"+tier.suffix) {
-			cut := timeEnd - len(tier.suffix) - 1 // '~' 加档位之后的位置
-			if cut > 0 && s[cut-1] == ' ' {
-				lt.Alert, lt.HasAlert = tier.span, true
-				timeEnd = cut - 1
-			}
-			break
-		}
-	}
-	start := timeEnd - timeTokenLen
-	if start < 0 || s[start] != '@' {
-		return s, nil, false
-	}
-	due, err := time.ParseInLocation(timeLayout, s[start+1:timeEnd], time.Local)
-	if err != nil {
-		return s, nil, false
-	}
-	lt.Time = due
-	return s[:start], lt, true
+	return body[:token.Start], &token.Value
 }
 
 // JoinTimeSuffix 把时间令牌簇按规范格式（时刻→提醒→重复）写回行尾，正文右侧
@@ -147,8 +108,7 @@ func FindTimeToken(text string) (TimeToken, bool) {
 	return FindTimeTokenEx(text, nil)
 }
 
-// FindTimeTokenEx 同 FindTimeToken，但 protected 给出 rune 区间列表（如行内
-// 代码与链接），落在其中的 @ 不识别为令牌。
+// FindTimeTokenEx 接受字节半开保护区间（如行内代码与链接）。
 func FindTimeTokenEx(text string, protected [][2]int) (TimeToken, bool) {
 	for from := 0; from < len(text); {
 		rel := strings.IndexByte(text[from:], '@')
@@ -169,7 +129,7 @@ func FindTimeTokenEx(text string, protected [][2]int) (TimeToken, bool) {
 		}
 		end := at + timeTokenLen
 		dueText := text[at+1 : end]
-		due, err := time.ParseInLocation(timeLayout, dueText, time.Local)
+		due, err := time.ParseInLocation(timeLayout, dueText, location())
 		if err != nil || due.Format(timeLayout) != dueText {
 			continue
 		}
@@ -188,7 +148,7 @@ func FindTimeTokenEx(text string, protected [][2]int) (TimeToken, bool) {
 			matched := false
 			for _, tier := range alertTiers {
 				suffix := "~" + tier.suffix
-				if strings.HasPrefix(text[spaceEnd:], suffix) {
+				if strings.HasPrefix(text[spaceEnd:], suffix) && segmentBoundary(text, spaceEnd+len(suffix)) {
 					token.End = spaceEnd + len(suffix)
 					token.Value.Alert, token.Value.HasAlert = tier.span, true
 					matched = true
@@ -199,37 +159,72 @@ func FindTimeTokenEx(text string, protected [][2]int) (TimeToken, bool) {
 				continue
 			}
 		}
-		// 可选 ^ 重复段：恰好一个空格分隔；段内不允许空格。整体非法时忽略该段，
-		// 令牌仍成立（^ 段文本保持普通文字，等待移动端或桌面弹层重写）。
-		if ruleEnd, seg, ok := scanRecurSegment(text, token.End); ok {
-			token.End = ruleEnd
-			token.Value.Recur = seg
+		// 两个附加段顺序均可，至多各一次；非法规则使整个簇无效。
+		for n := 0; n < 2; n++ {
+			pos := token.End
+			if pos+1 >= len(text) || text[pos] != ' ' {
+				break
+			}
+			if text[pos+1] == '^' {
+				if pos+2 == len(text) || text[pos+2] == ' ' || text[pos+2] == '\t' || text[pos+2] == '\n' {
+					break
+				}
+				if token.Value.Recur != "" {
+					break
+				}
+				j := pos + 2
+				for j < len(text) && text[j] != ' ' && text[j] != '\t' && text[j] != '\n' {
+					j++
+				}
+				seg := text[pos+1 : j]
+				if _, err := ParseRule(seg); err != nil {
+					token.End = -1
+					break
+				}
+				token.Value.Recur = seg
+				token.End = j
+			} else if text[pos+1] == '~' && !token.Value.HasAlert {
+				matched := false
+				for _, tier := range alertTiers {
+					suffix := "~" + tier.suffix
+					if strings.HasPrefix(text[pos+1:], suffix) && segmentBoundary(text, pos+1+len(suffix)) {
+						token.Value.Alert = tier.span
+						token.Value.HasAlert = true
+						token.End = pos + 1 + len(suffix)
+						matched = true
+						break
+					}
+				}
+				if !matched {
+					token.End = -1
+					break
+				}
+			} else {
+				break
+			}
+		}
+		if token.End < 0 {
+			continue
+		}
+		if token.End+1 < len(text) && text[token.End] == ' ' && (text[token.End+1] == '~' || text[token.End+1] == '^' && token.End+2 < len(text) && text[token.End+2] != ' ' && text[token.End+2] != '\t' && text[token.End+2] != '\n') {
+			continue
 		}
 		return token, true
 	}
 	return TimeToken{}, false
 }
 
-// scanRecurSegment 在 at 处尝试读取「空格 + ^段」。段须通过 ParseRule 校验；
-// 返回段的结束偏移与原文。
-func scanRecurSegment(text string, at int) (end int, seg string, ok bool) {
-	if at >= len(text) || text[at] != ' ' || at+1 >= len(text) || text[at+1] != '^' {
-		return at, "", false
+func segmentBoundary(text string, end int) bool {
+	if end == len(text) {
+		return true
 	}
-	j := at + 2
-	for j < len(text) && text[j] != ' ' && text[j] != '~' {
-		j++
-	}
-	cand := text[at+1 : j]
-	if _, err := ParseRule(cand); err != nil {
-		return at, "", false
-	}
-	return j, cand, true
+	c := text[end]
+	return c == ' ' || c == '\t'
 }
 
-// isProtected 报告字节偏移 at（换算为 rune 下标）是否落在保护区间的半开区间内。
+// isProtected 报告字节偏移是否落在保护区间内。
 func isProtected(text string, at int, protected [][2]int) bool {
-	pos := utf8.RuneCountInString(text[:at])
+	pos := at
 	for _, p := range protected {
 		if p[0] <= pos && pos < p[1] {
 			return true

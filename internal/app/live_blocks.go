@@ -30,6 +30,7 @@ type liveBlock struct {
 	due      time.Time     // 令牌时刻（本地时区墙上时间）
 	hasAlert bool          // 时间组件带 ~提前量 令牌
 	alert    time.Duration // 提醒提前量；0 表示准点
+	recur    string        // 重复规则原文，实例语义由 core 计算
 }
 
 // liveBlocks 把文档按行切成块。规则（便签子集）：
@@ -59,7 +60,7 @@ func stripTimeSuffix(blk *liveBlock, text string) string {
 		return text
 	}
 	blk.hasTime, blk.due = true, token.Value.Time
-	blk.alert, blk.hasAlert = token.Value.Alert, token.Value.HasAlert
+	blk.alert, blk.hasAlert, blk.recur = token.Value.Alert, token.Value.HasAlert, token.Value.Recur
 	return strings.TrimSpace(markdown.ReplaceTimeToken(text, nil))
 }
 
@@ -126,6 +127,10 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			i++
 		case strings.HasPrefix(t, ">"):
 			blk := liveBlock{kind: bkQuote, start: i, end: i, raw: line}
+			body := strings.TrimSpace(strings.TrimLeft(t, "> "))
+			if n := taskPrefixLen(body); n > 0 && strings.Contains(body[:n], "[x]") {
+				blk.checked = true
+			}
 			blk.text = stripTimeSuffix(&blk, strings.TrimSpace(strings.TrimPrefix(t, ">")))
 			blk.spans = inlineSpans(blk.text)
 			out = append(out, blk)
@@ -156,10 +161,15 @@ func parseLines(lines []string, from, stop int) []liveBlock {
 			blk := liveBlock{kind: bkPara, start: i, end: j}
 			parts := make([]string, 0, j-i+1)
 			for k := i; k <= j; k++ {
-				parts = append(parts, strings.TrimSpace(lines[k]))
+				part := strings.TrimSpace(lines[k])
+				// 先按源码行识别，再合并可读正文，防止软换行拼出不存在的令牌。
+				if !blk.hasTime {
+					part = stripTimeSuffix(&blk, part)
+				}
+				parts = append(parts, part)
 			}
 			blk.raw = strings.Join(lines[i:j+1], "\n")
-			blk.text = stripTimeSuffix(&blk, strings.Join(parts, " "))
+			blk.text = strings.Join(parts, " ")
 			blk.spans = inlineSpans(blk.text)
 			out = append(out, blk)
 			i = j + 1
@@ -246,7 +256,7 @@ func blockOfRuneOffset(blocks []liveBlock, runeOff int) (idx, blockStart int) {
 // sameBlock 比较两个块（liveBlock 含切片字段，不能直接 ==）。
 func sameBlock(a, b liveBlock) bool {
 	if a.kind != b.kind || a.start != b.start || a.end != b.end || a.raw != b.raw ||
-		a.level != b.level || a.n != b.n || a.checked != b.checked || a.text != b.text ||
+		a.level != b.level || a.n != b.n || a.checked != b.checked || a.text != b.text || a.recur != b.recur ||
 		len(a.lines) != len(b.lines) || len(a.spans) != len(b.spans) {
 		return false
 	}

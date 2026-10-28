@@ -119,23 +119,13 @@ func TestExpandFutureAnchorAndMissed(t *testing.T) {
 	}
 }
 
-// 令牌解析：@时刻 + ~提前量 + ^规则 簇
-func TestParseTimeToken(t *testing.T) {
-	s, err := ParseTimeToken("- [ ] 交房租 @2025-01-06 09:00 ~10m ^w@1-5")
-	if err != nil {
-		t.Fatal(err)
+// 行内令牌与行尾使用同一解析器。
+func TestFindTimeTokenRecurRule(t *testing.T) {
+	token, ok := FindTimeToken("- [ ] 交房租 @2025-01-06 09:00 ~10m ^w@1-5")
+	if !ok || !token.Value.HasAlert || token.Value.Alert != 10*time.Minute || token.Value.Recur != "^w@1-5" {
+		t.Fatalf("%+v %v", token, ok)
 	}
-	var info TimeTokenInfo
-	if err := unmarshal(s, &info); err != nil {
-		t.Fatal(err)
-	}
-	if !info.HasAlert || info.AlertMs != 600000 || info.Recur != "^w@1-5" {
-		t.Fatalf("%+v", info)
-	}
-	if _, err := ParseTimeToken("没有令牌的行"); err == nil {
-		t.Fatal("应报错")
-	}
-	if _, err := ParseTimeToken("@2025-01-06 09:00 ^5x"); err == nil {
-		t.Fatal("非法规则应报错")
+	if _, ok := FindTimeToken("@2025-01-06 09:00 ^5x"); ok {
+		t.Fatal("非法规则不能退化为一次性提醒")
 	}
 }

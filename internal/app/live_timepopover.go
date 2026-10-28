@@ -28,6 +28,7 @@ type timePopoverState struct {
 	wheelOpen  bool
 	wheelDue   time.Time
 	wheelAccum [3]float32
+	recur      timeRecurDraft
 }
 
 // openTimePopover 用块现状播种草稿并打开弹层。无时间的块用当前时刻做
@@ -43,6 +44,7 @@ func (a *app) openTimePopover(blk liveBlock) {
 		h, m, _ := now.Clock()
 		a.timePop.due = time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, time.Local)
 	}
+	a.timePop.recur = newTimeRecurDraft(blk.recur, a.timePop.due)
 }
 
 // openTimePopoverAtCaret 为光标所在块打开时间弹层。源码模式没有 chip/编辑器锚点，
@@ -147,7 +149,9 @@ func (a *app) timePopoverContent(c *ui.Context, blk liveBlock) {
 			dateField := ui.Column(c.Key("time-date-field")).Gap(6).Grow(1).MinWidth(0)
 			dateField.Children(func() {
 				ui.Text(c, locales.TimePopDate()).FontSize(11.5).TextColor(theme.TextMuted)
-				ui.DateInput(c, &tp.due).FillWidth()
+				if ui.DateInput(c, &tp.due).FillWidth().Changed() {
+					tp.hasTime = true
+				}
 			})
 			clockField := ui.Column(c.Key("time-clock-field")).Gap(6).Shrink(0)
 			clockField.Children(func() {
@@ -226,6 +230,7 @@ func (a *app) timePopoverContent(c *ui.Context, blk liveBlock) {
 				}
 			})
 		})
+		a.timeRecurContent(c)
 		foot := ui.Row(c.Key("time-actions")).Gap(8).FillWidth().AlignItems(ui.Center)
 		foot.Children(func() {
 			clear := ui.ButtonBase(c.Key("time-clear")).Radius(6).
@@ -246,7 +251,7 @@ func (a *app) timePopoverContent(c *ui.Context, blk liveBlock) {
 				ui.Text(c, locales.TimePopDone()).FontSize(12.5).TextColor(c.Theme().AccentText)
 			})
 			if done.Clicked() {
-				a.applyTimePopover(blk, &markdown.TimeSuffix{Time: tp.due, Alert: tp.alert, HasAlert: tp.hasAlert})
+				a.applyTimePopover(blk, &markdown.TimeSuffix{Time: tp.due, Alert: tp.alert, HasAlert: tp.hasAlert, Recur: tp.recur.token()})
 				tp.open = false
 				tp.wheelOpen = false
 			}
@@ -426,6 +431,18 @@ func (a *app) tryTimeTrigger(blk liveBlock, cs, ce *int) bool {
 	return true
 }
 
+// replaceBlockTimeToken 保留软换行结构，只在实际包含令牌的源码行更新。
+func replaceBlockTimeToken(raw string, lt *markdown.TimeSuffix) string {
+	lines := strings.Split(raw, "\n")
+	for i, line := range lines {
+		if _, ok := markdown.FindTimeToken(line); ok {
+			lines[i] = markdown.ReplaceTimeToken(line, lt)
+			return strings.Join(lines, "\n")
+		}
+	}
+	return markdown.ReplaceTimeToken(raw, lt)
+}
+
 // applyTimePopover 把弹层草稿写回绑定行；lt 为 nil 表示清除时间。
 func (a *app) applyTimePopover(blk liveBlock, lt *markdown.TimeSuffix) {
 	lines := strings.Split(a.activeTab().Text, "\n")
@@ -433,7 +450,12 @@ func (a *app) applyTimePopover(blk liveBlock, lt *markdown.TimeSuffix) {
 		return
 	}
 	before := a.liveSnapshot()
-	updated := markdown.ReplaceTimeToken(blk.raw, lt)
+	if lt != nil && lt.Recur == "" && blk.recur != "" && a.timePop.recur.preset != "none" {
+		copy := *lt
+		copy.Recur = blk.recur
+		lt = &copy
+	}
+	updated := replaceBlockTimeToken(blk.raw, lt)
 	caret := a.mdCaret
 	blocks := a.mdBlocks()
 	if a.mdActive >= 0 && a.mdActive < len(blocks) && blocks[a.mdActive].start == blk.start {

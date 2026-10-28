@@ -103,6 +103,7 @@ func (s *Store) Load() (f File, exists, hadTabs bool, err error) {
 			err = ErrExternalChange
 		} else if _, e := os.Lstat(path); errors.Is(e, os.ErrNotExist) {
 			s.diskKnown = true
+			s.resetLoadedSaveLocked()
 			err = nil
 		}
 		s.mu.Unlock()
@@ -128,6 +129,7 @@ func (s *Store) Load() (f File, exists, hadTabs bool, err error) {
 	s.mu.Lock()
 	s.diskKnown, s.diskExists, s.invalid, s.syncPending = true, true, false, false
 	s.diskHash, s.savedContent = sha256.Sum256(raw), content
+	s.resetLoadedSaveLocked()
 	s.lastSaveErr = ""
 	s.mu.Unlock()
 	return f, true, hadTabs, nil

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -173,6 +174,36 @@ func TestRelocateCommittedPreferenceErrorKeepsBothFiles(t *testing.T) {
 	}
 	if s.LastSaveError() == "" {
 		t.Fatal("目录同步失败必须如实上报")
+	}
+}
+
+func TestWriteExclusiveLinkFallback(t *testing.T) {
+	for _, mode := range []string{"unsupported", "exists", "fallback-race"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "zakki.json")
+			link := func(_, target string) error {
+				if mode == "exists" || mode == "fallback-race" {
+					writeRaw(t, target, "别人的内容")
+					if mode == "exists" {
+						return os.ErrExist
+					}
+				}
+				return syscall.EOPNOTSUPP
+			}
+			err := writeExclusiveWithLink(path, []byte("迁址内容"), link)
+			if mode != "unsupported" {
+				if !errors.Is(err, os.ErrExist) || string(readRaw(t, path)) != "别人的内容" {
+					t.Fatalf("抢先创建不得覆盖：%v", err)
+				}
+			} else if err != nil || string(readRaw(t, path)) != "迁址内容" {
+				t.Fatalf("不支持硬链接时应排他写入：%v", err)
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil || len(entries) != 1 || entries[0].Name() != "zakki.json" {
+				t.Fatalf("临时文件未清理：%v %v", entries, err)
+			}
+		})
 	}
 }
 

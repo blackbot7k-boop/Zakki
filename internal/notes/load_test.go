@@ -1,10 +1,14 @@
 package notes
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"zakki/internal/atomicfile"
 )
 
 func doc(text string) File {
@@ -41,6 +45,46 @@ func TestLoadSingleFileAndNoOp(t *testing.T) {
 	}
 }
 
+func TestLoadDiscardsFailedRetry(t *testing.T) {
+	s := newTestStore(t, nil)
+	defer s.Close()
+	if err := s.SaveNow(doc("ORIGINAL")); err != nil {
+		t.Fatal(err)
+	}
+	s.stateWrite = func(string, []byte) error { return errors.New("写入失败") }
+	s.ScheduleSave(doc("LOCAL-STALE"), time.Hour, nil)
+	s.mu.Lock()
+	gen := s.timerGen
+	s.mu.Unlock()
+	s.flushPending(gen)
+	s.mu.Lock()
+	if s.pending == nil || s.saveTimer == nil {
+		s.mu.Unlock()
+		t.Fatal("失败后应等待重试")
+	}
+	oldGen := s.timerGen
+	s.mu.Unlock()
+	writeRaw(t, s.DataPath(), `{"version":3,"tabs":[{"id":1,"text":"EXTERNAL"}]}`)
+	f, exists, _, err := s.Load()
+	if err != nil || !exists || f.Tabs[0].Text != "EXTERNAL" {
+		t.Fatalf("重读结果：%+v %v", f, err)
+	}
+	if s.Unsaved() {
+		t.Fatal("成功重读后不应保留旧未保存快照")
+	}
+	s.mu.Lock()
+	pending, timer := s.pending, s.saveTimer
+	s.mu.Unlock()
+	if pending != nil || timer != nil {
+		t.Fatal("成功重读后必须撤销旧重试")
+	}
+	s.stateWrite = atomicfile.WriteBytes
+	s.flushPending(oldGen)
+	if got := readFile(t, s.DataPath()).Tabs[0].Text; got != "EXTERNAL" {
+		t.Fatalf("旧重试覆盖外部内容：%q", got)
+	}
+}
+
 func TestLoadBrokenOriginalCannotBeOverridden(t *testing.T) {
 	for _, raw := range []string{`{"broken":`, `{"version":999,"tabs":[]}`} {
 		t.Run(raw, func(t *testing.T) {
@@ -64,6 +108,30 @@ func TestLoadBrokenOriginalCannotBeOverridden(t *testing.T) {
 				t.Fatalf("不应生成副本：%v", entries)
 			}
 		})
+	}
+}
+
+func TestLoadTooManyTabsProtectsOriginal(t *testing.T) {
+	s := newTestStore(t, nil)
+	defer s.Close()
+	s.migrate.MaxTabCount = 9
+	tabs := make([]Tab, 10)
+	for i := range tabs {
+		tabs[i] = Tab{ID: uint64(i + 1), Text: "内容"}
+	}
+	raw, err := json.Marshal(File{Version: CurrentDataVersion, Tabs: tabs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeRaw(t, s.DataPath(), string(raw))
+	if _, exists, _, err := s.Load(); exists || !errors.Is(err, ErrTooManyTabs) || !s.SaveBlocked() {
+		t.Fatalf("超限文件应写保护：exists=%v err=%v", exists, err)
+	}
+	if err := s.SaveNow(doc("覆盖")); !errors.Is(err, ErrSaveBlocked) {
+		t.Fatalf("写保护应拒写：%v", err)
+	}
+	if got := string(readRaw(t, s.DataPath())); got != string(raw) {
+		t.Fatal("原始十个标签不得变更")
 	}
 }
 

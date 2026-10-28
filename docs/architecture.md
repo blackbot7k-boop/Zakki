@@ -28,11 +28,11 @@
 | `internal/app/onboarding.go` / `internal/app/onboarding_view.go` | 首启初始化向导（仅全新安装，`firstRun` = 数据文件不存在）：640×560 独立窗口（`StateKey: "onboarding-v2"`），两页草稿式确认——① 语言（English/简体中文，选择即时 `App.SetLocale` 并写偏好）、明暗、风格（标准/手账，写 `appearance.style`，不强制字体）、中文字体、英文字体（预选 JetBrains Mono）；② 初始标签数 1–9 与笔记保存位置（预填当前数据目录，可换，始终可见；完成后 `Relocate` 到所选文件夹的 `zakki.json` 并持久化 `storage.dataFile`）。选择不触发下载；主按钮显示「完成设置」或「下载字体」，提交后冻结草稿，缺失字体经 `prepareFonts` 统一下载（总进度+单字体进度），完成后停在就绪页，点「开始使用」才写偏好与初始数据（`commitFirstRunData` 语义，失败留在向导）并进入主窗口；失败可重试、返回修改（作废旧下载批次）或改用系统字体。关窗明确询问继续设置、使用默认设置或退出应用；未完成设置时选择退出或直接退出应用均不创建笔记，下次启动仍显示向导；欢迎文案随标签数生成（`welcomeTextFor`）；主窗口等向导结束再创建。 |
 
 | `internal/atomicfile` | 笔记与偏好共用的持久写入：同目录随机临时文件 → 完整写入 → `Sync` → `Close` → rename → `SyncDir`；rename 后同步失败用 `CommitError` / `IsCommitted` 表明目标已替换。Windows 不执行目录句柄同步。 |
-| `core/` | 共享数据内核（嵌套 module `zakki/core`，零第三方依赖的叶子）：时间令牌（`@`/`~`/`^`）解析与规范写回、重复规则与实例展开（ADR-0002）、gomobile JSON 边界入口。桌面 `internal/markdown` 与未来移动端从这一份实现消费语义；分层铁律见 [engineering-standard.md](engineering-standard.md) 第 3 节。 |
-| `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。时间令牌（`@时刻`、`~提前量`、`^重复`）的行内识别与原位更新（`timeinline.go`）与旧行尾解析（`rowtime.go`）已委托 `core`，本包只保留调用面并把行内代码/链接的保护区换算给 core；`AlertTiers` 与弹层共用一份档位白名单。 |
-| `internal/sysnotify` | 系统通知投递（无 MyGo 依赖）：v1 为"应用内定时器到点 + 系统通知投递"（ADR-0001），macOS 走 osascript、Windows 走 PowerShell WinRT toast，点击通知无回调；`Notifier` 接口留待后续 UNUserNotificationCenter 升级。 |
+| `internal/sysnotify` | 系统通知投递（无 MyGo 依赖）：v1 为"应用内定时器到点 + 系统通知投递"（ADR-0001），macOS 走带 argv 的 osascript、Windows 走固定 AUMID 的 PowerShell WinRT toast（标题正文由环境变量传入、XML 文本节点构造，命令隐藏且 10 秒超时），点击通知无回调；`Notifier` 接口留待后续 UNUserNotificationCenter 升级。 |
+| `core/` | 共享数据内核（嵌套 module `zakki/core`，零第三方依赖的叶子）：时间令牌（`@`/`~`/`^`）解析与规范写回、重复规则与实例展开、当前实例及完成推进（ADR-0002）、原子时区选择与 `RuleSyntaxVersion=1`；`core/zakkicore`（包名 `zakkicore`）提供 UTF-16 偏移及错误码的 gomobile JSON 边界。桌面 `internal/markdown` 与未来移动端从这一份实现消费语义；分层铁律见 [engineering-standard.md](engineering-standard.md) 第 3 节。 |
+| `internal/markdown` | Markdown 解析、格式变换、表格纯函数（无 MyGo 依赖）。时间令牌（`@时刻`、`~提前量`、`^重复`）的行内识别与原位更新（`timeinline.go`）与旧行尾解析（`rowtime.go`）已委托 `core`，本包只保留调用面（含 `ParseRule` / `Expand` / `Occurrence` / `Advance` 薄转发）并把行内代码/链接的 rune 保护区换算为 core 的字节保护区；`AlertTiers` 与弹层共用一份档位白名单。 |
 | `internal/codehl` | 代码块逐行词法着色纯函数：`Kind`（注释/字符串/数字/关键字/函数/键）× 行内 `Span`，按围栏 info 归一化语言（go/js/ts/py/sh/json/yaml/toml/rust/c/java 家族，未知语言走通用规则）；不跨行追踪，块注释/多行字符串只着色起始行（无 MyGo 依赖）。 |
-| `internal/notes` | `zakki.json` 磁盘模型与唯一权威文件的 `Store`：`store.go` 负载入（`Load` 返回文件存在性与原始 hadTabs，记住磁盘字节指纹）、写保护（损坏/高版本/外部改动时拒写，不产生副本）与路径状态；`save.go` 负责 `ScheduleSave`（首笔修改固定截止、后续输入只换快照不延期）、`SaveNow`、退出 `Shutdown` 与失败自动重试；`relocate.go` 负责 `Relocate` 单文件安全迁址；`git_sync.go` / `git_schedule.go` 负责对这一个文件的精确路径 Git 提交与按间隔推送（后台单 worker、代号门禁、本地写命令与迁址互斥、推送不占锁）。数据版本 3：排版主题旧 ID 随载入迁移为 `note`。
+| `internal/notes` | `zakki.json` 磁盘模型与唯一权威文件的 `Store`：`store.go` 负载入（`Load` 返回文件存在性与原始 hadTabs，记住磁盘字节指纹；成功重读作废旧待写快照与重试）、写保护（损坏/高版本/标签超限/外部改动时拒写，不产生副本）与路径状态；`save.go` 负责 `ScheduleSave`（首笔修改固定截止、后续输入只换快照不延期）、`SaveNow`、退出 `Shutdown` 与失败自动重试；`relocate.go` 负责 `Relocate` 单文件安全迁址；`git_sync.go` / `git_schedule.go` 负责对这一个文件的精确路径 Git 提交与按间隔推送（后台单 worker、代号门禁、本地写命令与迁址互斥、推送不占锁）。数据版本 3：排版主题旧 ID 随载入迁移为 `note`。
 | `internal/prefs` | `preferences.json` 模型、`Store`（修订号/防抖写盘/异常门禁）。偏好版本 13：新增 `appearance.padX` / `padY` 正文内边距覆盖；版本 12 新增 `storage.dataFile`（笔记文件绝对路径，空串 = 应用数据目录 `zakki.json`）与 `storage.saveIntervalMs`（默认 2000），新增 `git.autoCommit` / `git.autoPush`（默认关）与提交/推送间隔（默认 1 / 10 分钟），并移除 `backup` 整节与 `advanced.autosaveDelayMs`。版本 11：`advanced.windowColumns` / `windowRows` 取代像素宽高（`WindowPixels` / `WindowGrid` 换算）。版本 10：`appearance.style`（标准 / 手账），生效值经 `EffectiveColorTheme` / `EffectiveMarkdownTheme`。更早版本差异见 configuration.md。
 | `locales/` | MyGo i18n 目录：`en.json`（源）+ `zh-Hans.json`，ICU MessageFormat；`go tool mygo generate` 生成 `catalog_gen.go`。`internal/app` 统一经 `locales.*` 取文案；语言选择在首启向导第一步、设置通用页与应用菜单，变更经 `App.SetLocale` 生效并由 `OnLocaleChanged` 重建菜单。 |
 | `internal/app/datamigrate.go` | 数据目录解析：正式安装 `<系统应用数据>/Zakki`，开发运行 `Zakki Dev`（`resolveDataDir` 内 `sync.Once` 缓存，解析失败不构造 Store）。应用不扫描或迁移旧目录；当前目录或已配置路径的数据照常读取，找不到当前数据时才按全新安装处理。 |
@@ -68,10 +68,11 @@
 | `internal/app/live_input.go` | 边界键：Enter 分段与列表续行、退格合块、方向键跨块；代码块内 Enter 委托 `applyCodeEnter`。 |
 | `internal/app/live_codeblock.go` | 围栏代码块专属编辑：Tab/Shift+Tab 缩进（`applyCodeTab`，单位取通用页代码分区的 `appearance.codeIndent`，退化围栏落到合成内容行）、Enter 续行缩进（`applyCodeEnter`，继承行首缩进、开括号再加一级）、右下角语言徽标（`codeLangBadge`：FocusBind 聚焦、失焦/Enter 提交、Esc 取消，改写围栏 info 串不经 `applyDocEditAt` 以免抢主编辑器焦点；会话态 `codeLang*` 存 `liveEditorState`）。 |
 | `internal/app/live_virtual.go` | 块内虚拟化：200 行以上的代码块预览与表格（含正在编辑的表格）只构建视口上下各一屏的行，其余用占位撑开；位置取上一帧 `Bounds` 并按滚动量校正，行高按构建过的行实测缓存（`liveVirtState`，键为块源码 + 块类型 + 参与布局的字体、字号、行高、表格 padding 与排版变体，帧末清掉未用条目），未测行用实测均值；正在编辑的表格行总会构建；窗口依据过期（首帧或刚滚动）时再要一帧校正。单个超长段落仍整段排版。 |
+| `internal/app/live_task.go` | 普通与手账复选框共用 `toggleTask`：未勾选的合法重复任务经 `Advance` 推进锚点，保留提醒和规则且保持未勾选；序列结束才勾选，取消勾选沿用普通切换；一次文档事务支持撤销/重做。 |
 | `internal/app/live_widgets.go` | 焦点块输入（`applyProjectedHint`）与表格单元格编辑控件。 |
-| `internal/app/live_timechip.go` / `live_timeprojection.go` / `live_timeview.go` | 时间组件的文案、状态与行内对象呈现：预览和聚焦保持同一组件位置与样式，`liveProjection` 中单个 U+FFFC 对应完整时间源码。原生对象尺寸参与换行与光标布局；前后均可输入，组件后正文保留原位。首次点击进入条目时光标默认在条目末尾；搜索选区触及令牌时扩展到整个组件。源码模式仍可直接修改令牌。 |
-| `internal/app/live_timepopover.go` | 时间弹层：DateInput 与 TimeInput 共享草稿时间；点击时刻浮出可滚动的小时／分钟选择面板（12 小时制另有上下午列），输入控件仍可键盘操作；提醒档位 pill（`markdown.AlertTiers` 白名单，自动换行）、清除与完成；写回走勾选切换同一条管线并进撤销。`⌘⇧0`（list.taskTime）或点击 chip 打开；行尾键入 `@` 即时唤起（占位符就地转化，对齐表格即时转换心智，代码块与行中不触发）；源码模式无锚点不响应。 |
-| `internal/app/reminders.go` | 提醒调度：从全部标签派生应触发的提醒（有提醒令牌 && 触发时刻在未来 && 非任务或未完成），通知取所在条目中组件前后的全部可读正文（去令牌与 Markdown 标记），到点投递系统通知并弹 toast。主线程收集不可变条目快照，编辑时立即作废旧代号，后台在 250ms 防抖后仅安装对应快照；投递与 toast 再次检查代号。应用退出不投递，错过的提醒不补发。状态在 `reminderScheduler` 内部 mutex，后台不读标签或可变 UI 状态。 |
+| `internal/app/live_timechip.go` / `live_timeprojection.go` / `live_timeview.go` | 时间组件的文案、状态与行内对象呈现：预览和聚焦保持同一组件位置与样式，`liveProjection` 中单个 U+FFFC 对应完整时间源码。原生对象尺寸参与换行与光标布局；前后均可输入，组件后正文保留原位。合法重复任务的 chip 经 `Occurrence` 显示当前实例，当天即使过点仍显示今天，过去或结束实例保持中性、不标逾期。首次点击进入条目时光标默认在条目末尾；搜索选区触及令牌时扩展到整个组件。源码模式仍可直接修改令牌。 |
+| `internal/app/live_timepopover.go` / `live_timerecur.go` | 时间弹层：DateInput 与 TimeInput 共享草稿时间，日期变更也启用完成；重复选择器经内核 `ParseRule` 播种预设或自定义（间隔、单位、每周周几及可选结束日期），预设切换同步自定义字段，未改规则保留 `^` 原文，选择「无」清除重复；软换行块只更新令牌所在源码行；点击时刻浮出可滚动的小时／分钟选择面板（12 小时制另有上下午列），输入控件仍可键盘操作；提醒档位 pill（`markdown.AlertTiers` 白名单，自动换行）、清除与完成；写回走勾选切换同一条管线并进撤销。`⌘⇧0`（list.taskTime）或点击 chip 打开；行尾键入 `@` 即时唤起（占位符就地转化，对齐表格即时转换心智，代码块与行中不触发）；源码模式无锚点不响应。 |
+| `internal/app/reminders.go` | 提醒调度：主线程只截取全部标签的 ID/标题/文本快照，250ms 防抖后台按标签文本缓存解析块；编辑立即作废旧代。首次启动仅排未来触发；运行期新提醒提前量超过剩余时间时立即投递，已排未投递项迟到不超过截止后 60 秒仍投递；30 秒墙钟巡检并重排，以标签 ID、实例截止、提前量、正文 hash 去重；编辑前已排未投递资格按标签 ID、实例截止、提前量继承，保证正文变化跨截止仍用最新正文投递。已投递记录保留 24 小时。删除、改名、重读成功后重排；退出失败恢复定时器与巡检，成功退出停止投递。合法 `^` 经 `markdown.Expand` 展开未来 60 天、最多 64 个实例，每实例独立计算截止减提前量；解析块按文本缓存，实例每次按墙钟重展，30 秒巡检直接消费最近的不可变标签快照，主窗口销毁后仍续排；另保留一分钟迟到窗口交由既有排定资格门禁判断。状态受 `reminderScheduler` mutex 保护。 |
 | `internal/app/live_inline_style.go` | 行内样式唯一映射 `inlineStyle`：粗体、斜体、代码字体／底色、链接颜色／下划线；投影预览、列表／引用 RichText 子元素与原生编辑区间共用定义。 |
 | `internal/app/live_projection.go` | 可见文字投影与 rune 映射（`projectBlock`/`replaceSelection`）；`textRanges` 将共用行内样式转换为原生编辑区间，搜索命中（`searchHit`：强调色 + 加粗 + 强调色淡底）覆盖颜色、字重与底色，保留字体、斜体与装饰；文档级撤销事务（`liveEdit` + `editKind`：连续输入合并、粘贴/IME/格式命令独立），`undoLive` 覆盖实时预览与源码模式，恢复文本与选区。 |
 | `internal/app/live_selection.go` | 文档级全选（`selectDocWide`/`menuSelectAll`）：跨块选区高亮与复制/剪切/删除/输入在 app 层处理；表格单元格内保留单元格原生全选。 |
@@ -93,7 +94,7 @@
 
 - **app 状态只在主线程改**。`view` 每帧在主线程读状态构建 UI；菜单/托盘/热键回调经
   `withWindow` 回主线程改状态并触发重绘；后台完成回调只经原子发布的活窗口 `Window.Update` 投递，窗口关闭后直接丢弃。
-- **后台写盘只接触不可变快照**。笔记经 `snapshotFile`、偏好经 `prefs.Store.TakeSnapshot`，
+- **后台写盘与提醒解析只接触不可变快照**。提醒主线程复制标签 ID/标题/文本，后台按文本缓存解析块并计算投影；笔记经 `snapshotFile`、偏好经 `prefs.Store.TakeSnapshot`，
   均在主线程拍值拷贝；后台定时器只写快照，绝不读写 `app` 的可变字段；
   协调状态在 `notes.Store` / `prefs.Store` 内部 mutex 中，偏好另用修订号防旧覆盖新。
 - **每帧构建的 UI 元素（`ui.*` 控件）不存入 `app`**。`app` 里只保留窗口/菜单这类桌面集成句柄
@@ -101,7 +102,7 @@
 - **跨线程刷新用 `Window.Update`**。`runOnMain` 只读取原子发布的活窗口并投递；窗口不存在时不执行回调，绝不退回后台 goroutine 直接改 `app` 状态。
 - 退出流程（`finishQuit` → `shutdownForQuit`，主线程）：停保存定时器 → 置 `stopped` → 最终快照保存并等它完成。
   笔记与偏好均成功后才退出（更新器的重启也经过此流程）；任一保存失败则取消退出、恢复笔记 Store 接收保存，
-  重开主窗口显示错误，允许继续编辑与重试。
+  重开主窗口显示错误，恢复提醒调度与墙钟巡检，允许继续编辑与重试。
 
 ## 持久化生命周期
 
@@ -115,9 +116,9 @@
    核对磁盘字节指纹，文件被外部改动/移动/删除（`ErrExternalChange`）或处于写保护
    （`ErrSaveBlocked`）时拒绝写入并上报，绝不用内存内容盲写覆盖。
 3. **最终保存**：退出（含更新重启）经 `Shutdown` 等待在途写入并写最终快照；失败阻止退出、
-   保留编辑会话，允许修复后重试。
+   保留编辑会话，允许修复后重试。停止后新到的 `SaveNow` 返回 `ErrStopped`；菜单保存将退出期间的迟到请求视为无操作，普通同步调用仍能获知未写入。
 4. **迁址**：更换保存位置走 `Relocate`——拒绝覆盖已有目标 → 写入并校验候选文件 → 偏好持久化
-   成功后才切换权威路径 → 删除旧文件；提交前失败保留原路径与原件。`RelocateResult.Committed` 明确区分切换是否完成，提交后的旧文件清理或偏好目录同步失败仍采用新路径并报告警告；候选文件目录先同步，再允许偏好指向它。
+   成功后才切换权威路径 → 删除旧文件；提交前失败保留原路径与原件。`RelocateResult.Committed` 明确区分切换是否完成，提交后的旧文件清理或偏好目录同步失败仍采用新路径并报告警告；候选文件优先以硬链接排他发布，不支持硬链接时以 `O_CREATE|O_EXCL` 排他写入、同步并回读验证；目录先同步，再允许偏好指向它。
 
 ### Git（文件位于仓库内且用户开启后，直接跟踪该文件）
 
@@ -125,13 +126,13 @@
 失败也计一次尝试）；提交只 `add`/`commit` 当前笔记文件的精确路径（支持仓库子目录与 worktree），
 不碰仓库其他文件或暂存内容；推送 `git push` 的是分支历史，无法限定单文件，推荐独立笔记仓库；
 调系统 git CLI（超时 1 分钟），macOS 垫片探测、非交互环境变量与「不做 pull/rebase/force push」
-沿用原实现；配置失效、写保护或 `Close` 时按代号作废在途任务并取消上下文；`GitStatus` 发布
+沿用原实现；配置失效、写保护或 `Close` 时按代号作废在途任务并取消上下文；非快进等远端拒绝推送报告 `ErrPushRejected` 并提示手动同步、解决冲突后再推送；`GitStatus` 发布
 仓库根、最近提交/推送时间与错误，供「保存与同步」页展示。
 
 ### 异常处理（无备份副本）
 
 - 文件不存在且未配置过 `storage.dataFile`：首次运行，写入欢迎文本。
-- 解析失败 / 读取失败 / 版本过高：进入写保护，**保留原件、拒绝写入、不生成 `.pending` /
+- 解析失败 / 读取失败 / 版本过高 / 标签超过 9 个：进入写保护，**保留原件、拒绝写入、不生成 `.pending` /
   `.corrupt` 副本**；用户修复文件后点「重新读取文件」（`reloadNotes`）显式恢复。
 - 已配置的自定义路径在重启时丢失：同样报错并写保护，不当作首启重建。
 - 外部程序修改了文件：保存前指纹核对失败，拒绝覆盖；显式重读有效内容后继续。

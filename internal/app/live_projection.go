@@ -200,6 +200,17 @@ func (p liveProjection) replaceSelection(next string, caret, selectedStart, sele
 	}
 	end := len(old) - suffix
 	inserted := string(neu[prefix : len(neu)-suffix])
+	// 时间令牌必须以空白收尾；对象后相邻输入也要写成合法源码。
+	// 分隔符同时进入投影，光标越过它，后续输入继续沿用原生编辑路径。
+	if inserted != "" && !strings.ContainsRune(" \t\r\n", []rune(inserted)[0]) {
+		for _, object := range p.objects {
+			if prefix == object+1 {
+				inserted = " " + inserted
+				caret++
+				break
+			}
+		}
+	}
 	if p.cell {
 		inserted = strings.ReplaceAll(inserted, `\`, `\\`)
 		inserted = strings.ReplaceAll(inserted, "|", `\|`)

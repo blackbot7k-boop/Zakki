@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -126,7 +127,7 @@ func TestMigrate(t *testing.T) {
 			},
 		},
 		{
-			name: "v2 超过 12 个截断",
+			name: "v2 超过 12 个拒载",
 			in: File{Version: 2, Tabs: func() []Tab {
 				tabs := make([]Tab, 15)
 				for i := range tabs {
@@ -134,10 +135,7 @@ func TestMigrate(t *testing.T) {
 				}
 				return tabs
 			}(), Active: 14},
-			want: func(f File) bool {
-				return len(f.Tabs) == 12 && f.Active == 11 &&
-					f.Tabs[0].Text == "t0" && f.Tabs[11].Text == "t11"
-			},
+			wantErr: "标签数量超过上限",
 		},
 		{
 			name:    "version 高于当前被拒绝",
@@ -161,6 +159,23 @@ func TestMigrate(t *testing.T) {
 				t.Fatalf("迁移结果 = %+v", got)
 			}
 		})
+	}
+}
+
+func TestMigrateTooManyTabsAndNilColorValidator(t *testing.T) {
+	opt := testMigrateOpt()
+	opt.MaxTabCount = 9
+	tabs := make([]Tab, 10)
+	for i := range tabs {
+		tabs[i] = Tab{ID: uint64(i + 1), Text: fmt.Sprintf("t%d", i)}
+	}
+	if _, err := Migrate(File{Version: 3, Tabs: tabs}, opt); !errors.Is(err, ErrTooManyTabs) {
+		t.Fatalf("10 个标签必须拒载：%v", err)
+	}
+	opt.ValidTabColor = nil
+	f, err := Migrate(File{Version: 3, Tabs: []Tab{{ID: 1, Color: "#abc"}}}, opt)
+	if err != nil || f.Tabs[0].Color != "#abc" {
+		t.Fatalf("未注入校验器应保留颜色：%+v %v", f, err)
 	}
 }
 

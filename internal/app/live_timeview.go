@@ -5,7 +5,7 @@ import (
 )
 
 func (a *app) timeObjectVisual(c *ui.Context, md resolvedStyle, blk liveBlock) ([]ui.Glyph, ui.Color, float32, float32) {
-	label := timeChipLabel(a.now(), blk.due, blk.kind == bkTask && blk.checked)
+	label := timeBlockLabel(blk, a.now())
 	font := ui.Font{Family: md.bodyFont, Size: max(md.bodySize*0.8, 10)}
 	glyphs := ui.Shape(label, font)
 	var width float32
