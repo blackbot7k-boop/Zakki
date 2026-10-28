@@ -42,10 +42,18 @@ end run`
 
 type darwinNotifier struct{}
 
+func notificationContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 10*time.Second)
+}
+
+func darwinCommand(ctx context.Context, n Notification) *exec.Cmd {
+	return exec.CommandContext(ctx, "osascript", "-e", appleScript, n.Title, n.Body)
+}
+
 func (darwinNotifier) Notify(n Notification) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := notificationContext()
 	defer cancel()
-	return exec.CommandContext(ctx, "osascript", "-e", appleScript, n.Title, n.Body).Run()
+	return darwinCommand(ctx, n).Run()
 }
 
 const powershellAUMID = `{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe`
@@ -75,13 +83,17 @@ func encodedPowerShell(script string) string {
 
 type windowsNotifier struct{}
 
-func (windowsNotifier) Notify(n Notification) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+func windowsCommand(ctx context.Context, n Notification) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-EncodedCommand", encodedPowerShell(toastScript))
 	cmd.Env = append(os.Environ(), "ZAKKI_NOTIFY_TITLE="+n.Title, "ZAKKI_NOTIFY_BODY="+n.Body)
 	hideNotificationWindow(cmd)
-	return cmd.Run()
+	return cmd
+}
+
+func (windowsNotifier) Notify(n Notification) error {
+	ctx, cancel := notificationContext()
+	defer cancel()
+	return windowsCommand(ctx, n).Run()
 }
 
 // 保留兼容测试入口；通知脚本已不依赖任何字符串转义。

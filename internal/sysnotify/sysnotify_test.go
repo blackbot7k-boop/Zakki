@@ -3,8 +3,10 @@ package sysnotify
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf16"
 )
 
@@ -43,6 +45,28 @@ func TestEncodedPowerShellUTF16LE(t *testing.T) {
 	}
 	if got := string(utf16.Decode(units)); got != input {
 		t.Fatalf("解码 = %q, want %q", got, input)
+	}
+}
+
+func TestNotificationCommandArgumentsAndTimeout(t *testing.T) {
+	ctx, cancel := notificationContext()
+	defer cancel()
+	deadline, ok := ctx.Deadline()
+	if remaining := time.Until(deadline); !ok || remaining <= 9*time.Second || remaining > 10*time.Second {
+		t.Fatalf("通知超时 = %v, 存在=%v, want 10s", remaining, ok)
+	}
+	n := Notification{Title: "标题 ‘'\"", Body: "👨‍💻\u200b\u007f\u00ad <&>\n\t“’"}
+	mac := darwinCommand(ctx, n)
+	if !slices.Equal(mac.Args, []string{"osascript", "-e", appleScript, n.Title, n.Body}) || mac.Cancel == nil {
+		t.Fatalf("macOS 参数或取消路径错误: %+v", mac.Args)
+	}
+	win := windowsCommand(ctx, n)
+	want := []string{powershellPath, "-NoProfile", "-NonInteractive", "-EncodedCommand", encodedPowerShell(toastScript)}
+	if !slices.Equal(win.Args, want) || win.Cancel == nil {
+		t.Fatalf("Windows 参数或取消路径错误: %+v", win.Args)
+	}
+	if !slices.Contains(win.Env, "ZAKKI_NOTIFY_TITLE="+n.Title) || !slices.Contains(win.Env, "ZAKKI_NOTIFY_BODY="+n.Body) {
+		t.Fatal("Windows 未原样通过环境变量传值")
 	}
 }
 
