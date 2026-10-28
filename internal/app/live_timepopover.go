@@ -412,7 +412,8 @@ func (a *app) timeWheelContent(c *ui.Context) {
 
 // tryTimeTrigger 行尾键入 @ 时把占位符就地转化为时间弹层（像表格输入的即时转换）：
 // 占位符从可见文本移除后继续走常规提交（草稿内容不变，光标落回原位），
-// 弹层跨帧弹出。代码块内、光标后还有字符（行中邮箱等）不触发。
+// 弹层跨帧弹出。代码块内、光标后还有字符（行中邮箱等）不触发；
+// @ 属于 ^ 重复规则（^w@ 的周几集）时是规则字符，也不触发。
 func (a *app) tryTimeTrigger(blk liveBlock, cs, ce *int) bool {
 	if blk.kind == bkCode || *cs != *ce || *cs == 0 {
 		return false
@@ -424,11 +425,23 @@ func (a *app) tryTimeTrigger(blk liveBlock, cs, ce *int) bool {
 	if *cs != len(rs) && rs[*cs] != '\n' {
 		return false
 	}
+	if inRecurSegment(rs[:*cs-1]) {
+		return false
+	}
 	a.mdVisible = string(rs[:*cs-1]) + string(rs[*cs:])
 	*cs--
 	*ce--
 	a.openTimePopover(blk)
 	return true
+}
+
+// inRecurSegment 报告光标前紧邻的非空白片段是否以 ^ 开头（正在键入重复规则）。
+func inRecurSegment(before []rune) bool {
+	i := len(before)
+	for i > 0 && before[i-1] != ' ' && before[i-1] != '\t' && before[i-1] != '\n' {
+		i--
+	}
+	return i < len(before) && before[i] == '^'
 }
 
 // replaceBlockTimeToken 保留软换行结构，只在实际包含令牌的源码行更新。
