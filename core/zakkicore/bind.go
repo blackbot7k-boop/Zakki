@@ -18,13 +18,25 @@ type suffix struct {
 	Recur    string `json:"recur"`
 }
 
-func guard(out *string, err *error) {
+func guard[T any](out *T, err *error) {
 	if recover() != nil {
-		*out = ""
-		*err = fmt.Errorf("internal: panic")
+		var zero T
+		*out = zero
+		*err = fmt.Errorf("internal: 内部处理异常")
 	}
 }
-func coded(code string, err error) error { return fmt.Errorf("%s: %w", code, err) }
+func coded(code string, err error) error {
+	description := map[string]string{
+		"invalid_json":   "JSON 格式非法",
+		"invalid_due":    "截止时刻非法",
+		"invalid_alert":  "提醒配置非法",
+		"invalid_recur":  "重复后缀非法",
+		"invalid_rule":   "重复规则非法",
+		"invalid_args":   "参数非法",
+		"invalid_offset": "UTF-16 保护区间非法",
+	}[code]
+	return fmt.Errorf("%s: %s: %w", code, description, err)
+}
 func suffixJSON(t *core.TimeSuffix) *suffix {
 	if t == nil {
 		return nil
@@ -35,7 +47,12 @@ func decodeSuffix(raw string) (*core.TimeSuffix, error) {
 	if raw == "" || strings.TrimSpace(raw) == "null" {
 		return nil, nil
 	}
-	var v suffix
+	var v struct {
+		Due      string `json:"due"`
+		AlertMs  int64  `json:"alertMs"`
+		HasAlert bool   `json:"hasAlert"`
+		Recur    string `json:"recur"`
+	}
 	if err := json.Unmarshal([]byte(raw), &v); err != nil {
 		return nil, coded("invalid_json", err)
 	}
@@ -70,7 +87,7 @@ func protected(line, raw string) ([][2]int, error) {
 	if raw == "" || strings.TrimSpace(raw) == "null" {
 		return nil, nil
 	}
-	var spans [][2]int
+	var spans [][]*int
 	if err := json.Unmarshal([]byte(raw), &spans); err != nil {
 		return nil, coded("invalid_json", err)
 	}
@@ -88,11 +105,15 @@ func protected(line, raw string) ([][2]int, error) {
 	offsets[n] = len(line)
 	out := make([][2]int, 0, len(spans))
 	for _, s := range spans {
-		if s[0] < 0 || s[1] < s[0] || s[1] > total {
+		if len(s) != 2 || s[0] == nil || s[1] == nil {
+			return nil, coded("invalid_offset", fmt.Errorf("每项必须恰好包含两个整数偏移"))
+		}
+		start, end := *s[0], *s[1]
+		if start < 0 || end < start || end > total {
 			return nil, coded("invalid_offset", fmt.Errorf("区间越界"))
 		}
-		a, okA := offsets[s[0]]
-		b, okB := offsets[s[1]]
+		a, okA := offsets[start]
+		b, okB := offsets[end]
 		if !okA || !okB {
 			return nil, coded("invalid_offset", fmt.Errorf("区间割裂代理项"))
 		}
@@ -173,12 +194,8 @@ func ParseRule(s string) (out string, err error) {
 // Expand 返回未来实例数组。
 func Expand(ruleJSON string, anchorMs, nowMs int64, horizonDays, maxCount int) (out string, err error) {
 	defer guard(&out, &err)
-	if !json.Valid([]byte(ruleJSON)) {
-		return "", coded("invalid_json", fmt.Errorf("规则 JSON 非法"))
-	}
-	var r core.Rule
-	if e := json.Unmarshal([]byte(ruleJSON), &r); e != nil {
-		return "", coded("invalid_json", e)
+	if e := validateRuleJSON(ruleJSON); e != nil {
+		return "", e
 	}
 	if horizonDays > 3660 || maxCount > 1000 {
 		return "", coded("invalid_args", fmt.Errorf("地平线或数量超限"))
@@ -193,6 +210,9 @@ func Expand(ruleJSON string, anchorMs, nowMs int64, horizonDays, maxCount int) (
 // Occurrence 返回当前实例。
 func Occurrence(ruleJSON string, anchorMs, nowMs int64) (out string, err error) {
 	defer guard(&out, &err)
+	if e := validateRuleJSON(ruleJSON); e != nil {
+		return "", e
+	}
 	out, err = core.Occurrence(ruleJSON, anchorMs, nowMs)
 	if err != nil {
 		err = coded("invalid_rule", err)
@@ -203,6 +223,9 @@ func Occurrence(ruleJSON string, anchorMs, nowMs int64) (out string, err error) 
 // Advance 返回下一实例。
 func Advance(ruleJSON string, anchorMs, nowMs int64) (out string, err error) {
 	defer guard(&out, &err)
+	if e := validateRuleJSON(ruleJSON); e != nil {
+		return "", e
+	}
 	out, err = core.Advance(ruleJSON, anchorMs, nowMs)
 	if err != nil {
 		err = coded("invalid_rule", err)
@@ -215,12 +238,12 @@ func AlertTiers() (out string, err error) {
 	defer guard(&out, &err)
 	tiers := core.AlertTiers()
 	v := make([]struct {
-		Suffix  string `json:"suffix"`
-		AlertMs int64  `json:"alertMs"`
+		Suffix string `json:"suffix"`
+		Ms     int64  `json:"ms"`
 	}, len(tiers))
 	for i, t := range tiers {
 		v[i].Suffix = t.Suffix
-		v[i].AlertMs = int64(t.Span / time.Millisecond)
+		v[i].Ms = int64(t.Span / time.Millisecond)
 	}
 	b, _ := json.Marshal(v)
 	return string(b), nil
@@ -236,4 +259,15 @@ func SetLocation(name string) (out string, err error) {
 }
 
 // RuleSyntaxVersion 是移动端可读取的重复规则语法版本。
-const RuleSyntaxVersion = core.RuleSyntaxVersion
+func RuleSyntaxVersion() (version int, err error) {
+	defer guard(&version, &err)
+	return core.RuleSyntaxVersion, nil
+}
+
+func validateRuleJSON(raw string) error {
+	var rule core.Rule
+	if err := json.Unmarshal([]byte(raw), &rule); err != nil {
+		return coded("invalid_json", err)
+	}
+	return nil
+}

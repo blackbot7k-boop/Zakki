@@ -7,8 +7,9 @@ import (
 )
 
 func TestRuleSyntaxVersion(t *testing.T) {
-	if RuleSyntaxVersion != 1 {
-		t.Fatalf("版本 = %d", RuleSyntaxVersion)
+	version, err := RuleSyntaxVersion()
+	if err != nil || version != 1 {
+		t.Fatalf("版本 = %d，错误 = %v", version, err)
 	}
 }
 
